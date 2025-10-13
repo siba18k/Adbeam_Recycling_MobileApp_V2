@@ -8,9 +8,7 @@ import {
     sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { createUserProfile, getUserProfile } from '../services/database';
-import { registerForPushNotifications, scheduleStreakReminder } from '../services/notificationService';
-import { processQueue } from '../services/offlineQueue';
+import { createUserProfile, getUserProfile } from '../services/simpleDatabase';
 
 const AuthContext = createContext({
     user: null,
@@ -43,23 +41,6 @@ export const AuthProvider = ({ children }) => {
                     console.log('User authenticated:', firebaseUser.uid);
                     setUser(firebaseUser);
                     await loadUserProfile(firebaseUser.uid);
-
-                    // Register for push notifications (with error handling)
-                    try {
-                        await registerForPushNotifications();
-                        await scheduleStreakReminder();
-                    } catch (notificationError) {
-                        console.log('Notification setup failed:', notificationError);
-                        // Don't block login for notification failures
-                    }
-
-                    // Process any queued scans (with error handling)
-                    try {
-                        await processQueue(firebaseUser.uid);
-                    } catch (queueError) {
-                        console.log('Queue processing failed:', queueError);
-                        // Don't block login for queue processing failures
-                    }
                 } else {
                     console.log('User not authenticated');
                     setUser(null);
