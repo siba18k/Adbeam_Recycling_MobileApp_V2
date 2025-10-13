@@ -1,206 +1,311 @@
-"use client"
-
-import { useState } from "react"
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native"
-import { LinearGradient } from "expo-linear-gradient"
-import { Ionicons } from "@expo/vector-icons"
-import { useAuth } from "../../context/AuthContext"
+    View,
+    StyleSheet,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    Alert,
+    TouchableOpacity
+} from 'react-native';
+import {
+    TextInput,
+    Button,
+    Text,
+    Card,
+    Headline,
+    Paragraph,
+    Divider
+} from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const { login } = useAuth()
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const { login, resetPassword } = useAuth();
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields")
-      return
-    }
+    const validateForm = () => {
+        if (!email.trim()) {
+            Alert.alert('Error', 'Please enter your email address');
+            return false;
+        }
 
-    setLoading(true)
-    const result = await login(email, password)
-    setLoading(false)
+        if (!password) {
+            Alert.alert('Error', 'Please enter your password');
+            return false;
+        }
 
-    if (!result.success) {
-      Alert.alert("Login Failed", result.error || "Invalid email or password")
-    }
-  }
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert('Error', 'Please enter a valid email address');
+            return false;
+        }
 
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
-      <LinearGradient colors={["#10b981", "#059669"]} style={styles.gradient}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Ionicons name="leaf" size={80} color="#fff" />
-            <Text style={styles.title}>AdBeam Recycling</Text>
-            <Text style={styles.subtitle}>Recycle. Earn. Redeem.</Text>
-          </View>
+        return true;
+    };
 
-          <View style={styles.formContainer}>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+    const handleLogin = async () => {
+        if (!validateForm()) return;
 
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#666" />
-              </TouchableOpacity>
-            </View>
+        setIsLoading(true);
+        const result = await login(email, password);
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginButtonText}>Login</Text>}
-            </TouchableOpacity>
+        if (!result.success) {
+            Alert.alert('Login Failed', result.error);
+        }
+        // Success is handled by AuthContext - user will be redirected automatically
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
+        setIsLoading(false);
+    };
 
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => navigation.navigate("Register")}
-              disabled={loading}
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            Alert.alert(
+                'Email Required',
+                'Please enter your email address first, then tap "Forgot Password" again.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        const result = await resetPassword(email);
+
+        if (result.success) {
+            Alert.alert(
+                'Reset Email Sent',
+                'Please check your email for password reset instructions.',
+                [{ text: 'OK' }]
+            );
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
+    return (
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+            <LinearGradient
+                colors={['#4CAF50', '#45a049']}
+                style={styles.gradient}
             >
-              <Text style={styles.registerButtonText}>Create New Account</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </LinearGradient>
-    </KeyboardAvoidingView>
-  )
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <Ionicons name="leaf" size={60} color="white" />
+                        <Headline style={styles.title}>Adbeam Recycling</Headline>
+                        <Paragraph style={styles.subtitle}>
+                            Welcome back! Login to continue your eco-journey
+                        </Paragraph>
+                    </View>
+
+                    {/* Login Form */}
+                    <Card style={styles.card}>
+                        <Card.Content style={styles.cardContent}>
+                            <Text style={styles.formTitle}>Login</Text>
+
+                            <TextInput
+                                label="Email Address"
+                                value={email}
+                                onChangeText={setEmail}
+                                mode="outlined"
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                                autoCompleteType="email"
+                                textContentType="emailAddress"
+                                left={<TextInput.Icon icon="email" />}
+                                style={styles.input}
+                                disabled={isLoading}
+                            />
+
+                            <TextInput
+                                label="Password"
+                                value={password}
+                                onChangeText={setPassword}
+                                mode="outlined"
+                                secureTextEntry={!showPassword}
+                                autoCompleteType="password"
+                                textContentType="password"
+                                left={<TextInput.Icon icon="lock" />}
+                                right={
+                                    <TextInput.Icon
+                                        icon={showPassword ? "eye-off" : "eye"}
+                                        onPress={() => setShowPassword(!showPassword)}
+                                    />
+                                }
+                                style={styles.input}
+                                disabled={isLoading}
+                            />
+
+                            <TouchableOpacity
+                                onPress={handleForgotPassword}
+                                style={styles.forgotPassword}
+                                disabled={isLoading}
+                            >
+                                <Text style={styles.forgotPasswordText}>
+                                    Forgot Password?
+                                </Text>
+                            </TouchableOpacity>
+
+                            <Button
+                                mode="contained"
+                                onPress={handleLogin}
+                                loading={isLoading}
+                                disabled={isLoading}
+                                style={styles.loginButton}
+                                contentStyle={styles.buttonContent}
+                            >
+                                Login
+                            </Button>
+
+                            <Divider style={styles.divider} />
+
+                            <View style={styles.registerSection}>
+                                <Text style={styles.registerText}>
+                                    Don't have an account?{' '}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate('Register')}
+                                    disabled={isLoading}
+                                >
+                                    <Text style={styles.registerLink}>
+                                        Sign up here
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Card.Content>
+                    </Card>
+
+                    {/* Demo Credentials (Remove in production) */}
+                    {__DEV__ && (
+                        <Card style={[styles.card, styles.demoCard]}>
+                            <Card.Content>
+                                <Text style={styles.demoTitle}>Demo Credentials</Text>
+                                <Text style={styles.demoText}>
+                                    Email: demo@student.uj.ac.za{'\n'}
+                                    Password: demo123
+                                </Text>
+                                <Button
+                                    mode="outlined"
+                                    onPress={() => {
+                                        setEmail('demo@student.uj.ac.za');
+                                        setPassword('demo123');
+                                    }}
+                                    style={styles.demoButton}
+                                >
+                                    Use Demo Account
+                                </Button>
+                            </Card.Content>
+                        </Card>
+                    )}
+                </ScrollView>
+            </LinearGradient>
+        </KeyboardAvoidingView>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
-    marginTop: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#fff",
-    marginTop: 8,
-    opacity: 0.9,
-  },
-  formContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    height: 56,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-  },
-  eyeIcon: {
-    padding: 4,
-  },
-  loginButton: {
-    backgroundColor: "#10b981",
-    borderRadius: 12,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#e0e0e0",
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: "#999",
-    fontSize: 14,
-  },
-  registerButton: {
-    borderWidth: 2,
-    borderColor: "#10b981",
-    borderRadius: 12,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  registerButtonText: {
-    color: "#10b981",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-})
+    container: {
+        flex: 1,
+    },
+    gradient: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        padding: 20,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 30,
+    },
+    title: {
+        color: 'white',
+        fontSize: 28,
+        fontWeight: 'bold',
+        marginTop: 10,
+    },
+    subtitle: {
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+        marginTop: 5,
+        fontSize: 16,
+    },
+    card: {
+        elevation: 8,
+        borderRadius: 15,
+    },
+    cardContent: {
+        padding: 25,
+    },
+    formTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 20,
+        color: '#333',
+    },
+    input: {
+        marginBottom: 15,
+    },
+    forgotPassword: {
+        alignSelf: 'flex-end',
+        marginBottom: 20,
+    },
+    forgotPasswordText: {
+        color: '#4CAF50',
+        fontSize: 14,
+    },
+    loginButton: {
+        backgroundColor: '#4CAF50',
+        marginBottom: 20,
+    },
+    buttonContent: {
+        paddingVertical: 8,
+    },
+    divider: {
+        marginVertical: 15,
+    },
+    registerSection: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    registerText: {
+        color: '#666',
+        fontSize: 14,
+    },
+    registerLink: {
+        color: '#4CAF50',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    demoCard: {
+        marginTop: 20,
+        backgroundColor: '#FFF3E0',
+    },
+    demoTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#E65100',
+        marginBottom: 10,
+    },
+    demoText: {
+        color: '#BF360C',
+        fontSize: 12,
+        marginBottom: 10,
+    },
+    demoButton: {
+        borderColor: '#FF9800',
+    },
+});
