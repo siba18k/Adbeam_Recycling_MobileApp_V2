@@ -1,10 +1,58 @@
 {
-  "android": {
-    "package": "com.anonymous.adbeamrecyclingmobile"
-  },
-  "plugins": [
-    "expo-asset",
-    "expo-barcode-scanner",
-    "expo-font"
-  ]
+  "expo": {
+    "name": "Adbeam Recycling",
+    "slug": "adbeam-recycling-v2",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4CAF50"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adbeam.recycling",
+      "infoPlist": {
+        "NSCameraUsageDescription": "We need camera access to scan barcodes for recycling.",
+        "NSLocationWhenInUseUsageDescription": "We need your location to verify you're on campus when recycling."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4CAF50"
+      },
+      "package": "com.adbeam.recycling",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Adbeam Recycling to access your camera to scan barcodes."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Adbeam Recycling to use your location to verify campus recycling."
+        }
+      ],
+      "expo-notifications"
+    ]
+  }
 }
