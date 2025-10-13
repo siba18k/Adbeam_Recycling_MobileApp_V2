@@ -1,0 +1,10 @@
+{
+  "android": {
+    "package": "com.anonymous.adbeamrecyclingmobile"
+  },
+  "plugins": [
+    "expo-asset",
+    "expo-barcode-scanner",
+    "expo-font"
+  ]
+}
