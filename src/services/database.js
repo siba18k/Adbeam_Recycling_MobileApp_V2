@@ -20,28 +20,7 @@ export const MATERIAL_TYPES = {
 };
 
 // User Database Operations
-export const createUserProfile = async (userId, userData) => {
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        await set(userRef, {
-            ...userData,
-            points: 0,
-            level: 1,
-            totalScans: 0,
-            streak: 0,
-            lastScanDate: null,
-            achievements: [],
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-        return { success: true };
-    } catch (error) {
-        console.error("Error creating user profile:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-const getUserProfile = async (userId) => {
+export const getUserProfile = async (userId) => {
     try {
         const userRef = ref(database, `users/${userId}`);
         const snapshot = await get(userRef);

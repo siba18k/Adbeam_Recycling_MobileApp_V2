@@ -10,13 +10,18 @@ import {
     notifyLevelUp
 } from '../services/notificationService';
 import { useAuth } from '../context/AuthContext';
+import {ActivityIndicator, Alert, Animated, StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
+import {CameraView, useCameraPermissions} from "expo-camera";
+import NetInfo from "@react-native-community/netinfo";
+import {useEffect, useRef, useState} from "react";
+import {Ionicons} from "@expo/vector-icons";
 
-export default function ScannerScreen({ navigation }) {
+export function ScannerScreen({navigation}) {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [flashOn, setFlashOn] = useState(false);
-    const { user } = useAuth();
+    const {user} = useAuth();
 
     const scanAnimation = useRef(new Animated.Value(0)).current;
     const successAnimation = useRef(new Animated.Value(0)).current;
@@ -60,7 +65,7 @@ export default function ScannerScreen({ navigation }) {
     if (!permission) {
         return (
             <View style={styles.container}>
-                <ActivityIndicator size="large" color="#4CAF50" />
+                <ActivityIndicator size="large" color="#4CAF50"/>
             </View>
         );
     }
@@ -68,7 +73,7 @@ export default function ScannerScreen({ navigation }) {
     if (!permission.granted) {
         return (
             <View style={styles.permissionContainer}>
-                <Ionicons name="camera-outline" size={100} color="#666" />
+                <Ionicons name="camera-outline" size={100} color="#666"/>
                 <Text style={styles.permissionText}>
                     We need camera permissions to scan barcodes
                 </Text>
@@ -82,7 +87,7 @@ export default function ScannerScreen({ navigation }) {
         );
     }
 
-    const handleBarCodeScanned = async ({ type, data }) => {
+    const handleBarCodeScanned = async ({type, data}) => {
         if (scanned || isProcessing) return;
 
         setScanned(true);
@@ -251,23 +256,23 @@ export default function ScannerScreen({ navigation }) {
                     {/* Scanning frame */}
                     <View style={styles.middleSection}>
                         <View style={styles.scanFrame}>
-                            <View style={[styles.corner, styles.topLeft]} />
-                            <View style={[styles.corner, styles.topRight]} />
-                            <View style={[styles.corner, styles.bottomLeft]} />
-                            <View style={[styles.corner, styles.bottomRight]} />
+                            <View style={[styles.corner, styles.topLeft]}/>
+                            <View style={[styles.corner, styles.topRight]}/>
+                            <View style={[styles.corner, styles.bottomLeft]}/>
+                            <View style={[styles.corner, styles.bottomRight]}/>
 
                             {!scanned && (
                                 <Animated.View
                                     style={[
                                         styles.scanLine,
-                                        { transform: [{ translateY: scanLineTranslateY }] }
+                                        {transform: [{translateY: scanLineTranslateY}]}
                                     ]}
                                 />
                             )}
 
                             {isProcessing && (
                                 <View style={styles.processingContainer}>
-                                    <ActivityIndicator size="large" color="#4CAF50" />
+                                    <ActivityIndicator size="large" color="#4CAF50"/>
                                     <Text style={styles.processingText}>Processing...</Text>
                                 </View>
                             )}
@@ -298,10 +303,10 @@ export default function ScannerScreen({ navigation }) {
                     <Animated.View
                         style={[
                             styles.successOverlay,
-                            { transform: [{ scale: successScale }] }
+                            {transform: [{scale: successScale}]}
                         ]}
                     >
-                        <Ionicons name="checkmark-circle" size={100} color="#4CAF50" />
+                        <Ionicons name="checkmark-circle" size={100} color="#4CAF50"/>
                     </Animated.View>
                 )}
             </CameraView>

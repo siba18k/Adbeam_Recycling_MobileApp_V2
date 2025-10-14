@@ -1,14 +1,23 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+// Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 
 // Auth Screens
 import LoginScreen from './src/screens/Auth/LoginScreen';
 import RegisterScreen from './src/screens/Auth/RegisterScreen';
-import { processQueue } from './src/services/offlineQueue';
 
 // Main App Screens
 import DashboardScreen from './src/screens/DashboardScreen';
-import ScannerScreen from './src/screens/ScannerScreen';
+import {ScannerScreen} from './src/screens/ScannerScreen';
 import RewardsScreen from './src/screens/RewardsScreen';
 import RewardDetailScreen from './src/screens/RewardDetailScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';

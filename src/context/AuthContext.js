@@ -8,8 +8,8 @@ import {
     sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { createUserProfile, getUserProfile } from '../services/simpleDatabase';
-import { addToQueue, processQueue } from '../services/offlineQueue';
+import { createUserProfile, getUserProfile } from '../services/database';
+import { processQueue } from '../services/offlineQueue';
 
 const AuthContext = createContext({
     user: null,
@@ -42,6 +42,16 @@ export const AuthProvider = ({ children }) => {
                     console.log('User authenticated:', firebaseUser.uid);
                     setUser(firebaseUser);
                     await loadUserProfile(firebaseUser.uid);
+
+                    // Process any queued scans when user logs in
+                    try {
+                        const result = await processQueue(firebaseUser.uid);
+                        if (result.processed > 0) {
+                            console.log(`Processed ${result.processed} queued scans`);
+                        }
+                    } catch (queueError) {
+                        console.log('Queue processing failed:', queueError);
+                    }
                 } else {
                     console.log('User not authenticated');
                     setUser(null);
@@ -102,8 +112,8 @@ export const AuthProvider = ({ children }) => {
                 displayName: displayName.trim()
             });
 
-            // Create user profile in database
-            export const profileResult = await createUserProfile(userCredential.user.uid, {
+            // Create user profile in database (FIXED - removed export)
+            const profileResult = await createUserProfile(userCredential.user.uid, {
                 email: email.trim().toLowerCase(),
                 displayName: displayName.trim(),
                 studentNumber: studentNumber.trim(),
