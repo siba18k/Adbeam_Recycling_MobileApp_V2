@@ -205,7 +205,7 @@ export const getLeaderboard = async (limit = 50) => {
     }
 };
 
-// Rewards Operations
+// Get rewards from Realtime Database
 export const getRewards = async () => {
     try {
         const rewardsRef = ref(database, 'rewards');
@@ -221,9 +221,11 @@ export const getRewards = async () => {
             });
             return { success: true, data: rewards };
         }
+
+        // If no rewards exist, return empty array
         return { success: true, data: [] };
     } catch (error) {
-        console.error("Error getting rewards:", error);
+        console.error('Error getting rewards:', error);
         return { success: false, error: error.message };
     }
 };

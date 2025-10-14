@@ -10,7 +10,7 @@ import {
     notifyLevelUp
 } from '../services/notificationService';
 import { useAuth } from '../context/AuthContext';
-import {ActivityIndicator, Alert, Animated, StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
+import {ActivityIndicator, Alert, Animated,Text, StyleSheet, TouchableOpacity, Vibration, View} from 'react-native';
 import {CameraView, useCameraPermissions} from "expo-camera";
 import NetInfo from "@react-native-community/netinfo";
 import {useEffect, useRef, useState} from "react";

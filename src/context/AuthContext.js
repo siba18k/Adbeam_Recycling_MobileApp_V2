@@ -172,7 +172,8 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
 
         } catch (error) {
-            console.error('Login error:', error);
+            console.error('Login error:', error)
+            ;
 
             // Handle specific Firebase errors
             let errorMessage = 'Login failed. Please try again.';

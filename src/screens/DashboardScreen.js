@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-
 import {
     View,
     ScrollView,
@@ -14,6 +13,62 @@ import { useAuth } from '../context/AuthContext';
 import { getUserAchievements } from '../services/database';
 
 import { LinearGradient } from 'expo-linear-gradient';
+// Initialize rewards data (run this once)
+export const initializeRewards = async () => {
+    try {
+        const rewardsRef = ref(database, 'rewards');
+
+        const initialRewards = {
+            'reward-1': {
+                name: 'Campus Cafeteria Voucher',
+                description: '₦50 off any meal at campus cafeteria',
+                points: 500,
+                category: 'food',
+                image: 'https://via.placeholder.com/300x200?text=Cafeteria+Voucher',
+                available: true,
+                stock: 100,
+                createdAt: serverTimestamp()
+            },
+            'reward-2': {
+                name: 'Bookstore Discount',
+                description: '₦100 discount at university bookstore',
+                points: 1000,
+                category: 'education',
+                image: 'https://via.placeholder.com/300x200?text=Bookstore+Discount',
+                available: true,
+                stock: 50,
+                createdAt: serverTimestamp()
+            },
+            'reward-3': {
+                name: 'Gym Membership',
+                description: '1 month free gym access',
+                points: 2000,
+                category: 'fitness',
+                image: 'https://via.placeholder.com/300x200?text=Gym+Membership',
+                available: true,
+                stock: 20,
+                createdAt: serverTimestamp()
+            },
+            'reward-4': {
+                name: 'Coffee Shop Voucher',
+                description: '₦30 voucher for campus coffee shop',
+                points: 300,
+                category: 'food',
+                image: 'https://via.placeholder.com/300x200?text=Coffee+Voucher',
+                available: true,
+                stock: 200,
+                createdAt: serverTimestamp()
+            }
+        };
+
+        await set(rewardsRef, initialRewards);
+        console.log('✅ Rewards initialized successfully!');
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Error initializing rewards:', error);
+        return { success: false, error: error.message };
+    }
+};
 
 const { width } = Dimensions.get('window');
 
