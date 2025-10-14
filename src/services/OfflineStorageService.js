@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { OfflineStorageService } from '../services/MockOfflineStorageService';
+import { OfflineStorageService } from './MockOfflineStorageService';
 
 const OfflineContext = createContext();
 

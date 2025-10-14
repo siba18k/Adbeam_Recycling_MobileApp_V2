@@ -41,7 +41,7 @@ export const createUserProfile = async (userId, userData) => {
     }
 };
 
-export const getUserProfile = async (userId) => {
+const getUserProfile = async (userId) => {
     try {
         const userRef = ref(database, `users/${userId}`);
         const snapshot = await get(userRef);

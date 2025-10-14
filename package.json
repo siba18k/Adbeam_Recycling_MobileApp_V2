@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@expo/vector-icons": "^15.0.2",
     "@react-native-community/cli": "latest",
     "@react-native/metro-config": "^0.76.0",
     "@types/react": "~18.3.0",

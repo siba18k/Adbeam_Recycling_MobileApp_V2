@@ -1,13 +1,3 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Provider as PaperProvider } from 'react-native-paper';
-import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
-// Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 
@@ -16,13 +6,13 @@ import LoginScreen from './src/screens/Auth/LoginScreen';
 import RegisterScreen from './src/screens/Auth/RegisterScreen';
 
 // Main App Screens
-import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
-import ScannerScreen from './src/screens/Scanner/ScannerScreen';
-import RewardsScreen from './src/screens/Rewards/RewardsScreen';
-import RewardDetailScreen from './src/screens/Rewards/RewardDetailScreen';
-import LeaderboardScreen from './src/screens/Leaderboard/LeaderboardScreen';
-import ProfileScreen from './src/screens/Profile/ProfileScreen';
-import AdminDashboardScreen from './src/screens/Admin/AdminDashboardScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import ScannerScreen from './src/screens/ScannerScreen';
+import RewardsScreen from './src/screens/RewardsScreen';
+import RewardDetailScreen from './src/screens/RewardDetailScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
