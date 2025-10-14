@@ -4,6 +4,7 @@ import { OfflineProvider } from './src/context/OfflineContext';
 // Auth Screens
 import LoginScreen from './src/screens/Auth/LoginScreen';
 import RegisterScreen from './src/screens/Auth/RegisterScreen';
+import { processQueue } from './src/services/offlineQueue';
 
 // Main App Screens
 import DashboardScreen from './src/screens/DashboardScreen';

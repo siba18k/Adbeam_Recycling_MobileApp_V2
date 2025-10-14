@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { createUserProfile, getUserProfile } from '../services/simpleDatabase';
+import { addToQueue, processQueue } from '../services/offlineQueue';
 
 const AuthContext = createContext({
     user: null,
@@ -102,7 +103,7 @@ export const AuthProvider = ({ children }) => {
             });
 
             // Create user profile in database
-            const profileResult = await createUserProfile(userCredential.user.uid, {
+            export const profileResult = await createUserProfile(userCredential.user.uid, {
                 email: email.trim().toLowerCase(),
                 displayName: displayName.trim(),
                 studentNumber: studentNumber.trim(),
