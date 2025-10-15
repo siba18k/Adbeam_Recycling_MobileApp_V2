@@ -7,16 +7,16 @@ import {
     query,
     orderByChild,
     limitToLast,
-    onValue,
     serverTimestamp
 } from "firebase/database";
 import { database } from '../config/firebase';
 
 // Material types and their point values
 export const MATERIAL_TYPES = {
-    GLASS: { name: 'Glass Bottle', points: 10, prefix: '30' },
-    ALUMINUM: { name: 'Aluminum Can', points: 7, prefix: '50' },
-    PLASTIC: { name: 'Plastic Bottle', points: 5, prefix: '60' }
+    PLASTIC: { name: 'Plastic Bottle', points: 5, color: '#3b82f6', icon: 'bottle-water' },
+    GLASS: { name: 'Glass Bottle', points: 10, color: '#10b981', icon: 'glass-wine' },
+    ALUMINUM: { name: 'Aluminum Can', points: 7, color: '#64748b', icon: 'can' },
+    PAPER: { name: 'Paper/Cardboard', points: 3, color: '#f59e0b', icon: 'newspaper' }
 };
 
 // User Database Operations
@@ -24,14 +24,12 @@ export const createUserProfile = async (userId, userData) => {
     try {
         const userRef = ref(database, `users/${userId}`);
 
-        // Check if user already exists
         const existingUser = await get(userRef);
         if (existingUser.exists()) {
             console.log('User profile already exists');
             return { success: true, data: existingUser.val() };
         }
 
-        // Create new user profile
         const newUserData = {
             ...userData,
             points: 0,
@@ -68,145 +66,6 @@ export const getUserProfile = async (userId) => {
         console.error("Error getting user profile:", error);
         return { success: false, error: error.message };
     }
-};
-
-export const updateUserProfile = async (userId, updates) => {
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        await update(userRef, {
-            ...updates,
-            updatedAt: serverTimestamp()
-        });
-        return { success: true };
-    } catch (error) {
-        console.error("Error updating user profile:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-// Scan Operations
-export const validateBarcode = async (barcode) => {
-    try {
-        const scanRef = ref(database, `scans/${barcode}`);
-        const snapshot = await get(scanRef);
-        return { exists: snapshot.exists(), data: snapshot.val() };
-    } catch (error) {
-        console.error("Error validating barcode:", error);
-        return { exists: false, error: error.message };
-    }
-};
-
-export const recordScan = async (userId, scanData) => {
-    try {
-        const { barcode, materialType, points, location } = scanData;
-
-        // Check if barcode already scanned
-        const validation = await validateBarcode(barcode);
-        if (validation.exists) {
-            return {
-                success: false,
-                error: "This item has already been recycled!",
-                duplicate: true
-            };
-        }
-
-        // Record the scan
-        const scanRef = ref(database, `scans/${barcode}`);
-        await set(scanRef, {
-            userId,
-            materialType,
-            points,
-            location,
-            timestamp: serverTimestamp(),
-            validated: true
-        });
-
-        // Update user's scan history
-        const userScansRef = ref(database, `userScans/${userId}`);
-        const newScanRef = push(userScansRef);
-        await set(newScanRef, {
-            barcode,
-            materialType,
-            points,
-            location,
-            timestamp: serverTimestamp()
-        });
-
-        // Update user points and stats
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        const newPoints = (userData.points || 0) + points;
-        const newLevel = calculateLevel(newPoints);
-        const newStreak = calculateStreak(userData.lastScanDate);
-
-        await update(userRef, {
-            points: newPoints,
-            level: newLevel,
-            totalScans: (userData.totalScans || 0) + 1,
-            streak: newStreak,
-            lastScanDate: new Date().toISOString(),
-            updatedAt: serverTimestamp()
-        });
-
-        // Check for achievements
-        await checkAndAwardAchievements(userId, {
-            totalScans: (userData.totalScans || 0) + 1,
-            points: newPoints,
-            streak: newStreak
-        });
-
-        return {
-            success: true,
-            points,
-            newTotalPoints: newPoints,
-            newLevel,
-            streak: newStreak
-        };
-    } catch (error) {
-        console.error("Error recording scan:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-// Material Recognition
-export const recognizeMaterial = (barcode) => {
-    const prefix = barcode.substring(0, 2);
-
-    if (prefix === '30') {
-        return MATERIAL_TYPES.GLASS;
-    } else if (prefix === '50') {
-        return MATERIAL_TYPES.ALUMINUM;
-    } else if (prefix === '60') {
-        return MATERIAL_TYPES.PLASTIC;
-    }
-
-    // Default to plastic if unrecognized
-    return MATERIAL_TYPES.PLASTIC;
-};
-
-// Level Calculation
-const calculateLevel = (points) => {
-    return Math.floor(points / 100) + 1;
-};
-
-// Streak Calculation
-const calculateStreak = (lastScanDate) => {
-    if (!lastScanDate) return 1;
-
-    const last = new Date(lastScanDate);
-    const now = new Date();
-    const diffTime = Math.abs(now - last);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    // If scanned within 24 hours, increment streak
-    if (diffDays <= 1) {
-        return 1; // Will be incremented in the calling function
-    }
-
-    // Reset streak if more than 24 hours
-    return 1;
 };
 
 // FIXED: Leaderboard Operations (Realtime Database)
@@ -263,46 +122,7 @@ export const getRewards = async () => {
     }
 };
 
-export const redeemReward = async (userId, rewardId, pointsCost) => {
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        if (!userData || userData.points < pointsCost) {
-            return {
-                success: false,
-                error: "Insufficient points"
-            };
-        }
-
-        // Deduct points
-        await update(userRef, {
-            points: userData.points - pointsCost,
-            updatedAt: serverTimestamp()
-        });
-
-        // Record redemption
-        const redemptionsRef = ref(database, `redemptions/${userId}`);
-        const newRedemptionRef = push(redemptionsRef);
-        await set(newRedemptionRef, {
-            rewardId,
-            pointsCost,
-            timestamp: serverTimestamp(),
-            status: 'pending'
-        });
-
-        return {
-            success: true,
-            newPoints: userData.points - pointsCost
-        };
-    } catch (error) {
-        console.error("Error redeeming reward:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-// FIXED: Initialize rewards function
+// Initialize sample data
 export const initializeRewards = async () => {
     try {
         const rewardsRef = ref(database, 'rewards');
@@ -313,39 +133,29 @@ export const initializeRewards = async () => {
                 description: '₦50 off any meal at campus cafeteria',
                 points: 500,
                 category: 'food',
-                image: 'https://via.placeholder.com/300x200?text=Cafeteria+Voucher',
+                image: 'https://via.placeholder.com/300x200/059669/FFFFFF?text=Cafeteria+Voucher',
                 available: true,
                 stock: 100,
                 createdAt: serverTimestamp()
             },
             'reward-2': {
-                name: 'Bookstore Discount',
-                description: '₦100 discount at university bookstore',
-                points: 1000,
-                category: 'education',
-                image: 'https://via.placeholder.com/300x200?text=Bookstore+Discount',
+                name: 'Eco-Friendly Water Bottle',
+                description: 'Reusable stainless steel water bottle',
+                points: 800,
+                category: 'merchandise',
+                image: 'https://via.placeholder.com/300x200/22c55e/FFFFFF?text=Water+Bottle',
                 available: true,
                 stock: 50,
                 createdAt: serverTimestamp()
             },
             'reward-3': {
-                name: 'Gym Membership',
-                description: '1 month free gym access',
-                points: 2000,
-                category: 'fitness',
-                image: 'https://via.placeholder.com/300x200?text=Gym+Membership',
+                name: 'Green Campus T-Shirt',
+                description: 'Organic cotton recycling awareness t-shirt',
+                points: 1200,
+                category: 'merchandise',
+                image: 'https://via.placeholder.com/300x200/10b981/FFFFFF?text=Eco+T-Shirt',
                 available: true,
-                stock: 20,
-                createdAt: serverTimestamp()
-            },
-            'reward-4': {
-                name: 'Coffee Shop Voucher',
-                description: '₦30 voucher for campus coffee shop',
-                points: 300,
-                category: 'food',
-                image: 'https://via.placeholder.com/300x200?text=Coffee+Voucher',
-                available: true,
-                stock: 200,
+                stock: 30,
                 createdAt: serverTimestamp()
             }
         };
@@ -359,66 +169,59 @@ export const initializeRewards = async () => {
     }
 };
 
-// Achievements System
-const ACHIEVEMENTS = {
-    FIRST_SCAN: { id: 'first_scan', name: 'First Step', requirement: 1, type: 'scans' },
-    TEN_SCANS: { id: 'ten_scans', name: 'Getting Started', requirement: 10, type: 'scans' },
-    FIFTY_SCANS: { id: 'fifty_scans', name: 'Eco Warrior', requirement: 50, type: 'scans' },
-    HUNDRED_SCANS: { id: 'hundred_scans', name: 'Century Club', requirement: 100, type: 'scans' },
-    FIVE_DAY_STREAK: { id: 'five_day_streak', name: 'Consistent', requirement: 5, type: 'streak' },
-    THIRTY_DAY_STREAK: { id: 'thirty_day_streak', name: 'Dedicated', requirement: 30, type: 'streak' },
-    HUNDRED_POINTS: { id: 'hundred_points', name: 'Point Collector', requirement: 100, type: 'points' },
-    THOUSAND_POINTS: { id: 'thousand_points', name: 'Point Master', requirement: 1000, type: 'points' }
-};
-
-export const checkAndAwardAchievements = async (userId, stats) => {
+// Scan recording with material selection
+export const recordScan = async (userId, scanData) => {
     try {
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-        const currentAchievements = userData?.achievements || [];
+        const { barcode, materialType, points, location } = scanData;
 
-        const newAchievements = [];
+        // Check if barcode already scanned
+        const scanRef = ref(database, `scans/${barcode}`);
+        const existingScan = await get(scanRef);
 
-        Object.values(ACHIEVEMENTS).forEach(achievement => {
-            // Skip if already earned
-            if (currentAchievements.includes(achievement.id)) return;
-
-            let earned = false;
-
-            switch (achievement.type) {
-                case 'scans':
-                    earned = stats.totalScans >= achievement.requirement;
-                    break;
-                case 'streak':
-                    earned = stats.streak >= achievement.requirement;
-                    break;
-                case 'points':
-                    earned = stats.points >= achievement.requirement;
-                    break;
-            }
-
-            if (earned) {
-                newAchievements.push(achievement.id);
-            }
-        });
-
-        if (newAchievements.length > 0) {
-            await update(userRef, {
-                achievements: [...currentAchievements, ...newAchievements],
-                updatedAt: serverTimestamp()
-            });
+        if (existingScan.exists()) {
+            return {
+                success: false,
+                error: "This item has already been recycled!",
+                duplicate: true
+            };
         }
 
-        return newAchievements;
-    } catch (error) {
-        console.error("Error checking achievements:", error);
-        return [];
-    }
-};
+        // Record the scan
+        await set(scanRef, {
+            userId,
+            materialType,
+            points,
+            location,
+            timestamp: serverTimestamp(),
+            validated: true
+        });
 
-export const getUserAchievements = (achievementIds = []) => {
-    return achievementIds.map(id =>
-        Object.values(ACHIEVEMENTS).find(a => a.id === id)
-    ).filter(Boolean);
+        // Update user stats
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val() || {};
+
+        const newPoints = (userData.points || 0) + points;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+        const newTotalScans = (userData.totalScans || 0) + 1;
+
+        await update(userRef, {
+            points: newPoints,
+            level: newLevel,
+            totalScans: newTotalScans,
+            lastScanDate: new Date().toISOString(),
+            updatedAt: serverTimestamp()
+        });
+
+        return {
+            success: true,
+            points,
+            newTotalPoints: newPoints,
+            newLevel,
+            newTotalScans
+        };
+    } catch (error) {
+        console.error("Error recording scan:", error);
+        return { success: false, error: error.message };
+    }
 };
