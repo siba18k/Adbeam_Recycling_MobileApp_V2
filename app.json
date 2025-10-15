@@ -3,12 +3,14 @@
     "name": "Adbeam Recycling",
     "slug": "adbeam-recycling-v2",
     "version": "2.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
+    "primaryColor": "#059669",
+    "backgroundColor": "#f0fdf4",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#4CAF50",
-      "resizeMode": "contain",
-      "newArchEnabled": true
+      "backgroundColor": "#059669",
+      "resizeMode": "contain"
     },
     "assetBundlePatterns": [
       "**/*"

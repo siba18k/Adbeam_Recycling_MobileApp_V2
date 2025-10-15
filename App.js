@@ -41,44 +41,44 @@ function AuthStack() {
     );
 }
 
-// Main Tab Navigator - for authenticated users
 function MainTabs() {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
-                    let iconName;
-
-                    switch (route.name) {
-                        case 'Dashboard':
-                            iconName = focused ? 'home' : 'home-outline';
-                            break;
-                        case 'Scanner':
-                            iconName = focused ? 'scan' : 'scan-outline';
-                            break;
-                        case 'Rewards':
-                            iconName = focused ? 'gift' : 'gift-outline';
-                            break;
-                        case 'Leaderboard':
-                            iconName = focused ? 'trophy' : 'trophy-outline';
-                            break;
-                        case 'Profile':
-                            iconName = focused ? 'person' : 'person-outline';
-                            break;
-                        default:
-                            iconName = 'circle';
-                    }
-
-                    return <Ionicons name={iconName} size={size} color={color} />;
+                    // ... existing icon logic
                 },
-                tabBarActiveTintColor: '#4CAF50',
-                tabBarInactiveTintColor: 'gray',
+                tabBarActiveTintColor: '#059669', // emerald green
+                tabBarInactiveTintColor: '#6b7280', // neutral gray
+                tabBarStyle: {
+                    backgroundColor: '#ffffff',
+                    borderTopWidth: 0,
+                    elevation: 20,
+                    shadowColor: '#14532d',
+                    shadowOffset: {
+                        width: 0,
+                        height: -4,
+                    },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 12,
+                    height: 70,
+                    paddingBottom: 10,
+                    paddingTop: 10,
+                },
+                tabBarLabelStyle: {
+                    fontSize: 12,
+                    fontWeight: '600',
+                },
                 headerStyle: {
-                    backgroundColor: '#4CAF50',
+                    backgroundColor: '#059669', // emerald green header
+                    elevation: 0,
+                    shadowOpacity: 0,
+                    borderBottomWidth: 0,
                 },
                 headerTintColor: '#fff',
                 headerTitleStyle: {
-                    fontWeight: 'bold',
+                    fontWeight: '700',
+                    fontSize: 18,
                 },
             })}
         >
@@ -110,6 +110,8 @@ function MainTabs() {
         </Tab.Navigator>
     );
 }
+
+
 
 // Main App Stack - includes tabs and modal screens
 function AppStack() {

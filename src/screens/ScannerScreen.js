@@ -315,9 +315,80 @@ export function ScannerScreen({navigation}) {
 }
 
 const styles = StyleSheet.create({
+    bottomLeft: {
+        bottom: 0,
+        left: 0,
+        borderBottomWidth: 4,
+        borderLeftWidth: 4,
+    },
+    bottomRight: {
+        bottom: 0,
+        right: 0,
+        borderBottomWidth: 4,
+        borderRightWidth: 4,
+    },
+    bottomSection: {
+        flex: 1,
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    camera: {
+        flex: 1,
+    },
     container: {
         flex: 1,
         backgroundColor: '#000',
+    },
+    corner: {
+        position: 'absolute',
+        width: 40,
+        height: 40,
+        borderColor: '#4CAF50',
+    },
+    flashButton: {
+        backgroundColor: 'rgba(255,255,255,0.3)',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    instructionContainer: {
+        backgroundColor: 'rgba(5, 150, 105, 0.9)', // green overlay
+        borderRadius: 12,
+        padding: 16,
+        margin: 20,
+    },
+    tipContainer: {
+        backgroundColor: 'rgba(22, 197, 94, 0.8)', // lighter green
+        borderRadius: 8,
+        padding: 12,
+        margin: 20,
+    },
+    instructionText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    middleSection: {
+        flexDirection: 'row',
+    },
+    overlay: {
+        flex: 1,
+        backgroundColor: 'transparent',
+    },
+    permissionButton: {
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+    },
+    permissionButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     permissionContainer: {
         flex: 1,
@@ -332,38 +403,14 @@ const styles = StyleSheet.create({
         marginVertical: 20,
         color: '#666',
     },
-    permissionButton: {
-        backgroundColor: '#4CAF50',
-        paddingHorizontal: 30,
-        paddingVertical: 15,
-        borderRadius: 25,
-    },
-    permissionButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    camera: {
-        flex: 1,
-    },
-    overlay: {
-        flex: 1,
-        backgroundColor: 'transparent',
-    },
-    topSection: {
-        flex: 1,
+    processingContainer: {
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
     },
-    instructionText: {
+    processingText: {
         color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    middleSection: {
-        flexDirection: 'row',
+        fontSize: 16,
+        marginTop: 10,
     },
     scanFrame: {
         width: 300,
@@ -372,11 +419,26 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    corner: {
-        position: 'absolute',
-        width: 40,
-        height: 40,
-        borderColor: '#4CAF50',
+    scanLine: {
+        width: '100%',
+        height: 2,
+        backgroundColor: '#4CAF50',
+        shadowColor: '#4CAF50',
+        shadowOffset: {width: 0, height: 0},
+        shadowOpacity: 0.8,
+        shadowRadius: 10,
+    },
+    successOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+    },
+    tipText: {
+        color: 'white',
+        fontSize: 14,
+        textAlign: 'center',
+        fontWeight: '500',
     },
     topLeft: {
         top: 0,
@@ -390,59 +452,12 @@ const styles = StyleSheet.create({
         borderTopWidth: 4,
         borderRightWidth: 4,
     },
-    bottomLeft: {
-        bottom: 0,
-        left: 0,
-        borderBottomWidth: 4,
-        borderLeftWidth: 4,
-    },
-    bottomRight: {
-        bottom: 0,
-        right: 0,
-        borderBottomWidth: 4,
-        borderRightWidth: 4,
-    },
-    scanLine: {
-        width: '100%',
-        height: 2,
-        backgroundColor: '#4CAF50',
-        shadowColor: '#4CAF50',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 10,
-    },
-    processingContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    processingText: {
-        color: 'white',
-        fontSize: 16,
-        marginTop: 10,
-    },
-    bottomSection: {
+    topSection: {
         flex: 1,
-        justifyContent: 'space-around',
+        justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'rgba(0,0,0,0.6)',
     },
-    flashButton: {
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    tipText: {
-        color: 'white',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    successOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.7)',
-    },
+
 });
+

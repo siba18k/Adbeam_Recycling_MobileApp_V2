@@ -5,9 +5,9 @@ import {
     StyleSheet,
     RefreshControl,
     TouchableOpacity,
-    Dimensions
+    Dimensions, Alert
 } from 'react-native';
-import { Text, Card, Avatar, ProgressBar, Chip } from 'react-native-paper';
+import {Text, Card, Avatar, ProgressBar, Chip, Button} from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { getUserAchievements } from '../services/database';
@@ -167,7 +167,20 @@ export default function DashboardScreen({ navigation }) {
                     </Card.Content>
                 </Card>
             </View>
-
+            <Button
+                mode="outlined"
+                onPress={async () => {
+                    const result = await initializeRewards();
+                    if (result.success) {
+                        Alert.alert('Success', 'Rewards initialized!');
+                    } else {
+                        Alert.alert('Error', result.error);
+                    }
+                }}
+                style={{ margin: 20 }}
+            >
+                Initialize Rewards (Dev Only)
+            </Button>
             {/* Level Progress */}
             <Card style={styles.progressCard}>
                 <Card.Content>

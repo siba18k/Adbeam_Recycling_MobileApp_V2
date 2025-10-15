@@ -20,6 +20,42 @@ export const MATERIAL_TYPES = {
 };
 
 // User Database Operations
+export const createUserProfile = async (userId, userData) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+
+        // Check if user already exists
+        const existingUser = await get(userRef);
+        if (existingUser.exists()) {
+            console.log('User profile already exists');
+            return { success: true, data: existingUser.val() };
+        }
+
+        // Create new user profile
+        const newUserData = {
+            ...userData,
+            points: 0,
+            level: 1,
+            totalScans: 0,
+            streak: 0,
+            lastScanDate: null,
+            achievements: [],
+            role: 'user',
+            isActive: true,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        };
+
+        await set(userRef, newUserData);
+        console.log('User profile created successfully');
+
+        return { success: true, data: newUserData };
+    } catch (error) {
+        console.error("Error creating user profile:", error);
+        return { success: false, error: error.message };
+    }
+};
+
 export const getUserProfile = async (userId) => {
     try {
         const userRef = ref(database, `users/${userId}`);
@@ -173,30 +209,29 @@ const calculateStreak = (lastScanDate) => {
     return 1;
 };
 
-// Leaderboard Operations
+// FIXED: Leaderboard Operations (Realtime Database)
 export const getLeaderboard = async (limit = 50) => {
     try {
         const usersRef = ref(database, 'users');
-        const leaderboardQuery = query(
-            usersRef,
-            orderByChild('points'),
-            limitToLast(limit)
-        );
+        const snapshot = await get(usersRef);
 
-        const snapshot = await get(leaderboardQuery);
         if (snapshot.exists()) {
             const users = [];
             snapshot.forEach((childSnapshot) => {
-                users.push({
-                    id: childSnapshot.key,
-                    ...childSnapshot.val()
-                });
+                const userData = childSnapshot.val();
+                if (userData && userData.points !== undefined) {
+                    users.push({
+                        id: childSnapshot.key,
+                        ...userData
+                    });
+                }
             });
 
-            // Sort by points descending
-            users.sort((a, b) => b.points - a.points);
+            // Sort by points descending and limit
+            users.sort((a, b) => (b.points || 0) - (a.points || 0));
+            const limitedUsers = users.slice(0, limit);
 
-            return { success: true, data: users };
+            return { success: true, data: limitedUsers };
         }
         return { success: true, data: [] };
     } catch (error) {
@@ -205,7 +240,7 @@ export const getLeaderboard = async (limit = 50) => {
     }
 };
 
-// Get rewards from Realtime Database
+// FIXED: Rewards Operations (Realtime Database)
 export const getRewards = async () => {
     try {
         const rewardsRef = ref(database, 'rewards');
@@ -221,11 +256,9 @@ export const getRewards = async () => {
             });
             return { success: true, data: rewards };
         }
-
-        // If no rewards exist, return empty array
         return { success: true, data: [] };
     } catch (error) {
-        console.error('Error getting rewards:', error);
+        console.error("Error getting rewards:", error);
         return { success: false, error: error.message };
     }
 };
@@ -236,7 +269,7 @@ export const redeemReward = async (userId, rewardId, pointsCost) => {
         const userSnapshot = await get(userRef);
         const userData = userSnapshot.val();
 
-        if (userData.points < pointsCost) {
+        if (!userData || userData.points < pointsCost) {
             return {
                 success: false,
                 error: "Insufficient points"
@@ -269,6 +302,63 @@ export const redeemReward = async (userId, rewardId, pointsCost) => {
     }
 };
 
+// FIXED: Initialize rewards function
+export const initializeRewards = async () => {
+    try {
+        const rewardsRef = ref(database, 'rewards');
+
+        const initialRewards = {
+            'reward-1': {
+                name: 'Campus Cafeteria Voucher',
+                description: '₦50 off any meal at campus cafeteria',
+                points: 500,
+                category: 'food',
+                image: 'https://via.placeholder.com/300x200?text=Cafeteria+Voucher',
+                available: true,
+                stock: 100,
+                createdAt: serverTimestamp()
+            },
+            'reward-2': {
+                name: 'Bookstore Discount',
+                description: '₦100 discount at university bookstore',
+                points: 1000,
+                category: 'education',
+                image: 'https://via.placeholder.com/300x200?text=Bookstore+Discount',
+                available: true,
+                stock: 50,
+                createdAt: serverTimestamp()
+            },
+            'reward-3': {
+                name: 'Gym Membership',
+                description: '1 month free gym access',
+                points: 2000,
+                category: 'fitness',
+                image: 'https://via.placeholder.com/300x200?text=Gym+Membership',
+                available: true,
+                stock: 20,
+                createdAt: serverTimestamp()
+            },
+            'reward-4': {
+                name: 'Coffee Shop Voucher',
+                description: '₦30 voucher for campus coffee shop',
+                points: 300,
+                category: 'food',
+                image: 'https://via.placeholder.com/300x200?text=Coffee+Voucher',
+                available: true,
+                stock: 200,
+                createdAt: serverTimestamp()
+            }
+        };
+
+        await set(rewardsRef, initialRewards);
+        console.log('✅ Rewards initialized successfully!');
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Error initializing rewards:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 // Achievements System
 const ACHIEVEMENTS = {
     FIRST_SCAN: { id: 'first_scan', name: 'First Step', requirement: 1, type: 'scans' },
@@ -286,7 +376,7 @@ export const checkAndAwardAchievements = async (userId, stats) => {
         const userRef = ref(database, `users/${userId}`);
         const userSnapshot = await get(userRef);
         const userData = userSnapshot.val();
-        const currentAchievements = userData.achievements || [];
+        const currentAchievements = userData?.achievements || [];
 
         const newAchievements = [];
 
@@ -331,42 +421,4 @@ export const getUserAchievements = (achievementIds = []) => {
     return achievementIds.map(id =>
         Object.values(ACHIEVEMENTS).find(a => a.id === id)
     ).filter(Boolean);
-};
-
-// ... (keep all existing code, just update this function)
-
-export const createUserProfile = async (userId, userData) => {
-    try {
-        const userRef = ref(database, `users/${userId}`);
-
-        // Check if user already exists
-        const existingUser = await get(userRef);
-        if (existingUser.exists()) {
-            console.log('User profile already exists');
-            return { success: true, data: existingUser.val() };
-        }
-
-        // Create new user profile
-        const newUserData = {
-            ...userData,
-            points: 0,
-            level: 1,
-            totalScans: 0,
-            streak: 0,
-            lastScanDate: null,
-            achievements: [],
-            role: 'user', // Default role
-            isActive: true,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        };
-
-        await set(userRef, newUserData);
-        console.log('User profile created successfully');
-
-        return { success: true, data: newUserData };
-    } catch (error) {
-        console.error("Error creating user profile:", error);
-        return { success: false, error: error.message };
-    }
 };

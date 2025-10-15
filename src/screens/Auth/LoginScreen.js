@@ -6,20 +6,23 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    TouchableOpacity
+    TouchableOpacity,
+    Dimensions
 } from 'react-native';
 import {
     TextInput,
     Button,
     Text,
     Card,
-    Headline,
-    Paragraph,
     Divider
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { colors, gradients } from '../../theme/colors';
+
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
@@ -39,7 +42,6 @@ export default function LoginScreen({ navigation }) {
             return false;
         }
 
-        // Basic email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             Alert.alert('Error', 'Please enter a valid email address');
@@ -58,7 +60,6 @@ export default function LoginScreen({ navigation }) {
         if (!result.success) {
             Alert.alert('Login Failed', result.error);
         }
-        // Success is handled by AuthContext - user will be redirected automatically
 
         setIsLoading(false);
     };
@@ -92,120 +93,185 @@ export default function LoginScreen({ navigation }) {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <LinearGradient
-                colors={['#4CAF50', '#45a049']}
+                colors={gradients.success}
                 style={styles.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
             >
+                {/* Background decoration */}
+                <View style={styles.backgroundDecoration}>
+                    <LinearGradient
+                        colors={[colors.surface.glass, 'transparent']}
+                        style={[styles.decorationCircle, styles.circle1]}
+                    />
+                    <LinearGradient
+                        colors={[colors.surface.glass, 'transparent']}
+                        style={[styles.decorationCircle, styles.circle2]}
+                    />
+                </View>
+
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
                 >
                     {/* Header */}
                     <View style={styles.header}>
-                        <Ionicons name="leaf" size={60} color="white" />
-                        <Headline style={styles.title}>Adbeam Recycling</Headline>
-                        <Paragraph style={styles.subtitle}>
-                            Welcome back! Login to continue your eco-journey
-                        </Paragraph>
+                        <View style={styles.logoContainer}>
+                            <LinearGradient
+                                colors={[colors.surface.white, colors.surface.light]}
+                                style={styles.logoBackground}
+                            >
+                                <Ionicons name="leaf" size={40} color={colors.success.main} />
+                            </LinearGradient>
+                        </View>
+                        <Text style={styles.title}>Welcome Back</Text>
+                        <Text style={styles.subtitle}>
+                            Sign in to continue your eco-journey
+                        </Text>
                     </View>
 
                     {/* Login Form */}
-                    <Card style={styles.card}>
-                        <Card.Content style={styles.cardContent}>
-                            <Text style={styles.formTitle}>Login</Text>
-
-                            <TextInput
-                                label="Email Address"
-                                value={email}
-                                onChangeText={setEmail}
-                                mode="outlined"
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                                autoCompleteType="email"
-                                textContentType="emailAddress"
-                                left={<TextInput.Icon icon="email" />}
-                                style={styles.input}
-                                disabled={isLoading}
-                            />
-
-                            <TextInput
-                                label="Password"
-                                value={password}
-                                onChangeText={setPassword}
-                                mode="outlined"
-                                secureTextEntry={!showPassword}
-                                autoCompleteType="password"
-                                textContentType="password"
-                                left={<TextInput.Icon icon="lock" />}
-                                right={
-                                    <TextInput.Icon
-                                        icon={showPassword ? "eye-off" : "eye"}
-                                        onPress={() => setShowPassword(!showPassword)}
-                                    />
-                                }
-                                style={styles.input}
-                                disabled={isLoading}
-                            />
-
-                            <TouchableOpacity
-                                onPress={handleForgotPassword}
-                                style={styles.forgotPassword}
-                                disabled={isLoading}
+                    <View style={styles.cardContainer}>
+                        <BlurView intensity={20} tint="light" style={styles.cardBlur}>
+                            <LinearGradient
+                                colors={[colors.surface.white, colors.surface.light]}
+                                style={styles.card}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
                             >
-                                <Text style={styles.forgotPasswordText}>
-                                    Forgot Password?
-                                </Text>
-                            </TouchableOpacity>
+                                <View style={styles.cardContent}>
+                                    <Text style={styles.formTitle}>Sign In</Text>
 
-                            <Button
-                                mode="contained"
-                                onPress={handleLogin}
-                                loading={isLoading}
-                                disabled={isLoading}
-                                style={styles.loginButton}
-                                contentStyle={styles.buttonContent}
-                            >
-                                Login
-                            </Button>
+                                    <View style={styles.inputContainer}>
+                                        <TextInput
+                                            label="Email Address"
+                                            value={email}
+                                            onChangeText={setEmail}
+                                            mode="outlined"
+                                            autoCapitalize="none"
+                                            keyboardType="email-address"
+                                            autoCompleteType="email"
+                                            textContentType="emailAddress"
+                                            left={<TextInput.Icon icon="email-outline" />}
+                                            style={styles.input}
+                                            disabled={isLoading}
+                                            theme={{
+                                                colors: {
+                                                    primary: colors.primary.main,
+                                                    outline: colors.primary.light
+                                                }
+                                            }}
+                                        />
+                                    </View>
 
-                            <Divider style={styles.divider} />
+                                    <View style={styles.inputContainer}>
+                                        <TextInput
+                                            label="Password"
+                                            value={password}
+                                            onChangeText={setPassword}
+                                            mode="outlined"
+                                            secureTextEntry={!showPassword}
+                                            autoCompleteType="password"
+                                            textContentType="password"
+                                            left={<TextInput.Icon icon="lock-outline" />}
+                                            right={
+                                                <TextInput.Icon
+                                                    icon={showPassword ? "eye-off-outline" : "eye-outline"}
+                                                    onPress={() => setShowPassword(!showPassword)}
+                                                />
+                                            }
+                                            style={styles.input}
+                                            disabled={isLoading}
+                                            theme={{
+                                                colors: {
+                                                    primary: colors.primary.main,
+                                                    outline: colors.primary.light
+                                                }
+                                            }}
+                                        />
+                                    </View>
 
-                            <View style={styles.registerSection}>
-                                <Text style={styles.registerText}>
-                                    Don't have an account?{' '}
-                                </Text>
-                                <TouchableOpacity
-                                    onPress={() => navigation.navigate('Register')}
-                                    disabled={isLoading}
-                                >
-                                    <Text style={styles.registerLink}>
-                                        Sign up here
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </Card.Content>
-                    </Card>
+                                    <TouchableOpacity
+                                        onPress={handleForgotPassword}
+                                        style={styles.forgotPassword}
+                                        disabled={isLoading}
+                                    >
+                                        <Text style={styles.forgotPasswordText}>
+                                            Forgot Password?
+                                        </Text>
+                                    </TouchableOpacity>
 
-                    {/* Demo Credentials (Remove in production) */}
+                                    <LinearGradient
+                                        colors={gradients.accent} // Changed from gradients.secondary
+                                        style={styles.registerLinkGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                    >
+                                        <TouchableOpacity
+                                            onPress={handleLogin}
+                                            disabled={isLoading}
+                                            style={styles.loginButtonContent}
+                                        >
+                                            {isLoading ? (
+                                                <View style={styles.loadingContainer}>
+                                                    <Text style={styles.loginButtonText}>Signing In...</Text>
+                                                </View>
+                                            ) : (
+                                                <Text style={styles.loginButtonText}>Sign In</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </LinearGradient>
+
+                                    <View style={styles.dividerContainer}>
+                                        <View style={styles.dividerLine} />
+                                        <Text style={styles.dividerText}>or</Text>
+                                        <View style={styles.dividerLine} />
+                                    </View>
+
+                                    <View style={styles.registerSection}>
+                                        <Text style={styles.registerText}>
+                                            Don't have an account?{' '}
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => navigation.navigate('Register')}
+                                            disabled={isLoading}
+                                        >
+                                            <LinearGradient
+                                                colors={gradients.secondary}
+                                                style={styles.registerLinkGradient}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                            >
+                                                <Text style={styles.registerLink}>
+                                                    Sign Up
+                                                </Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </LinearGradient>
+                        </BlurView>
+                    </View>
+
+                    {/* Demo Credentials */}
                     {__DEV__ && (
-                        <Card style={[styles.card, styles.demoCard]}>
-                            <Card.Content>
-                                <Text style={styles.demoTitle}>Demo Credentials</Text>
-                                <Text style={styles.demoText}>
-                                    Email: demo@student.uj.ac.za{'\n'}
-                                    Password: demo123
-                                </Text>
-                                <Button
-                                    mode="outlined"
-                                    onPress={() => {
-                                        setEmail('demo@student.uj.ac.za');
-                                        setPassword('demo123');
-                                    }}
-                                    style={styles.demoButton}
+                        <View style={styles.demoContainer}>
+                            <TouchableOpacity
+                                style={styles.demoButton}
+                                onPress={() => {
+                                    setEmail('demo@student.uj.ac.za');
+                                    setPassword('demo123');
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={[colors.status.warning, '#f59e0b']}
+                                    style={styles.demoButtonGradient}
                                 >
-                                    Use Demo Account
-                                </Button>
-                            </Card.Content>
-                        </Card>
+                                    <Text style={styles.demoButtonText}>Use Demo Account</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
                     )}
                 </ScrollView>
             </LinearGradient>
@@ -220,92 +286,196 @@ const styles = StyleSheet.create({
     gradient: {
         flex: 1,
     },
+    backgroundDecoration: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    decorationCircle: {
+        position: 'absolute',
+        borderRadius: 200,
+    },
+    circle1: {
+        width: 400,
+        height: 400,
+        top: -200,
+        right: -200,
+    },
+    circle2: {
+        width: 300,
+        height: 300,
+        bottom: -150,
+        left: -150,
+    },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
-        padding: 20,
+        padding: 24,
     },
     header: {
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 40,
+    },
+    logoContainer: {
+        marginBottom: 24,
+    },
+    logoBackground: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: colors.shadow.light,
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
     },
     title: {
-        color: 'white',
-        fontSize: 28,
-        fontWeight: 'bold',
-        marginTop: 10,
+        fontSize: 32,
+        fontWeight: '700',
+        color: colors.text.inverse,
+        marginBottom: 8,
+        textAlign: 'center',
+        letterSpacing: -0.5,
     },
     subtitle: {
-        color: 'rgba(255,255,255,0.9)',
-        textAlign: 'center',
-        marginTop: 5,
         fontSize: 16,
+        color: colors.text.inverse,
+        textAlign: 'center',
+        opacity: 0.9,
+        fontWeight: '400',
+    },
+    cardContainer: {
+        marginBottom: 24,
+    },
+    cardBlur: {
+        borderRadius: 24,
+        overflow: 'hidden',
     },
     card: {
-        elevation: 8,
-        borderRadius: 15,
+        borderRadius: 24,
+        shadowColor: colors.shadow.heavy,
+        shadowOffset: {
+            width: 0,
+            height: 16,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+        elevation: 12,
     },
     cardContent: {
-        padding: 25,
+        padding: 32,
     },
     formTitle: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontWeight: '700',
         textAlign: 'center',
+        marginBottom: 32,
+        color: colors.text.primary,
+        letterSpacing: -0.3,
+    },
+    inputContainer: {
         marginBottom: 20,
-        color: '#333',
     },
     input: {
-        marginBottom: 15,
+        backgroundColor: colors.surface.white,
+        fontSize: 16,
     },
     forgotPassword: {
         alignSelf: 'flex-end',
-        marginBottom: 20,
+        marginBottom: 32,
+        paddingVertical: 4,
     },
     forgotPasswordText: {
-        color: '#4CAF50',
+        color: colors.primary.main,
         fontSize: 14,
+        fontWeight: '600',
     },
     loginButton: {
-        backgroundColor: '#4CAF50',
-        marginBottom: 20,
+        borderRadius: 16,
+        marginBottom: 24,
+        shadowColor: colors.primary.main,
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
     },
-    buttonContent: {
-        paddingVertical: 8,
+    loginButtonContent: {
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    divider: {
-        marginVertical: 15,
+    loginButtonText: {
+        color: colors.text.inverse,
+        fontSize: 18,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    loadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    dividerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 24,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: colors.text.light,
+    },
+    dividerText: {
+        marginHorizontal: 16,
+        color: colors.text.secondary,
+        fontSize: 14,
+        fontWeight: '500',
     },
     registerSection: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
+        flexWrap: 'wrap',
     },
     registerText: {
-        color: '#666',
-        fontSize: 14,
+        color: colors.text.secondary,
+        fontSize: 16,
+        fontWeight: '400',
+    },
+    registerLinkGradient: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
     registerLink: {
-        color: '#4CAF50',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-    demoCard: {
-        marginTop: 20,
-        backgroundColor: '#FFF3E0',
-    },
-    demoTitle: {
+        color: colors.text.inverse,
         fontSize: 16,
-        fontWeight: 'bold',
-        color: '#E65100',
-        marginBottom: 10,
+        fontWeight: '700',
     },
-    demoText: {
-        color: '#BF360C',
-        fontSize: 12,
-        marginBottom: 10,
+    demoContainer: {
+        alignItems: 'center',
     },
     demoButton: {
-        borderColor: '#FF9800',
+        borderRadius: 12,
+    },
+    demoButtonGradient: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    demoButtonText: {
+        color: colors.text.inverse,
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
