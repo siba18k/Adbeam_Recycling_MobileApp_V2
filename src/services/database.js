@@ -225,3 +225,260 @@ export const recordScan = async (userId, scanData) => {
         return { success: false, error: error.message };
     }
 };
+// Add these functions to the existing database.js file:
+
+// Achievements System
+const ACHIEVEMENTS = {
+    FIRST_SCAN: {
+        id: 'first_scan',
+        name: 'First Step',
+        description: 'Complete your first recycling scan',
+        requirement: 1,
+        type: 'scans',
+        icon: 'leaf',
+        points: 50
+    },
+    TEN_SCANS: {
+        id: 'ten_scans',
+        name: 'Getting Started',
+        description: 'Recycle 10 items',
+        requirement: 10,
+        type: 'scans',
+        icon: 'trending-up',
+        points: 100
+    },
+    FIFTY_SCANS: {
+        id: 'fifty_scans',
+        name: 'Eco Warrior',
+        description: 'Recycle 50 items',
+        requirement: 50,
+        type: 'scans',
+        icon: 'shield',
+        points: 250
+    },
+    HUNDRED_SCANS: {
+        id: 'hundred_scans',
+        name: 'Century Club',
+        description: 'Recycle 100 items',
+        requirement: 100,
+        type: 'scans',
+        icon: 'trophy',
+        points: 500
+    },
+    FIVE_HUNDRED_POINTS: {
+        id: 'five_hundred_points',
+        name: 'Point Collector',
+        description: 'Earn 500 points',
+        requirement: 500,
+        type: 'points',
+        icon: 'diamond',
+        points: 100
+    },
+    THOUSAND_POINTS: {
+        id: 'thousand_points',
+        name: 'Point Master',
+        description: 'Earn 1000 points',
+        requirement: 1000,
+        type: 'points',
+        icon: 'star',
+        points: 200
+    },
+    LEVEL_FIVE: {
+        id: 'level_five',
+        name: 'Rising Star',
+        description: 'Reach Level 5',
+        requirement: 5,
+        type: 'level',
+        icon: 'rocket',
+        points: 150
+    },
+    LEVEL_TEN: {
+        id: 'level_ten',
+        name: 'Eco Champion',
+        description: 'Reach Level 10',
+        requirement: 10,
+        type: 'level',
+        icon: 'flame',
+        points: 300
+    }
+};
+
+export const checkAndAwardAchievements = async (userId, stats) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+        const currentAchievements = userData?.achievements || [];
+
+        const newAchievements = [];
+
+        Object.values(ACHIEVEMENTS).forEach(achievement => {
+            // Skip if already earned
+            if (currentAchievements.includes(achievement.id)) return;
+
+            let earned = false;
+
+            switch (achievement.type) {
+                case 'scans':
+                    earned = stats.totalScans >= achievement.requirement;
+                    break;
+                case 'points':
+                    earned = stats.points >= achievement.requirement;
+                    break;
+                case 'level':
+                    earned = stats.level >= achievement.requirement;
+                    break;
+            }
+
+            if (earned) {
+                newAchievements.push(achievement.id);
+            }
+        });
+
+        if (newAchievements.length > 0) {
+            await update(userRef, {
+                achievements: [...currentAchievements, ...newAchievements],
+                updatedAt: serverTimestamp()
+            });
+
+            console.log(`🏆 New achievements earned: ${newAchievements.join(', ')}`);
+        }
+
+        return newAchievements.map(id =>
+            Object.values(ACHIEVEMENTS).find(a => a.id === id)
+        );
+    } catch (error) {
+        console.error("Error checking achievements:", error);
+        return [];
+    }
+};
+
+export const getUserAchievements = (achievementIds = []) => {
+    return achievementIds.map(id =>
+        Object.values(ACHIEVEMENTS).find(a => a.id === id)
+    ).filter(Boolean);
+};
+
+export const getAllAchievements = () => {
+    return Object.values(ACHIEVEMENTS);
+};
+
+// Get user's recent scans
+export const getUserScans = async (userId, limit = 10) => {
+    try {
+        const userScansRef = ref(database, `userScans/${userId}`);
+        const snapshot = await get(userScansRef);
+
+        if (snapshot.exists()) {
+            const scans = [];
+            snapshot.forEach((childSnapshot) => {
+                scans.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+
+            // Sort by timestamp (newest first) and limit
+            scans.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            return { success: true, data: scans.slice(0, limit) };
+        }
+
+        return { success: true, data: [] };
+    } catch (error) {
+        console.error("Error getting user scans:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Get user's scanning statistics
+export const getUserStats = async (userId) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const scansRef = ref(database, `userScans/${userId}`);
+
+        const [userSnapshot, scansSnapshot] = await Promise.all([
+            get(userRef),
+            get(scansRef)
+        ]);
+
+        const userData = userSnapshot.exists() ? userSnapshot.val() : {};
+
+        // Calculate material breakdown
+        const materialBreakdown = {
+            plastic: 0,
+            glass: 0,
+            aluminum: 0,
+            paper: 0
+        };
+
+        let totalPointsFromScans = 0;
+        let scansThisWeek = 0;
+        let scansThisMonth = 0;
+
+        if (scansSnapshot.exists()) {
+            const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+            scansSnapshot.forEach((childSnapshot) => {
+                const scan = childSnapshot.val();
+                const scanDate = new Date(scan.timestamp);
+
+                // Count materials
+                const materialType = scan.materialType.toLowerCase();
+                if (materialType.includes('plastic')) materialBreakdown.plastic++;
+                else if (materialType.includes('glass')) materialBreakdown.glass++;
+                else if (materialType.includes('aluminum')) materialBreakdown.aluminum++;
+                else if (materialType.includes('paper')) materialBreakdown.paper++;
+
+                totalPointsFromScans += scan.points || 0;
+
+                // Count recent scans
+                if (scanDate > oneWeekAgo) scansThisWeek++;
+                if (scanDate > oneMonthAgo) scansThisMonth++;
+            });
+        }
+
+        const stats = {
+            totalScans: userData.totalScans || 0,
+            totalPoints: userData.points || 0,
+            level: userData.level || 1,
+            achievements: userData.achievements || [],
+            materialBreakdown,
+            scansThisWeek,
+            scansThisMonth,
+            pointsFromScans: totalPointsFromScans,
+            averagePointsPerScan: userData.totalScans > 0 ? Math.round(totalPointsFromScans / userData.totalScans) : 0
+        };
+
+        return { success: true, data: stats };
+    } catch (error) {
+        console.error("Error getting user stats:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Update the recordScan function to include achievement checking
+export const recordScanWithAchievements = async (userId, scanData) => {
+    try {
+        const result = await recordScan(userId, scanData);
+
+        if (result.success) {
+            // Check for new achievements
+            const newAchievements = await checkAndAwardAchievements(userId, {
+                totalScans: result.newTotalScans,
+                points: result.newTotalPoints,
+                level: result.newLevel
+            });
+
+            return {
+                ...result,
+                newAchievements
+            };
+        }
+
+        return result;
+    } catch (error) {
+        console.error("Error recording scan with achievements:", error);
+        return { success: false, error: error.message };
+    }
+};
