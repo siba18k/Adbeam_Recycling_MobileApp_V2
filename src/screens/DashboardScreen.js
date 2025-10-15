@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
+import { updateUserProfile } from '../services/database';
 import {
     View,
     StyleSheet,
@@ -30,6 +32,50 @@ export default function DashboardScreen({ navigation }) {
     const [achievements, setAchievements] = useState([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    const addTestPoints = async () => {
+        if (!__DEV__) return; // Only in development mode
+
+        Alert.alert(
+            'Add Test Points',
+            'How many points would you like to add?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: '+500 Points', onPress: () => addPoints(500) },
+                { text: '+1000 Points', onPress: () => addPoints(1000) },
+                { text: '+2000 Points', onPress: () => addPoints(2000) },
+            ]
+        );
+    };
+
+    const addPoints = async (pointsToAdd) => {
+        try {
+            const currentPoints = userProfile?.points || 0;
+            const newPoints = currentPoints + pointsToAdd;
+            const newLevel = Math.floor(newPoints / 100) + 1;
+
+            const result = await updateUserProfile(user.uid, {
+                points: newPoints,
+                level: newLevel,
+                updatedAt: new Date().toISOString()
+            });
+
+            if (result.success) {
+                Alert.alert(
+                    'Points Added! 🎉',
+                    `Added ${pointsToAdd} points!\nTotal Points: ${newPoints}\nLevel: ${newLevel}`,
+                    [{ text: 'OK' }]
+                );
+
+                // Refresh dashboard data
+                await loadDashboardData();
+            } else {
+                Alert.alert('Error', 'Failed to add points');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to add points: ' + error.message);
+        }
+    };
 
     const loadDashboardData = useCallback(async () => {
         if (!user) return;
@@ -338,6 +384,22 @@ export default function DashboardScreen({ navigation }) {
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
+                    {/* Add this after the existing quickActions View, only in development */}
+                    {__DEV__ && (
+                        <TouchableOpacity
+                            style={[styles.actionButton, { marginTop: 16 }]}
+                            onPress={addTestPoints}
+                        >
+                            <LinearGradient
+                                colors={['#f59e0b', '#f97316']}
+                                style={styles.actionGradient}
+                            >
+                                <Ionicons name="add-circle" size={24} color="white" />
+                                <Text style={styles.actionText}>Add Test Points</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
+
                 </ScrollView>
             </LinearGradient>
         </SafeAreaView>

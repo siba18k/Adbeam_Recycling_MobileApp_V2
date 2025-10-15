@@ -482,3 +482,60 @@ export const recordScanWithAchievements = async (userId, scanData) => {
         return { success: false, error: error.message };
     }
 };
+// Add this development-only function
+export const addTestPoints = async (userId, points) => {
+    if (!__DEV__) {
+        return { success: false, error: 'Only available in development' };
+    }
+
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val() || {};
+
+        const currentPoints = userData.points || 0;
+        const newPoints = currentPoints + points;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+
+        await update(userRef, {
+            points: newPoints,
+            level: newLevel,
+            updatedAt: serverTimestamp()
+        });
+
+        console.log(`✅ Added ${points} points. Total: ${newPoints}`);
+        return {
+            success: true,
+            newPoints,
+            newLevel,
+            pointsAdded: points
+        };
+    } catch (error) {
+        console.error('❌ Error adding test points:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Also add a function to reset points for testing
+export const resetUserPoints = async (userId) => {
+    if (!__DEV__) {
+        return { success: false, error: 'Only available in development' };
+    }
+
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            points: 0,
+            level: 1,
+            totalScans: 0,
+            updatedAt: serverTimestamp()
+        });
+
+        console.log('✅ Reset user points to 0');
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Error resetting points:', error);
+        return { success: false, error: error.message };
+    }
+};
+

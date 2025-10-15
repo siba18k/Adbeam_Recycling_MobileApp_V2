@@ -11,13 +11,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 
-// Auth Screens
-import LoginScreen from './src/screens/Auth/LoginScreen';
-import RegisterScreen from './src/screens/Auth/RegisterScreen';
+// Auth Screens (fixed paths)
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 
-// Main App Screens
+// Main App Screens (fixed paths)
 import DashboardScreen from './src/screens/DashboardScreen';
-import {ScannerScreen} from './src/screens/ScannerScreen';
+import ScannerScreen from './src/screens/ScannerScreen';
 import RewardsScreen from './src/screens/RewardsScreen';
 import RewardDetailScreen from './src/screens/RewardDetailScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
@@ -41,15 +41,38 @@ function AuthStack() {
     );
 }
 
+// Main Tab Navigator - for authenticated users
 function MainTabs() {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
-                    // ... existing icon logic
+                    let iconName;
+
+                    switch (route.name) {
+                        case 'Dashboard':
+                            iconName = focused ? 'home' : 'home-outline';
+                            break;
+                        case 'Scanner':
+                            iconName = focused ? 'scan' : 'scan-outline';
+                            break;
+                        case 'Rewards':
+                            iconName = focused ? 'gift' : 'gift-outline';
+                            break;
+                        case 'Leaderboard':
+                            iconName = focused ? 'trophy' : 'trophy-outline';
+                            break;
+                        case 'Profile':
+                            iconName = focused ? 'person' : 'person-outline';
+                            break;
+                        default:
+                            iconName = 'circle';
+                    }
+
+                    return <Ionicons name={iconName} size={size} color={color} />;
                 },
-                tabBarActiveTintColor: '#059669', // emerald green
-                tabBarInactiveTintColor: '#6b7280', // neutral gray
+                tabBarActiveTintColor: '#059669',
+                tabBarInactiveTintColor: '#6b7280',
                 tabBarStyle: {
                     backgroundColor: '#ffffff',
                     borderTopWidth: 0,
@@ -70,7 +93,7 @@ function MainTabs() {
                     fontWeight: '600',
                 },
                 headerStyle: {
-                    backgroundColor: '#059669', // emerald green header
+                    backgroundColor: '#059669',
                     elevation: 0,
                     shadowOpacity: 0,
                     borderBottomWidth: 0,
@@ -111,8 +134,6 @@ function MainTabs() {
     );
 }
 
-
-
 // Main App Stack - includes tabs and modal screens
 function AppStack() {
     return (
@@ -127,7 +148,7 @@ function AppStack() {
                 component={RewardDetailScreen}
                 options={{
                     title: 'Reward Details',
-                    headerStyle: { backgroundColor: '#4CAF50' },
+                    headerStyle: { backgroundColor: '#059669' },
                     headerTintColor: '#fff',
                 }}
             />
@@ -136,7 +157,7 @@ function AppStack() {
                 component={AdminDashboardScreen}
                 options={{
                     title: 'Admin Dashboard',
-                    headerStyle: { backgroundColor: '#4CAF50' },
+                    headerStyle: { backgroundColor: '#059669' },
                     headerTintColor: '#fff',
                 }}
             />
@@ -151,7 +172,7 @@ function RootNavigator() {
     if (loading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#4CAF50" />
+                <ActivityIndicator size="large" color="#059669" />
             </View>
         );
     }
