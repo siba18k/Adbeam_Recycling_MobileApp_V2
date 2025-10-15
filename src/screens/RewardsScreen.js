@@ -14,6 +14,8 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import { useAuth } from "../context/AuthContext"
 import FirebaseService from "../services/FirebaseService"
+import { initializeRewards } from '../services/database';
+
 
 export default function RewardsScreen({ navigation }) {
   const { user } = useAuth()
@@ -152,8 +154,10 @@ export default function RewardsScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#10b981"]} />}
         />
+
       )}
     </View>
+
   )
 }
 
