@@ -7,7 +7,8 @@ import {
     updateProfile,
     sendPasswordResetEmail
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { ref, onValue, off } from 'firebase/database';
+import { auth, database } from '../config/firebase';
 import { createUserProfile, getUserProfile } from '../services/database';
 import { processQueue } from '../services/offlineQueue';
 
@@ -41,7 +42,7 @@ export const AuthProvider = ({ children }) => {
                 if (firebaseUser) {
                     console.log('User authenticated:', firebaseUser.uid);
                     setUser(firebaseUser);
-                    await loadUserProfile(firebaseUser.uid);
+                    await setupRealtimeProfileListener(firebaseUser.uid);
 
                     // Process any queued scans when user logs in
                     try {
@@ -56,6 +57,11 @@ export const AuthProvider = ({ children }) => {
                     console.log('User not authenticated');
                     setUser(null);
                     setUserProfile(null);
+                    // Clean up any existing listener
+                    if (user) {
+                        const userRef = ref(database, `users/${user.uid}`);
+                        off(userRef);
+                    }
                 }
             } catch (error) {
                 console.error('Auth state change error:', error);
@@ -67,17 +73,39 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
-    const loadUserProfile = async (userId) => {
+    const setupRealtimeProfileListener = (userId) => {
         try {
-            const result = await getUserProfile(userId);
-            if (result.success) {
-                setUserProfile(result.data);
-                console.log('User profile loaded:', result.data);
-            } else {
-                console.log('No user profile found, may need to create one');
-            }
+            const userRef = ref(database, `users/${userId}`);
+
+            // Set up real-time listener for user profile changes
+            onValue(userRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const profileData = snapshot.val();
+                    setUserProfile(profileData);
+                    console.log('Real-time profile update:', profileData.points);
+                } else {
+                    console.log('No user profile found, may need to create one');
+                    setUserProfile(null);
+                }
+            }, (error) => {
+                console.error('Error in real-time profile listener:', error);
+            });
         } catch (error) {
-            console.error('Error loading user profile:', error);
+            console.error('Error setting up real-time listener:', error);
+        }
+    };
+
+    const refreshUserProfile = async () => {
+        if (user) {
+            try {
+                const result = await getUserProfile(user.uid);
+                if (result.success) {
+                    setUserProfile(result.data);
+                    console.log('Profile refreshed manually');
+                }
+            } catch (error) {
+                console.error('Error refreshing profile:', error);
+            }
         }
     };
 
@@ -112,7 +140,7 @@ export const AuthProvider = ({ children }) => {
                 displayName: displayName.trim()
             });
 
-            // Create user profile in database (FIXED - removed export)
+            // Create user profile in database
             const profileResult = await createUserProfile(userCredential.user.uid, {
                 email: email.trim().toLowerCase(),
                 displayName: displayName.trim(),
@@ -172,8 +200,7 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
 
         } catch (error) {
-            console.error('Login error:', error)
-            ;
+            console.error('Login error:', error);
 
             // Handle specific Firebase errors
             let errorMessage = 'Login failed. Please try again.';
@@ -190,6 +217,8 @@ export const AuthProvider = ({ children }) => {
                 errorMessage = 'Network error. Please check your internet connection.';
             } else if (error.code === 'auth/too-many-requests') {
                 errorMessage = 'Too many failed attempts. Please try again later.';
+            } else if (error.code === 'auth/invalid-credential') {
+                errorMessage = 'Invalid email or password. Please check your credentials or create an account first.';
             }
 
             return { success: false, error: errorMessage };
@@ -201,6 +230,13 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             setLoading(true);
+
+            // Clean up real-time listener
+            if (user) {
+                const userRef = ref(database, `users/${user.uid}`);
+                off(userRef);
+            }
+
             await signOut(auth);
             console.log('User logged out successfully');
             return { success: true };
@@ -241,12 +277,6 @@ export const AuthProvider = ({ children }) => {
             }
 
             return { success: false, error: errorMessage };
-        }
-    };
-
-    const refreshUserProfile = async () => {
-        if (user) {
-            await loadUserProfile(user.uid);
         }
     };
 

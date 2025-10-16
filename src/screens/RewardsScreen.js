@@ -24,7 +24,7 @@ import { colors, gradients } from '../theme/colors';
 const { width } = Dimensions.get('window');
 
 export default function RewardsScreen({ navigation }) {
-    const { user, userProfile } = useAuth();
+    const { user, userProfile, refreshUserProfile } = useAuth();
     const [rewards, setRewards] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -67,7 +67,34 @@ export default function RewardsScreen({ navigation }) {
     const handleRefresh = async () => {
         setIsRefreshing(true);
         await loadRewards();
+        await refreshUserProfile(); // Ensure latest points
         setIsRefreshing(false);
+    };
+
+    const handleManualInit = async () => {
+        Alert.alert(
+            'Initialize Rewards',
+            'This will add sample rewards to the database. Continue?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Initialize',
+                    onPress: async () => {
+                        try {
+                            const result = await initializeRewards();
+                            if (result.success) {
+                                Alert.alert('Success', 'Rewards initialized successfully!');
+                                await loadRewards();
+                            } else {
+                                Alert.alert('Error', result.error || 'Failed to initialize rewards');
+                            }
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to initialize: ' + error.message);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const handleRedeem = async (reward) => {
@@ -76,15 +103,18 @@ export default function RewardsScreen({ navigation }) {
         if (userPoints < reward.points) {
             Alert.alert(
                 'Insufficient Points',
-                `You need ${reward.points - userPoints} more points to redeem this reward.`,
-                [{ text: 'OK' }]
+                `You need ${reward.points - userPoints} more points to redeem this reward.\n\nTip: Scan more items to earn points!`,
+                [
+                    { text: 'OK' },
+                    { text: 'Start Scanning', onPress: () => navigation.navigate('Scanner') }
+                ]
             );
             return;
         }
 
         Alert.alert(
             'Confirm Redemption',
-            `Are you sure you want to redeem "${reward.name}" for ${reward.points} points?`,
+            `Are you sure you want to redeem "${reward.name}" for ${reward.points} points?\n\nYou will have ${userPoints - reward.points} points remaining.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -98,13 +128,12 @@ export default function RewardsScreen({ navigation }) {
                             if (result.success) {
                                 Alert.alert(
                                     'Success! 🎉',
-                                    'Your reward has been redeemed! Please visit the campus office to collect it.',
+                                    `Your reward "${reward.name}" has been redeemed!\n\nPlease visit the campus sustainability office to collect it.\n\nYour new points balance: ${result.newPoints}`,
                                     [{ text: 'OK' }]
                                 );
-                                // Refresh user profile to update points
-                                // You might want to add a refresh function to AuthContext
+                                // User profile will update automatically via real-time listener
                             } else {
-                                Alert.alert('Error', result.error);
+                                Alert.alert('Redemption Failed', result.error);
                             }
                         } catch (error) {
                             console.error('Redemption error:', error);
@@ -240,7 +269,7 @@ export default function RewardsScreen({ navigation }) {
                                                             <ActivityIndicator size="small" color="white" />
                                                         ) : (
                                                             <Text style={styles.redeemButtonText}>
-                                                                {(userProfile?.points || 0) >= reward.points ? 'Redeem' : 'Not Enough'}
+                                                                {(userProfile?.points || 0) >= reward.points ? 'Redeem' : 'Need More'}
                                                             </Text>
                                                         )}
                                                     </LinearGradient>
@@ -256,12 +285,19 @@ export default function RewardsScreen({ navigation }) {
                             <Ionicons name="gift-outline" size={80} color={colors.text.light} />
                             <Text style={styles.emptyTitle}>No Rewards Available</Text>
                             <Text style={styles.emptySubtitle}>
-                                Check back later for exciting eco-friendly rewards!
+                                Initialize sample rewards to get started
                             </Text>
+                            <Button
+                                mode="contained"
+                                onPress={handleManualInit}
+                                style={[styles.refreshButton, { backgroundColor: colors.primary.main }]}
+                            >
+                                Initialize Rewards
+                            </Button>
                             <Button
                                 mode="outlined"
                                 onPress={handleRefresh}
-                                style={styles.refreshButton}
+                                style={[styles.refreshButton, { marginTop: 12 }]}
                             >
                                 Refresh
                             </Button>
@@ -279,6 +315,10 @@ export default function RewardsScreen({ navigation }) {
                                 <Text style={styles.infoTitle}>How to Earn More Points</Text>
                             </View>
                             <View style={styles.infoList}>
+                                <View style={styles.infoItem}>
+                                    <Ionicons name="scan" size={16} color="white" />
+                                    <Text style={styles.infoText}>Scan paper/cardboard: +3 points</Text>
+                                </View>
                                 <View style={styles.infoItem}>
                                     <Ionicons name="scan" size={16} color="white" />
                                     <Text style={styles.infoText}>Scan plastic bottles: +5 points</Text>

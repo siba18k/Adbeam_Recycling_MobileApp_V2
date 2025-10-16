@@ -482,7 +482,65 @@ export const recordScanWithAchievements = async (userId, scanData) => {
         return { success: false, error: error.message };
     }
 };
-// Add this development-only function
+
+// Add these missing functions to the end of your database.js file
+
+export const updateUserProfile = async (userId, updates) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ User profile updated successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error updating user profile:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const redeemReward = async (userId, rewardId, pointsCost) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (!userData || (userData.points || 0) < pointsCost) {
+            return {
+                success: false,
+                error: "Insufficient points"
+            };
+        }
+
+        // Deduct points
+        const newPoints = userData.points - pointsCost;
+        await update(userRef, {
+            points: newPoints,
+            updatedAt: serverTimestamp()
+        });
+
+        // Record redemption
+        const redemptionsRef = ref(database, `redemptions/${userId}`);
+        const newRedemptionRef = push(redemptionsRef);
+        await set(newRedemptionRef, {
+            rewardId,
+            pointsCost,
+            timestamp: serverTimestamp(),
+            status: 'pending'
+        });
+
+        console.log('✅ Reward redeemed successfully');
+        return {
+            success: true,
+            newPoints: newPoints
+        };
+    } catch (error) {
+        console.error("❌ Error redeeming reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
 export const addTestPoints = async (userId, points) => {
     if (!__DEV__) {
         return { success: false, error: 'Only available in development' };
@@ -516,7 +574,6 @@ export const addTestPoints = async (userId, points) => {
     }
 };
 
-// Also add a function to reset points for testing
 export const resetUserPoints = async (userId) => {
     if (!__DEV__) {
         return { success: false, error: 'Only available in development' };
@@ -538,4 +595,3 @@ export const resetUserPoints = async (userId) => {
         return { success: false, error: error.message };
     }
 };
-
