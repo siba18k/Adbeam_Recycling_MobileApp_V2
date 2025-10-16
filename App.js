@@ -8,6 +8,8 @@ import { View, ActivityIndicator } from 'react-native';
 import StaffScannerScreen from './src/screens/StaffScannerScreen';
 import { Ionicons } from '@expo/vector-icons';
 import VouchersScreen from './src/screens/VouchersScreen';
+import StaffDashboardScreen from './src/screens/StaffDashboardScreen';
+
 
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -172,10 +174,19 @@ function AppStack() {
                 }}
             />
             <Stack.Screen
+                name="StaffDashboard"
+                component={StaffDashboardScreen}
+                options={{
+                    title: 'Staff Dashboard',
+                    headerStyle: { backgroundColor: '#0ea5e9' },
+                    headerTintColor: '#fff',
+                }}
+            />
+            <Stack.Screen
                 name="StaffScanner"
                 component={StaffScannerScreen}
                 options={{
-                    title: 'Staff Voucher Scanner',
+                    title: 'Voucher Scanner',
                     headerStyle: { backgroundColor: '#f59e0b' },
                     headerTintColor: '#fff',
                 }}
