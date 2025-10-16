@@ -105,10 +105,12 @@ export default function DashboardScreen({ navigation }) {
         const type = materialType.toLowerCase();
         if (type.includes('plastic')) return 'water-outline';
         if (type.includes('glass')) return 'wine-outline';
-        if (type.includes('aluminum')) return 'nutrition-outline';
+        if (type.includes('aluminum') || type.includes('can')) return 'nutrition-outline';
         if (type.includes('paper')) return 'newspaper-outline';
         return 'leaf-outline';
     };
+
+
 
     const getMaterialColor = (materialType) => {
         const type = materialType.toLowerCase();

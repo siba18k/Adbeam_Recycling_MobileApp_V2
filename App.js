@@ -6,6 +6,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import VouchersScreen from './src/screens/VouchersScreen';
 
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -59,6 +60,9 @@ function MainTabs() {
                         case 'Rewards':
                             iconName = focused ? 'gift' : 'gift-outline';
                             break;
+                        case 'Vouchers':
+                            iconName = focused ? 'qr-code' : 'qr-code-outline';
+                            break;
                         case 'Leaderboard':
                             iconName = focused ? 'trophy' : 'trophy-outline';
                             break;
@@ -89,7 +93,7 @@ function MainTabs() {
                     paddingTop: 10,
                 },
                 tabBarLabelStyle: {
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: '600',
                 },
                 headerStyle: {
@@ -119,6 +123,11 @@ function MainTabs() {
                 name="Rewards"
                 component={RewardsScreen}
                 options={{ title: 'Rewards' }}
+            />
+            <Tab.Screen
+                name="Vouchers"
+                component={VouchersScreen}
+                options={{ title: 'Vouchers' }}
             />
             <Tab.Screen
                 name="Leaderboard"

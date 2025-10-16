@@ -13,11 +13,32 @@ import { database } from '../config/firebase';
 
 // Material types and their point values
 export const MATERIAL_TYPES = {
-    PLASTIC: { name: 'Plastic Bottle', points: 5, color: '#3b82f6', icon: 'bottle-water' },
-    GLASS: { name: 'Glass Bottle', points: 10, color: '#10b981', icon: 'glass-wine' },
-    ALUMINUM: { name: 'Aluminum Can', points: 7, color: '#64748b', icon: 'can' },
-    PAPER: { name: 'Paper/Cardboard', points: 3, color: '#f59e0b', icon: 'newspaper' }
+    PLASTIC: {
+        name: 'Plastic Bottle',
+        points: 5,
+        color: '#3b82f6',
+        icon: 'water-outline'
+    },
+    GLASS: {
+        name: 'Glass Bottle',
+        points: 10,
+        color: '#10b981',
+        icon: 'wine-outline'
+    },
+    ALUMINUM: {
+        name: 'Aluminum Can',
+        points: 7,
+        color: '#f59e0b',
+        icon: 'nutrition-outline'
+    },
+    PAPER: {
+        name: 'Paper/Cardboard',
+        points: 3,
+        color: '#8b5cf6',
+        icon: 'newspaper-outline'
+    }
 };
+
 
 // User Database Operations
 export const createUserProfile = async (userId, userData) => {
@@ -613,6 +634,173 @@ export const uploadProfileImage = async (userId, imageUri) => {
         return { success: true, imageUrl };
     } catch (error) {
         console.error('❌ Error uploading profile image:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Voucher System Functions
+export const generateVoucherCode = () => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `ADV-${timestamp}-${random}`.toUpperCase();
+};
+
+export const redeemRewardWithVoucher = async (userId, rewardId, pointsCost) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (!userData || (userData.points || 0) < pointsCost) {
+            return {
+                success: false,
+                error: "Insufficient points"
+            };
+        }
+
+        // Generate unique voucher code
+        const voucherCode = generateVoucherCode();
+        const voucherId = push(ref(database, 'vouchers')).key;
+
+        // Get reward details
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        const rewardSnapshot = await get(rewardRef);
+        const rewardData = rewardSnapshot.val();
+
+        // Create voucher record
+        const voucherData = {
+            id: voucherId,
+            userId: userId,
+            rewardId: rewardId,
+            rewardName: rewardData?.name || 'Unknown Reward',
+            rewardDescription: rewardData?.description || '',
+            voucherCode: voucherCode,
+            pointsCost: pointsCost,
+            status: 'active',
+            createdAt: serverTimestamp(),
+            expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString(), // 30 days
+            redeemedAt: null,
+            redeemedBy: null
+        };
+
+        // Save voucher
+        const voucherRef = ref(database, `vouchers/${voucherId}`);
+        await set(voucherRef, voucherData);
+
+        // Save user's voucher reference
+        const userVoucherRef = ref(database, `userVouchers/${userId}/${voucherId}`);
+        await set(userVoucherRef, {
+            voucherId: voucherId,
+            voucherCode: voucherCode,
+            rewardName: rewardData?.name || 'Unknown Reward',
+            pointsCost: pointsCost,
+            status: 'active',
+            createdAt: serverTimestamp()
+        });
+
+        // Deduct points from user
+        const newPoints = userData.points - pointsCost;
+        await update(userRef, {
+            points: newPoints,
+            updatedAt: serverTimestamp()
+        });
+
+        console.log('✅ Reward redeemed with voucher successfully');
+        return {
+            success: true,
+            newPoints: newPoints,
+            voucherCode: voucherCode,
+            voucherId: voucherId
+        };
+    } catch (error) {
+        console.error("❌ Error redeeming reward with voucher:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const getUserVouchers = async (userId) => {
+    try {
+        const userVouchersRef = ref(database, `userVouchers/${userId}`);
+        const snapshot = await get(userVouchersRef);
+
+        if (snapshot.exists()) {
+            const vouchers = [];
+            snapshot.forEach((childSnapshot) => {
+                vouchers.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+
+            // Sort by creation date (newest first)
+            vouchers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return { success: true, data: vouchers };
+        }
+
+        return { success: true, data: [] };
+    } catch (error) {
+        console.error("❌ Error getting user vouchers:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const redeemVoucher = async (voucherCode, redeemedBy) => {
+    try {
+        // Find voucher by code
+        const vouchersRef = ref(database, 'vouchers');
+        const snapshot = await get(vouchersRef);
+
+        let voucherData = null;
+        let voucherId = null;
+
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+                const data = childSnapshot.val();
+                if (data.voucherCode === voucherCode) {
+                    voucherData = data;
+                    voucherId = childSnapshot.key;
+                }
+            });
+        }
+
+        if (!voucherData) {
+            return { success: false, error: 'Invalid voucher code' };
+        }
+
+        if (voucherData.status !== 'active') {
+            return { success: false, error: 'Voucher has already been redeemed' };
+        }
+
+        // Check if expired
+        const now = new Date();
+        const expiryDate = new Date(voucherData.expiresAt);
+        if (now > expiryDate) {
+            return { success: false, error: 'Voucher has expired' };
+        }
+
+        // Update voucher status
+        const voucherRef = ref(database, `vouchers/${voucherId}`);
+        await update(voucherRef, {
+            status: 'redeemed',
+            redeemedAt: serverTimestamp(),
+            redeemedBy: redeemedBy
+        });
+
+        // Update user's voucher record
+        const userVoucherRef = ref(database, `userVouchers/${voucherData.userId}/${voucherId}`);
+        await update(userVoucherRef, {
+            status: 'redeemed',
+            redeemedAt: serverTimestamp()
+        });
+
+        console.log('✅ Voucher redeemed successfully');
+        return {
+            success: true,
+            reward: voucherData.rewardName,
+            userId: voucherData.userId
+        };
+    } catch (error) {
+        console.error("❌ Error redeeming voucher:", error);
         return { success: false, error: error.message };
     }
 };

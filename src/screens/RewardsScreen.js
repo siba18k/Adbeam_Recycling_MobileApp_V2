@@ -18,7 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { getRewards, redeemReward, initializeRewards } from '../services/database';
+import { getRewards, redeemRewardWithVoucher, initializeRewards } from '../services/database';
 import { colors, gradients } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -114,7 +114,7 @@ export default function RewardsScreen({ navigation }) {
 
         Alert.alert(
             'Confirm Redemption',
-            `Are you sure you want to redeem "${reward.name}" for ${reward.points} points?\n\nYou will have ${userPoints - reward.points} points remaining.`,
+            `Redeem "${reward.name}" for ${reward.points} points?\n\nYou'll receive a QR code voucher to use on campus.\n\nRemaining points: ${userPoints - reward.points}`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -123,21 +123,23 @@ export default function RewardsScreen({ navigation }) {
                         setRedeeming(prev => ({ ...prev, [reward.id]: true }));
 
                         try {
-                            const result = await redeemReward(user.uid, reward.id, reward.points);
+                            const result = await redeemRewardWithVoucher(user.uid, reward.id, reward.points);
 
                             if (result.success) {
                                 Alert.alert(
-                                    'Success! 🎉',
-                                    `Your reward "${reward.name}" has been redeemed!\n\nPlease visit the campus sustainability office to collect it.\n\nYour new points balance: ${result.newPoints}`,
-                                    [{ text: 'OK' }]
+                                    'Voucher Created! 🎉',
+                                    `Your "${reward.name}" voucher has been created!\n\nVoucher Code: ${result.voucherCode}\n\nYou can find it in the Vouchers tab to show the QR code.`,
+                                    [
+                                        { text: 'View Vouchers', onPress: () => navigation.navigate('Vouchers') },
+                                        { text: 'OK' }
+                                    ]
                                 );
-                                // User profile will update automatically via real-time listener
                             } else {
                                 Alert.alert('Redemption Failed', result.error);
                             }
                         } catch (error) {
                             console.error('Redemption error:', error);
-                            Alert.alert('Error', 'Failed to redeem reward. Please try again.');
+                            Alert.alert('Error', 'Failed to create voucher. Please try again.');
                         } finally {
                             setRedeeming(prev => ({ ...prev, [reward.id]: false }));
                         }
