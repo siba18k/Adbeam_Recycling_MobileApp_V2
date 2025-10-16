@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
-import { updateUserProfile } from '../services/database';
 import {
     View,
     StyleSheet,
@@ -8,7 +6,8 @@ import {
     RefreshControl,
     Dimensions,
     SafeAreaView,
-    TouchableOpacity
+    TouchableOpacity,
+    Alert
 } from 'react-native';
 import {
     Text,
@@ -20,62 +19,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { getUserStats, getUserAchievements, getUserScans } from '../services/database';
+import { getUserStats, getUserAchievements, getUserScans, addTestPoints, resetUserPoints } from '../services/database';
 import { colors, gradients, recyclingColors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 
 export default function DashboardScreen({ navigation }) {
-    const { user, userProfile } = useAuth();
+    const { user, userProfile, refreshUserProfile } = useAuth();
     const [stats, setStats] = useState(null);
     const [recentScans, setRecentScans] = useState([]);
     const [achievements, setAchievements] = useState([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
-
-    const addTestPoints = async () => {
-        if (!__DEV__) return; // Only in development mode
-
-        Alert.alert(
-            'Add Test Points',
-            'How many points would you like to add?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: '+500 Points', onPress: () => addPoints(500) },
-                { text: '+1000 Points', onPress: () => addPoints(1000) },
-                { text: '+2000 Points', onPress: () => addPoints(2000) },
-            ]
-        );
-    };
-
-    const addPoints = async (pointsToAdd) => {
-        try {
-            const currentPoints = userProfile?.points || 0;
-            const newPoints = currentPoints + pointsToAdd;
-            const newLevel = Math.floor(newPoints / 100) + 1;
-
-            const result = await updateUserProfile(user.uid, {
-                points: newPoints,
-                level: newLevel,
-                updatedAt: new Date().toISOString()
-            });
-
-            if (result.success) {
-                Alert.alert(
-                    'Points Added! 🎉',
-                    `Added ${pointsToAdd} points!\nTotal Points: ${newPoints}\nLevel: ${newLevel}`,
-                    [{ text: 'OK' }]
-                );
-
-                // Refresh dashboard data
-                await loadDashboardData();
-            } else {
-                Alert.alert('Error', 'Failed to add points');
-            }
-        } catch (error) {
-            Alert.alert('Error', 'Failed to add points: ' + error.message);
-        }
-    };
 
     const loadDashboardData = useCallback(async () => {
         if (!user) return;
@@ -112,14 +67,37 @@ export default function DashboardScreen({ navigation }) {
     const handleRefresh = async () => {
         setIsRefreshing(true);
         await loadDashboardData();
+        await refreshUserProfile();
         setIsRefreshing(false);
     };
 
+    const addPoints = async (pointsToAdd) => {
+        try {
+            const result = await addTestPoints(user.uid, pointsToAdd);
+
+            if (result.success) {
+                Alert.alert(
+                    'Points Added! 🎉',
+                    `Added ${result.pointsAdded} points!\nTotal Points: ${result.newPoints}\nLevel: ${result.newLevel}`,
+                    [{ text: 'OK' }]
+                );
+
+                // User profile will update automatically via real-time listener
+                await loadDashboardData(); // Refresh stats
+            } else {
+                Alert.alert('Error', result.error || 'Failed to add points');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to add points: ' + error.message);
+        }
+    };
+
+
     const getNextLevelProgress = () => {
-        if (!stats) return 0;
-        const currentLevelPoints = (stats.level - 1) * 100;
-        const nextLevelPoints = stats.level * 100;
-        const progress = (stats.totalPoints - currentLevelPoints) / (nextLevelPoints - currentLevelPoints);
+        if (!userProfile) return 0;
+        const currentLevelPoints = (userProfile.level - 1) * 100;
+        const nextLevelPoints = userProfile.level * 100;
+        const progress = (userProfile.points - currentLevelPoints) / (nextLevelPoints - currentLevelPoints);
         return Math.min(Math.max(progress, 0), 1);
     };
 
@@ -178,7 +156,7 @@ export default function DashboardScreen({ navigation }) {
                                 <Text style={styles.nameText}>
                                     {userProfile?.displayName || user?.displayName || 'Eco Warrior'}
                                 </Text>
-                                <Text style={styles.levelText}>Level {stats?.level || 1} Recycler</Text>
+                                <Text style={styles.levelText}>Level {userProfile?.level || 1} Recycler</Text>
                             </View>
 
                             <View style={styles.avatarContainer}>
@@ -189,7 +167,7 @@ export default function DashboardScreen({ navigation }) {
                                     labelStyle={styles.avatarLabel}
                                 />
                                 <Badge style={styles.levelBadge} size={20}>
-                                    {stats?.level || 1}
+                                    {userProfile?.level || 1}
                                 </Badge>
                             </View>
                         </View>
@@ -198,10 +176,10 @@ export default function DashboardScreen({ navigation }) {
                         <View style={styles.progressContainer}>
                             <View style={styles.progressInfo}>
                                 <Text style={styles.progressLabel}>
-                                    Level {stats?.level || 1} Progress
+                                    Level {userProfile?.level || 1} Progress
                                 </Text>
                                 <Text style={styles.progressPoints}>
-                                    {stats?.totalPoints || 0} / {(stats?.level || 1) * 100} points
+                                    {userProfile?.points || 0} / {(userProfile?.level || 1) * 100} points
                                 </Text>
                             </View>
                             <ProgressBar
@@ -220,7 +198,7 @@ export default function DashboardScreen({ navigation }) {
                                 style={styles.statGradient}
                             >
                                 <Ionicons name="leaf" size={24} color="white" />
-                                <Text style={styles.statValue}>{stats?.totalScans || 0}</Text>
+                                <Text style={styles.statValue}>{stats?.totalScans || userProfile?.totalScans || 0}</Text>
                                 <Text style={styles.statLabel}>Items Recycled</Text>
                             </LinearGradient>
                         </Card>
@@ -231,7 +209,7 @@ export default function DashboardScreen({ navigation }) {
                                 style={styles.statGradient}
                             >
                                 <Ionicons name="star" size={24} color="white" />
-                                <Text style={styles.statValue}>{stats?.totalPoints || 0}</Text>
+                                <Text style={styles.statValue}>{userProfile?.points || 0}</Text>
                                 <Text style={styles.statLabel}>Total Points</Text>
                             </LinearGradient>
                         </Card>
@@ -384,26 +362,80 @@ export default function DashboardScreen({ navigation }) {
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
-                    {/* Add this after the existing quickActions View, only in development */}
-                    {__DEV__ && (
-                        <TouchableOpacity
-                            style={[styles.actionButton, { marginTop: 16 }]}
-                            onPress={addTestPoints}
-                        >
-                            <LinearGradient
-                                colors={['#f59e0b', '#f97316']}
-                                style={styles.actionGradient}
-                            >
-                                <Ionicons name="add-circle" size={24} color="white" />
-                                <Text style={styles.actionText}>Add Test Points</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    )}
 
+                    {/* Development Tools */}
+                    {__DEV__ && (
+                        <View style={styles.devTools}>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={addTestPointsHandler}
+                            >
+                                <LinearGradient
+                                    colors={['#f59e0b', '#f97316']}
+                                    style={styles.actionGradient}
+                                >
+                                    <Ionicons name="add-circle" size={24} color="white" />
+                                    <Text style={styles.actionText}>Add Test Points</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.resetButton}
+                                onPress={handleResetPoints}
+                            >
+                                <LinearGradient
+                                    colors={['#ef4444', '#dc2626']}
+                                    style={styles.actionGradient}
+                                >
+                                    <Ionicons name="refresh" size={24} color="white" />
+                                    <Text style={styles.actionText}>Reset Points</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </ScrollView>
             </LinearGradient>
         </SafeAreaView>
     );
+
+    // Test points functions
+    async function addTestPointsHandler() {
+        if (!__DEV__) return;
+
+        Alert.alert(
+            'Add Test Points',
+            'How many points would you like to add?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: '+500 Points', onPress: () => addPoints(500) },
+                { text: '+1000 Points', onPress: () => addPoints(1000) },
+                { text: '+2000 Points', onPress: () => addPoints(2000) },
+            ]
+        );
+    }
+
+    async function handleResetPoints() {
+        Alert.alert(
+            'Reset Points',
+            'Are you sure you want to reset all points to 0?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const result = await resetUserPoints(user.uid);
+                        if (result.success) {
+                            Alert.alert('Success', 'Points reset to 0');
+                            await loadDashboardData();
+                        } else {
+                            Alert.alert('Error', result.error);
+                        }
+                    }
+                }
+            ]
+        );
+    }
 }
 
 const styles = StyleSheet.create({
@@ -666,6 +698,7 @@ const styles = StyleSheet.create({
     quickActions: {
         flexDirection: 'row',
         gap: 12,
+        marginBottom: 16,
     },
     actionButton: {
         flex: 1,
@@ -686,5 +719,20 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: 'white',
         marginTop: 8,
+    },
+    devTools: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 16,
+    },
+    resetButton: {
+        flex: 1,
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: colors.shadow.medium,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
     },
 });
