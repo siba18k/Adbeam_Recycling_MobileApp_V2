@@ -595,3 +595,24 @@ export const resetUserPoints = async (userId) => {
         return { success: false, error: error.message };
     }
 };
+
+// Add this function to handle profile image uploads
+export const uploadProfileImage = async (userId, imageUri) => {
+    try {
+        // For now, we'll store a placeholder URL
+        // In production, you'd upload to Firebase Storage
+        const imageUrl = `https://via.placeholder.com/200x200/059669/FFFFFF?text=${userId.substring(0, 2)}`;
+
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            profileImageUrl: imageUrl,
+            updatedAt: serverTimestamp()
+        });
+
+        console.log('✅ Profile image updated successfully');
+        return { success: true, imageUrl };
+    } catch (error) {
+        console.error('❌ Error uploading profile image:', error);
+        return { success: false, error: error.message };
+    }
+};
