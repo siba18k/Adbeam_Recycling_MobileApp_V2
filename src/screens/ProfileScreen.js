@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native'; // Add this import
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, uploadProfileImage } from '../services/database';
 import { useOffline } from '../context/OfflineContext';
@@ -51,6 +52,7 @@ const UNIVERSITIES = [
 ];
 
 export default function ProfileScreen() {
+    const navigation = useNavigation(); // Add navigation hook
     const { user, userProfile, logout, refreshUserProfile } = useAuth();
     const { isOffline, queueSize } = useOffline();
     const [isEditing, setIsEditing] = useState(false);
@@ -409,6 +411,17 @@ export default function ProfileScreen() {
                                 </Text>
                             </LinearGradient>
 
+                            {/* Admin Badge */}
+                            {userProfile?.role === 'admin' && (
+                                <LinearGradient
+                                    colors={['#8b5cf6', '#a855f7']}
+                                    style={styles.adminBadge}
+                                >
+                                    <Ionicons name="shield-checkmark" size={14} color="white" />
+                                    <Text style={styles.adminBadgeText}>Administrator</Text>
+                                </LinearGradient>
+                            )}
+
                             {/* Quick Edit Button */}
                             {!isEditing && (
                                 <TouchableOpacity
@@ -700,10 +713,26 @@ export default function ProfileScreen() {
                         )}
                     </Card>
 
-
                     {/* Account Settings */}
                     <Card style={styles.settingsCard}>
                         <Text style={styles.cardTitle}>Account Settings</Text>
+
+                        {/* Admin Dashboard Access (only for admins) */}
+                        {userProfile?.role === 'admin' && (
+                            <TouchableOpacity
+                                style={styles.settingItem}
+                                onPress={() => navigation.navigate('AdminDashboard')}
+                            >
+                                <LinearGradient
+                                    colors={['#8b5cf6', '#a855f7']}
+                                    style={styles.settingIcon}
+                                >
+                                    <Ionicons name="settings-outline" size={20} color="white" />
+                                </LinearGradient>
+                                <Text style={styles.settingText}>Admin Dashboard</Text>
+                                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity style={styles.settingItem}>
                             <LinearGradient
@@ -737,25 +766,7 @@ export default function ProfileScreen() {
                             <Text style={styles.settingText}>Help & Support</Text>
                             <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
                         </TouchableOpacity>
-
-                        {/* Admin Dashboard Access (only for admins) */}
-                        {userProfile?.role === 'admin' && (
-                            <TouchableOpacity
-                                style={styles.settingItem}
-                                onPress={() => navigation.navigate('AdminDashboard')}
-                            >
-                                <LinearGradient
-                                    colors={['#8b5cf6', '#a855f7']}
-                                    style={styles.settingIcon}
-                                >
-                                    <Ionicons name="settings-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <Text style={styles.settingText}>Admin Dashboard</Text>
-                                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                            </TouchableOpacity>
-                        )}
                     </Card>
-
 
                     {/* Offline Sync Status Card */}
                     <Card style={styles.syncCard}>
@@ -981,11 +992,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        marginBottom: 16,
+        marginBottom: 8,
     },
     levelBadgeText: {
         color: 'white',
         fontSize: 14,
+        fontWeight: '700',
+        marginLeft: 4,
+    },
+    adminBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginBottom: 16,
+    },
+    adminBadgeText: {
+        color: 'white',
+        fontSize: 12,
         fontWeight: '700',
         marginLeft: 4,
     },
