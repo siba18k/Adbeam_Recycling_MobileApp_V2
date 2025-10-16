@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
+import StaffScannerScreen from './src/screens/StaffScannerScreen';
 import { Ionicons } from '@expo/vector-icons';
 import VouchersScreen from './src/screens/VouchersScreen';
 
@@ -170,10 +171,18 @@ function AppStack() {
                     headerTintColor: '#fff',
                 }}
             />
+            <Stack.Screen
+                name="StaffScanner"
+                component={StaffScannerScreen}
+                options={{
+                    title: 'Staff Voucher Scanner',
+                    headerStyle: { backgroundColor: '#f59e0b' },
+                    headerTintColor: '#fff',
+                }}
+            />
         </Stack.Navigator>
     );
 }
-
 // Root Navigator - decides between Auth and App based on auth state
 function RootNavigator() {
     const { user, loading } = useAuth();

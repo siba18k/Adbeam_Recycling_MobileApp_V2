@@ -58,6 +58,7 @@ export default function ProfileScreen() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [showUniversityPicker, setShowUniversityPicker] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('online');
+    const [localImageUri, setLocalImageUri] = useState(null);
 
     const [editData, setEditData] = useState({
         displayName: '',
@@ -79,6 +80,9 @@ export default function ProfileScreen() {
                 bio: userProfile.bio || '',
                 phone: userProfile.phone || ''
             });
+
+            // Reset local image URI when profile updates
+            setLocalImageUri(null);
         }
     }, [userProfile]);
 
@@ -161,18 +165,45 @@ export default function ProfileScreen() {
 
     const uploadImage = async (imageUri) => {
         try {
+            console.log('🖼️ Starting image upload process...');
             setIsUploadingImage(true);
+
+            // Show the selected image immediately for better UX
+            setLocalImageUri(imageUri);
+
             const result = await uploadProfileImage(user.uid, imageUri);
 
             if (result.success) {
-                Alert.alert('Success! 📸', 'Profile photo updated successfully!');
+                console.log('✅ Image upload successful!');
+                Alert.alert(
+                    'Success! 📸',
+                    'Profile photo updated successfully!',
+                    [{ text: 'OK' }]
+                );
+
+                // Force refresh of user profile
                 await refreshUserProfile();
+
+                // Clear local URI since we now have the real URL
+                setLocalImageUri(null);
             } else {
-                Alert.alert('Upload Failed', result.error);
+                console.error('❌ Image upload failed:', result.error);
+                // Revert to previous image
+                setLocalImageUri(null);
+                Alert.alert(
+                    'Upload Failed',
+                    result.error || 'Failed to upload image. Please try again.',
+                    [{ text: 'OK' }]
+                );
             }
         } catch (error) {
-            console.error('Image upload error:', error);
-            Alert.alert('Error', 'Failed to upload image');
+            console.error('❌ Image upload error:', error);
+            setLocalImageUri(null);
+            Alert.alert(
+                'Error',
+                'Failed to upload image. Please check your connection and try again.',
+                [{ text: 'OK' }]
+            );
         } finally {
             setIsUploadingImage(false);
         }
@@ -311,10 +342,14 @@ export default function ProfileScreen() {
                                 onPress={handleImagePicker}
                                 disabled={isUploadingImage}
                             >
-                                {userProfile?.profileImageUrl ? (
+                                {/* Show local image first, then profile image, then default */}
+                                {(localImageUri || userProfile?.profileImageUrl) ? (
                                     <Avatar.Image
                                         size={100}
-                                        source={{ uri: userProfile.profileImageUrl }}
+                                        source={{
+                                            uri: localImageUri || userProfile?.profileImageUrl,
+                                            cache: 'reload' // Force reload from server
+                                        }}
                                         style={styles.avatar}
                                     />
                                 ) : (
@@ -338,6 +373,19 @@ export default function ProfileScreen() {
                                         )}
                                     </LinearGradient>
                                 </View>
+
+                                {/* Upload progress indicator */}
+                                {isUploadingImage && (
+                                    <View style={styles.uploadOverlay}>
+                                        <LinearGradient
+                                            colors={['rgba(5, 150, 105, 0.9)', 'rgba(5, 150, 105, 0.7)']}
+                                            style={styles.uploadOverlayGradient}
+                                        >
+                                            <ActivityIndicator size="small" color="white" />
+                                            <Text style={styles.uploadText}>Uploading...</Text>
+                                        </LinearGradient>
+                                    </View>
+                                )}
                             </TouchableOpacity>
 
                             <Text style={styles.nameText}>
@@ -652,6 +700,7 @@ export default function ProfileScreen() {
                         )}
                     </Card>
 
+
                     {/* Account Settings */}
                     <Card style={styles.settingsCard}>
                         <Text style={styles.cardTitle}>Account Settings</Text>
@@ -688,7 +737,25 @@ export default function ProfileScreen() {
                             <Text style={styles.settingText}>Help & Support</Text>
                             <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
                         </TouchableOpacity>
+
+                        {/* Admin Dashboard Access (only for admins) */}
+                        {userProfile?.role === 'admin' && (
+                            <TouchableOpacity
+                                style={styles.settingItem}
+                                onPress={() => navigation.navigate('AdminDashboard')}
+                            >
+                                <LinearGradient
+                                    colors={['#8b5cf6', '#a855f7']}
+                                    style={styles.settingIcon}
+                                >
+                                    <Ionicons name="settings-outline" size={20} color="white" />
+                                </LinearGradient>
+                                <Text style={styles.settingText}>Admin Dashboard</Text>
+                                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+                            </TouchableOpacity>
+                        )}
                     </Card>
+
 
                     {/* Offline Sync Status Card */}
                     <Card style={styles.syncCard}>
@@ -870,6 +937,26 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    uploadOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 50,
+        overflow: 'hidden',
+    },
+    uploadOverlayGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    uploadText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '600',
+        marginTop: 4,
+    },
     nameText: {
         fontSize: 24,
         fontWeight: '700',
@@ -962,6 +1049,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.text.primary,
     },
     editButton: {
         width: 32,

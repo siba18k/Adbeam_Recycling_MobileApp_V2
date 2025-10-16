@@ -10,7 +10,8 @@ import {
     serverTimestamp
 } from "firebase/database";
 import { database } from '../config/firebase';
-
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 // Material types and their point values
 export const MATERIAL_TYPES = {
     PLASTIC: {
@@ -801,6 +802,210 @@ export const redeemVoucher = async (voucherCode, redeemedBy) => {
         };
     } catch (error) {
         console.error("❌ Error redeeming voucher:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Admin Functions
+export const getAllUsers = async () => {
+    try {
+        const usersRef = ref(database, 'users');
+        const snapshot = await get(usersRef);
+
+        if (snapshot.exists()) {
+            const users = [];
+            snapshot.forEach((childSnapshot) => {
+                users.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+            return { success: true, data: users };
+        }
+
+        return { success: true, data: [] };
+    } catch (error) {
+        console.error("❌ Error getting all users:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const getAllVouchers = async () => {
+    try {
+        const vouchersRef = ref(database, 'vouchers');
+        const snapshot = await get(vouchersRef);
+
+        if (snapshot.exists()) {
+            const vouchers = [];
+            snapshot.forEach((childSnapshot) => {
+                vouchers.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+            return { success: true, data: vouchers };
+        }
+
+        return { success: true, data: [] };
+    } catch (error) {
+        console.error("❌ Error getting all vouchers:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const updateReward = async (rewardId, updates) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await update(rewardRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ Reward updated successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error updating reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const deleteReward = async (rewardId) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await remove(rewardRef);
+        console.log('✅ Reward deleted successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error deleting reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const createReward = async (rewardData) => {
+    try {
+        const rewardsRef = ref(database, 'rewards');
+        const newRewardRef = push(rewardsRef);
+        await set(newRewardRef, {
+            ...rewardData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ Reward created successfully');
+        return { success: true, id: newRewardRef.key };
+    } catch (error) {
+        console.error("❌ Error creating reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const updateUserRole = async (userId, role) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            role: role,
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ User role updated successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error updating user role:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const getAppStats = async () => {
+    try {
+        const [usersResult, vouchersResult, scansSnapshot] = await Promise.all([
+            getAllUsers(),
+            getAllVouchers(),
+            get(ref(database, 'scans'))
+        ]);
+
+        const users = usersResult.success ? usersResult.data : [];
+        const vouchers = vouchersResult.success ? vouchersResult.data : [];
+
+        let totalScans = 0;
+        if (scansSnapshot.exists()) {
+            scansSnapshot.forEach(() => totalScans++);
+        }
+
+        const stats = {
+            totalUsers: users.length,
+            totalPoints: users.reduce((sum, user) => sum + (user.points || 0), 0),
+            totalScans: totalScans,
+            totalVouchers: vouchers.length,
+            activeVouchers: vouchers.filter(v => v.status === 'active').length,
+            redeemedVouchers: vouchers.filter(v => v.status === 'redeemed').length,
+            topUsers: users
+                .sort((a, b) => (b.points || 0) - (a.points || 0))
+                .slice(0, 10)
+        };
+
+        return { success: true, data: stats };
+    } catch (error) {
+        console.error("❌ Error getting app stats:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const redeemVoucherByStaff = async (voucherCode, staffId) => {
+    try {
+        // Find voucher by code
+        const vouchersRef = ref(database, 'vouchers');
+        const snapshot = await get(vouchersRef);
+
+        let voucherData = null;
+        let voucherId = null;
+
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+                const data = childSnapshot.val();
+                if (data.voucherCode === voucherCode) {
+                    voucherData = data;
+                    voucherId = childSnapshot.key;
+                }
+            });
+        }
+
+        if (!voucherData) {
+            return { success: false, error: 'Invalid voucher code' };
+        }
+
+        if (voucherData.status !== 'active') {
+            return { success: false, error: 'Voucher has already been redeemed' };
+        }
+
+        // Check if expired
+        const now = new Date();
+        const expiryDate = new Date(voucherData.expiresAt);
+        if (now > expiryDate) {
+            return { success: false, error: 'Voucher has expired' };
+        }
+
+        // Update voucher status
+        const voucherRef = ref(database, `vouchers/${voucherId}`);
+        await update(voucherRef, {
+            status: 'redeemed',
+            redeemedAt: serverTimestamp(),
+            redeemedBy: staffId
+        });
+
+        // Update user's voucher record
+        const userVoucherRef = ref(database, `userVouchers/${voucherData.userId}/${voucherId}`);
+        await update(userVoucherRef, {
+            status: 'redeemed',
+            redeemedAt: serverTimestamp()
+        });
+
+        console.log('✅ Voucher redeemed by staff successfully');
+        return {
+            success: true,
+            reward: voucherData.rewardName,
+            userId: voucherData.userId,
+            studentName: voucherData.studentName,
+            voucherId: voucherId
+        };
+    } catch (error) {
+        console.error("❌ Error redeeming voucher by staff:", error);
         return { success: false, error: error.message };
     }
 };
