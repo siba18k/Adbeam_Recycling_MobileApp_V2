@@ -12,8 +12,8 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 
 // Auth Screens (fixed paths)
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
+import LoginScreen from './src/screens/Auth/LoginScreen';
+import RegisterScreen from './src/screens/Auth/RegisterScreen';
 
 // Main App Screens (fixed paths)
 import DashboardScreen from './src/screens/DashboardScreen';
