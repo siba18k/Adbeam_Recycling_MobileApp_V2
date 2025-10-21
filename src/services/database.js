@@ -4,6 +4,7 @@ import {
     get,
     update,
     push,
+    remove,
     query,
     orderByChild,
     limitToLast,
@@ -868,17 +869,6 @@ export const updateReward = async (rewardId, updates) => {
     }
 };
 
-export const deleteReward = async (rewardId) => {
-    try {
-        const rewardRef = ref(database, `rewards/${rewardId}`);
-        await remove(rewardRef);
-        console.log('✅ Reward deleted successfully');
-        return { success: true };
-    } catch (error) {
-        console.error("❌ Error deleting reward:", error);
-        return { success: false, error: error.message };
-    }
-};
 
 export const createReward = async (rewardData) => {
     try {
@@ -1006,6 +996,157 @@ export const redeemVoucherByStaff = async (voucherCode, staffId) => {
         };
     } catch (error) {
         console.error("❌ Error redeeming voucher by staff:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+
+// Enhanced Admin User Management Functions
+export const deleteUser = async (userId) => {
+    try {
+        // First check if trying to delete an admin
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (userData?.role === 'admin') {
+            return { success: false, error: 'Cannot delete admin users' };
+        }
+
+        // Delete user data using the imported remove function
+        await Promise.all([
+            remove(ref(database, `users/${userId}`)),
+            remove(ref(database, `userScans/${userId}`)),
+            remove(ref(database, `userVouchers/${userId}`)),
+            remove(ref(database, `redemptions/${userId}`))
+        ]);
+
+        console.log('✅ User deleted successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error deleting user:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+
+export const promoteToStaff = async (userId) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            role: 'staff',
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ User promoted to staff successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error promoting user to staff:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+
+// Fix the existing deleteReward function to use the imported remove
+export const deleteReward = async (rewardId) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await remove(rewardRef); // Now uses the properly imported remove function
+        console.log('✅ Reward deleted successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error deleting reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const updateUserData = async (userId, updates) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ User data updated successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error updating user data:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Enhanced Reward Management with Edit Functionality
+export const editReward = async (rewardId, updates) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await update(rewardRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ Reward edited successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error editing reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const toggleRewardAvailability = async (rewardId, available) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await update(rewardRef, {
+            available: available,
+            updatedAt: serverTimestamp()
+        });
+        console.log('✅ Reward availability toggled successfully');
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error toggling reward availability:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Staff-specific functions
+export const getStaffStats = async () => {
+    try {
+        const vouchersResult = await getAllVouchers();
+        const usersResult = await getAllUsers();
+
+        if (!vouchersResult.success || !usersResult.success) {
+            return { success: false, error: 'Failed to fetch data' };
+        }
+
+        const vouchers = vouchersResult.data;
+        const users = usersResult.data;
+
+        // Calculate today's redemptions
+        const today = new Date().toDateString();
+        const todayRedemptions = vouchers.filter(v =>
+            v.status === 'redeemed' &&
+            v.redeemedAt &&
+            new Date(v.redeemedAt).toDateString() === today
+        ).length;
+
+        // Calculate this week's redemptions
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const weekRedemptions = vouchers.filter(v =>
+            v.status === 'redeemed' &&
+            v.redeemedAt &&
+            new Date(v.redeemedAt) > oneWeekAgo
+        ).length;
+
+        const stats = {
+            totalUsers: users.length,
+            activeStudents: users.filter(u => u.role === 'user').length,
+            totalVouchers: vouchers.length,
+            activeVouchers: vouchers.filter(v => v.status === 'active').length,
+            redeemedVouchers: vouchers.filter(v => v.status === 'redeemed').length,
+            todayRedemptions,
+            weekRedemptions
+        };
+
+        return { success: true, data: stats };
+    } catch (error) {
+        console.error("❌ Error getting staff stats:", error);
         return { success: false, error: error.message };
     }
 };

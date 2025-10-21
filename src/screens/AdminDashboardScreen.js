@@ -8,7 +8,6 @@ import {
     Alert,
     Modal,
     RefreshControl,
-    FlatList
 } from 'react-native';
 import {
     Text,
@@ -17,7 +16,8 @@ import {
     TextInput,
     ActivityIndicator,
     Badge,
-    Chip
+    Chip,
+    Switch
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,9 +27,13 @@ import {
     getAllVouchers,
     getAppStats,
     createReward,
-    updateReward,
+    editReward,
     deleteReward,
     updateUserRole,
+    deleteUser,
+    updateUserData,
+    promoteToStaff,
+    toggleRewardAvailability,
     getRewards
 } from '../services/database';
 import { colors, gradients } from '../theme/colors';
@@ -44,7 +48,10 @@ export default function AdminDashboardScreen({ navigation }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showUserEditModal, setShowUserEditModal] = useState(false);
     const [editingReward, setEditingReward] = useState(null);
+    const [editingUser, setEditingUser] = useState(null);
 
     const [newReward, setNewReward] = useState({
         name: '',
@@ -53,6 +60,23 @@ export default function AdminDashboardScreen({ navigation }) {
         category: 'merchandise',
         stock: '100',
         available: true
+    });
+
+    const [editRewardData, setEditRewardData] = useState({
+        name: '',
+        description: '',
+        points: '',
+        category: '',
+        stock: '',
+        available: true
+    });
+
+    const [editUserData, setEditUserData] = useState({
+        displayName: '',
+        email: '',
+        points: '',
+        level: '',
+        role: 'user'
     });
 
     const loadAdminData = async () => {
@@ -87,6 +111,7 @@ export default function AdminDashboardScreen({ navigation }) {
         setIsRefreshing(false);
     };
 
+    // Reward Management Functions
     const handleCreateReward = async () => {
         if (!newReward.name || !newReward.description || !newReward.points) {
             Alert.alert('Error', 'Please fill in all required fields');
@@ -104,14 +129,31 @@ export default function AdminDashboardScreen({ navigation }) {
         if (result.success) {
             Alert.alert('Success', 'Reward created successfully!');
             setShowCreateModal(false);
-            setNewReward({
-                name: '',
-                description: '',
-                points: '',
-                category: 'merchandise',
-                stock: '100',
-                available: true
-            });
+            resetNewReward();
+            await loadAdminData();
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
+    const handleEditReward = async () => {
+        if (!editRewardData.name || !editRewardData.description || !editRewardData.points) {
+            Alert.alert('Error', 'Please fill in all required fields');
+            return;
+        }
+
+        const updates = {
+            ...editRewardData,
+            points: parseInt(editRewardData.points),
+            stock: parseInt(editRewardData.stock),
+        };
+
+        const result = await editReward(editingReward.id, updates);
+
+        if (result.success) {
+            Alert.alert('Success', 'Reward updated successfully!');
+            setShowEditModal(false);
+            setEditingReward(null);
             await loadAdminData();
         } else {
             Alert.alert('Error', result.error);
@@ -121,7 +163,7 @@ export default function AdminDashboardScreen({ navigation }) {
     const handleDeleteReward = (reward) => {
         Alert.alert(
             'Delete Reward',
-            `Are you sure you want to delete "${reward.name}"?`,
+            `Are you sure you want to delete "${reward.name}"?\n\nThis action cannot be undone.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -141,19 +183,47 @@ export default function AdminDashboardScreen({ navigation }) {
         );
     };
 
-    const handleToggleUserRole = (user) => {
-        const newRole = user.role === 'admin' ? 'user' : 'admin';
+    const handleToggleRewardAvailability = async (reward) => {
+        const result = await toggleRewardAvailability(reward.id, !reward.available);
+        if (result.success) {
+            await loadAdminData();
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
+    const openEditRewardModal = (reward) => {
+        setEditingReward(reward);
+        setEditRewardData({
+            name: reward.name,
+            description: reward.description,
+            points: reward.points.toString(),
+            category: reward.category,
+            stock: reward.stock?.toString() || '100',
+            available: reward.available
+        });
+        setShowEditModal(true);
+    };
+
+    // User Management Functions
+    const handleDeleteUser = (userToDelete) => {
+        if (userToDelete.role === 'admin') {
+            Alert.alert('Error', 'Cannot delete admin users');
+            return;
+        }
+
         Alert.alert(
-            'Change User Role',
-            `Make ${user.displayName || user.email} ${newRole === 'admin' ? 'an admin' : 'a regular user'}?`,
+            'Delete User',
+            `Are you sure you want to delete ${userToDelete.displayName || userToDelete.email}?\n\nThis will remove all their data including scans and vouchers.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: `Make ${newRole === 'admin' ? 'Admin' : 'User'}`,
+                    text: 'Delete',
+                    style: 'destructive',
                     onPress: async () => {
-                        const result = await updateUserRole(user.id, newRole);
+                        const result = await deleteUser(userToDelete.id);
                         if (result.success) {
-                            Alert.alert('Success', `User role updated to ${newRole}`);
+                            Alert.alert('Success', 'User deleted successfully');
                             await loadAdminData();
                         } else {
                             Alert.alert('Error', result.error);
@@ -162,6 +232,77 @@ export default function AdminDashboardScreen({ navigation }) {
                 }
             ]
         );
+    };
+
+    const handleEditUser = (userToEdit) => {
+        setEditingUser(userToEdit);
+        setEditUserData({
+            displayName: userToEdit.displayName || '',
+            email: userToEdit.email || '',
+            points: (userToEdit.points || 0).toString(),
+            level: (userToEdit.level || 1).toString(),
+            role: userToEdit.role || 'user'
+        });
+        setShowUserEditModal(true);
+    };
+
+    const handleUpdateUser = async () => {
+        if (!editUserData.displayName || !editUserData.email) {
+            Alert.alert('Error', 'Name and email are required');
+            return;
+        }
+
+        const updates = {
+            displayName: editUserData.displayName,
+            email: editUserData.email,
+            points: parseInt(editUserData.points) || 0,
+            level: parseInt(editUserData.level) || 1,
+            role: editUserData.role
+        };
+
+        const result = await updateUserData(editingUser.id, updates);
+
+        if (result.success) {
+            Alert.alert('Success', 'User updated successfully!');
+            setShowUserEditModal(false);
+            setEditingUser(null);
+            await loadAdminData();
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
+    const handlePromoteToStaff = (userToPromote) => {
+        Alert.alert(
+            'Promote to Staff',
+            `Promote ${userToPromote.displayName || userToPromote.email} to staff member?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Promote',
+                    onPress: async () => {
+                        const result = await promoteToStaff(userToPromote.id);
+                        if (result.success) {
+                            Alert.alert('Success', 'User promoted to staff');
+                            await loadAdminData();
+                        } else {
+                            Alert.alert('Error', result.error);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const resetNewReward = () => {
+        setNewReward({
+            name: '',
+            description: '',
+            points: '',
+            category: 'merchandise',
+            stock: '100',
+            available: true
+        });
     };
 
     if (isLoading) {
@@ -309,7 +450,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         </View>
                     )}
 
-                    {/* Users Tab */}
+                    {/* Enhanced Users Tab with CRUD */}
                     {activeTab === 'users' && (
                         <View>
                             <Card style={styles.usersCard}>
@@ -318,7 +459,17 @@ export default function AdminDashboardScreen({ navigation }) {
                                 {users.map((user) => (
                                     <View key={user.id} style={styles.userItem}>
                                         <View style={styles.userInfo}>
-                                            <Text style={styles.userName}>{user.displayName || 'User'}</Text>
+                                            <View style={styles.userHeader}>
+                                                <Text style={styles.userName}>{user.displayName || 'User'}</Text>
+                                                <Badge
+                                                    style={[
+                                                        styles.roleBadge,
+                                                        { backgroundColor: user.role === 'admin' ? '#8b5cf6' : user.role === 'staff' ? '#f59e0b' : colors.primary.main }
+                                                    ]}
+                                                >
+                                                    {user.role || 'user'}
+                                                </Badge>
+                                            </View>
                                             <Text style={styles.userEmail}>{user.email}</Text>
                                             <Text style={styles.userStats}>
                                                 {user.points || 0} pts • Level {user.level || 1} • {user.totalScans || 0} scans
@@ -326,18 +477,44 @@ export default function AdminDashboardScreen({ navigation }) {
                                         </View>
                                         <View style={styles.userActions}>
                                             <TouchableOpacity
-                                                style={styles.roleButton}
-                                                onPress={() => handleToggleUserRole(user)}
+                                                style={styles.actionButton}
+                                                onPress={() => handleEditUser(user)}
                                             >
                                                 <LinearGradient
-                                                    colors={user.role === 'admin' ? gradients.secondary : gradients.primary}
-                                                    style={styles.roleButtonGradient}
+                                                    colors={gradients.primary}
+                                                    style={styles.actionButtonGradient}
                                                 >
-                                                    <Text style={styles.roleButtonText}>
-                                                        {user.role === 'admin' ? 'Admin' : 'Make Admin'}
-                                                    </Text>
+                                                    <Ionicons name="pencil" size={14} color="white" />
                                                 </LinearGradient>
                                             </TouchableOpacity>
+
+                                            {user.role === 'user' && (
+                                                <TouchableOpacity
+                                                    style={styles.actionButton}
+                                                    onPress={() => handlePromoteToStaff(user)}
+                                                >
+                                                    <LinearGradient
+                                                        colors={gradients.accent}
+                                                        style={styles.actionButtonGradient}
+                                                    >
+                                                        <Ionicons name="arrow-up" size={14} color="white" />
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {user.role !== 'admin' && (
+                                                <TouchableOpacity
+                                                    style={styles.actionButton}
+                                                    onPress={() => handleDeleteUser(user)}
+                                                >
+                                                    <LinearGradient
+                                                        colors={['#ef4444', '#dc2626']}
+                                                        style={styles.actionButtonGradient}
+                                                    >
+                                                        <Ionicons name="trash" size={14} color="white" />
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
                                     </View>
                                 ))}
@@ -345,7 +522,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         </View>
                     )}
 
-                    {/* Rewards Tab */}
+                    {/* Enhanced Rewards Tab with Full CRUD */}
                     {activeTab === 'rewards' && (
                         <View>
                             <View style={styles.rewardsHeader}>
@@ -368,14 +545,23 @@ export default function AdminDashboardScreen({ navigation }) {
                                 <Card key={reward.id} style={styles.rewardItem}>
                                     <View style={styles.rewardContent}>
                                         <View style={styles.rewardInfo}>
-                                            <Text style={styles.rewardName}>{reward.name}</Text>
+                                            <View style={styles.rewardHeader}>
+                                                <Text style={styles.rewardName}>{reward.name}</Text>
+                                                <Switch
+                                                    value={reward.available}
+                                                    onValueChange={() => handleToggleRewardAvailability(reward)}
+                                                    color={colors.success.main}
+                                                />
+                                            </View>
                                             <Text style={styles.rewardDescription}>{reward.description}</Text>
                                             <View style={styles.rewardMeta}>
                                                 <Chip icon="star" textStyle={styles.chipText}>{reward.points} pts</Chip>
                                                 <Chip icon="tag" textStyle={styles.chipText}>{reward.category}</Chip>
+                                                <Chip icon="package" textStyle={styles.chipText}>Stock: {reward.stock || 'N/A'}</Chip>
                                                 <Chip
                                                     icon={reward.available ? "check-circle" : "close-circle"}
                                                     textStyle={styles.chipText}
+                                                    style={{ backgroundColor: reward.available ? colors.success.light : colors.status.error + '30' }}
                                                 >
                                                     {reward.available ? 'Available' : 'Unavailable'}
                                                 </Chip>
@@ -384,15 +570,25 @@ export default function AdminDashboardScreen({ navigation }) {
                                         <View style={styles.rewardActions}>
                                             <TouchableOpacity
                                                 style={styles.editButton}
-                                                onPress={() => setEditingReward(reward)}
+                                                onPress={() => openEditRewardModal(reward)}
                                             >
-                                                <Ionicons name="pencil" size={16} color={colors.primary.main} />
+                                                <LinearGradient
+                                                    colors={gradients.primary}
+                                                    style={styles.editButtonGradient}
+                                                >
+                                                    <Ionicons name="pencil" size={16} color="white" />
+                                                </LinearGradient>
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 style={styles.deleteButton}
                                                 onPress={() => handleDeleteReward(reward)}
                                             >
-                                                <Ionicons name="trash" size={16} color={colors.status.error} />
+                                                <LinearGradient
+                                                    colors={['#ef4444', '#dc2626']}
+                                                    style={styles.deleteButtonGradient}
+                                                >
+                                                    <Ionicons name="trash" size={16} color="white" />
+                                                </LinearGradient>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
@@ -522,6 +718,181 @@ export default function AdminDashboardScreen({ navigation }) {
                                         style={styles.createButtonGradient}
                                     >
                                         <Text style={styles.createButtonText}>Create Reward</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </Card>
+                </Modal>
+
+                {/* Edit Reward Modal */}
+                <Modal
+                    visible={showEditModal}
+                    onDismiss={() => setShowEditModal(false)}
+                    contentContainerStyle={styles.modalContainer}
+                >
+                    <Card style={styles.modalCard}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Reward</Text>
+                            <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalContent}>
+                            <TextInput
+                                label="Reward Name *"
+                                value={editRewardData.name}
+                                onChangeText={(text) => setEditRewardData(prev => ({ ...prev, name: text }))}
+                                mode="outlined"
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Description *"
+                                value={editRewardData.description}
+                                onChangeText={(text) => setEditRewardData(prev => ({ ...prev, description: text }))}
+                                mode="outlined"
+                                multiline
+                                numberOfLines={3}
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Points Required *"
+                                value={editRewardData.points}
+                                onChangeText={(text) => setEditRewardData(prev => ({ ...prev, points: text }))}
+                                mode="outlined"
+                                keyboardType="numeric"
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Category"
+                                value={editRewardData.category}
+                                onChangeText={(text) => setEditRewardData(prev => ({ ...prev, category: text }))}
+                                mode="outlined"
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Stock Quantity"
+                                value={editRewardData.stock}
+                                onChangeText={(text) => setEditRewardData(prev => ({ ...prev, stock: text }))}
+                                mode="outlined"
+                                keyboardType="numeric"
+                                style={styles.modalInput}
+                            />
+
+                            <View style={styles.switchContainer}>
+                                <Text style={styles.switchLabel}>Available for redemption</Text>
+                                <Switch
+                                    value={editRewardData.available}
+                                    onValueChange={(value) => setEditRewardData(prev => ({ ...prev, available: value }))}
+                                    color={colors.success.main}
+                                />
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity
+                                    style={styles.createButton}
+                                    onPress={handleEditReward}
+                                >
+                                    <LinearGradient
+                                        colors={gradients.primary}
+                                        style={styles.createButtonGradient}
+                                    >
+                                        <Text style={styles.createButtonText}>Update Reward</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </Card>
+                </Modal>
+
+                {/* Edit User Modal */}
+                <Modal
+                    visible={showUserEditModal}
+                    onDismiss={() => setShowUserEditModal(false)}
+                    contentContainerStyle={styles.modalContainer}
+                >
+                    <Card style={styles.modalCard}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit User</Text>
+                            <TouchableOpacity onPress={() => setShowUserEditModal(false)}>
+                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalContent}>
+                            <TextInput
+                                label="Display Name *"
+                                value={editUserData.displayName}
+                                onChangeText={(text) => setEditUserData(prev => ({ ...prev, displayName: text }))}
+                                mode="outlined"
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Email *"
+                                value={editUserData.email}
+                                onChangeText={(text) => setEditUserData(prev => ({ ...prev, email: text }))}
+                                mode="outlined"
+                                keyboardType="email-address"
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Points"
+                                value={editUserData.points}
+                                onChangeText={(text) => setEditUserData(prev => ({ ...prev, points: text }))}
+                                mode="outlined"
+                                keyboardType="numeric"
+                                style={styles.modalInput}
+                            />
+
+                            <TextInput
+                                label="Level"
+                                value={editUserData.level}
+                                onChangeText={(text) => setEditUserData(prev => ({ ...prev, level: text }))}
+                                mode="outlined"
+                                keyboardType="numeric"
+                                style={styles.modalInput}
+                            />
+
+                            <View style={styles.roleSelector}>
+                                <Text style={styles.roleSelectorLabel}>User Role</Text>
+                                <View style={styles.roleOptions}>
+                                    {['user', 'staff', 'admin'].map((role) => (
+                                        <TouchableOpacity
+                                            key={role}
+                                            style={[
+                                                styles.roleOption,
+                                                editUserData.role === role && styles.activeRoleOption
+                                            ]}
+                                            onPress={() => setEditUserData(prev => ({ ...prev, role }))}
+                                        >
+                                            <Text style={[
+                                                styles.roleOptionText,
+                                                editUserData.role === role && styles.activeRoleOptionText
+                                            ]}>
+                                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity
+                                    style={styles.createButton}
+                                    onPress={handleUpdateUser}
+                                >
+                                    <LinearGradient
+                                        colors={gradients.success}
+                                        style={styles.createButtonGradient}
+                                    >
+                                        <Text style={styles.createButtonText}>Update User</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
                             </View>
@@ -703,36 +1074,43 @@ const styles = StyleSheet.create({
     userInfo: {
         flex: 1,
     },
+    userHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
     userName: {
         fontSize: 16,
         fontWeight: '600',
         color: colors.text.primary,
+        marginRight: 8,
+    },
+    roleBadge: {
+        fontSize: 10,
     },
     userEmail: {
         fontSize: 12,
         color: colors.text.secondary,
-        marginTop: 2,
+        marginBottom: 2,
     },
     userStats: {
         fontSize: 12,
         color: colors.text.light,
-        marginTop: 4,
     },
     userActions: {
+        flexDirection: 'row',
+        gap: 4,
         marginLeft: 12,
     },
-    roleButton: {
+    actionButton: {
         borderRadius: 8,
         overflow: 'hidden',
     },
-    roleButtonGradient: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    roleButtonText: {
-        color: 'white',
-        fontSize: 12,
-        fontWeight: '600',
+    actionButtonGradient: {
+        width: 28,
+        height: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     rewardsHeader: {
         flexDirection: 'row',
@@ -764,16 +1142,23 @@ const styles = StyleSheet.create({
     },
     rewardContent: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
     },
     rewardInfo: {
         flex: 1,
+    },
+    rewardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
     },
     rewardName: {
         fontSize: 16,
         fontWeight: '700',
         color: colors.text.primary,
-        marginBottom: 4,
+        flex: 1,
+        marginRight: 8,
     },
     rewardDescription: {
         fontSize: 14,
@@ -783,6 +1168,7 @@ const styles = StyleSheet.create({
     rewardMeta: {
         flexDirection: 'row',
         gap: 8,
+        flexWrap: 'wrap',
     },
     chipText: {
         fontSize: 10,
@@ -790,11 +1176,20 @@ const styles = StyleSheet.create({
     rewardActions: {
         flexDirection: 'row',
         gap: 8,
+        marginLeft: 12,
     },
     editButton: {
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    editButtonGradient: {
         padding: 8,
     },
     deleteButton: {
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    deleteButtonGradient: {
         padding: 8,
     },
     voucherStats: {
@@ -887,6 +1282,52 @@ const styles = StyleSheet.create({
     },
     modalInput: {
         marginBottom: 16,
+    },
+    switchContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        marginBottom: 16,
+    },
+    switchLabel: {
+        fontSize: 16,
+        color: colors.text.primary,
+        fontWeight: '500',
+    },
+    roleSelector: {
+        marginBottom: 16,
+    },
+    roleSelectorLabel: {
+        fontSize: 16,
+        color: colors.text.primary,
+        fontWeight: '500',
+        marginBottom: 8,
+    },
+    roleOptions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    roleOption: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.surface.medium,
+        alignItems: 'center',
+    },
+    activeRoleOption: {
+        backgroundColor: colors.primary.main,
+        borderColor: colors.primary.main,
+    },
+    roleOptionText: {
+        fontSize: 14,
+        color: colors.text.secondary,
+        fontWeight: '500',
+    },
+    activeRoleOptionText: {
+        color: 'white',
+        fontWeight: '700',
     },
     modalActions: {
         marginTop: 16,

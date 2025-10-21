@@ -6,44 +6,59 @@ import {
     SafeAreaView,
     TouchableOpacity,
     Alert,
-    RefreshControl
+    RefreshControl,
+    Dimensions
 } from 'react-native';
 import {
     Text,
     Card,
     ActivityIndicator,
-    Badge
+    Badge,
+    Avatar
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { getAllVouchers, getAppStats } from '../services/database';
+import { getAllVouchers, getStaffStats, getAllUsers } from '../services/database';
 import { colors, gradients } from '../theme/colors';
+
+const { width } = Dimensions.get('window');
 
 export default function StaffDashboardScreen({ navigation }) {
     const { user, userProfile } = useAuth();
     const [vouchers, setVouchers] = useState([]);
     const [stats, setStats] = useState(null);
+    const [recentUsers, setRecentUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const loadStaffData = async () => {
         try {
             setIsLoading(true);
-            const [vouchersResult, statsResult] = await Promise.all([
+            const [vouchersResult, statsResult, usersResult] = await Promise.all([
                 getAllVouchers(),
-                getAppStats()
+                getStaffStats(),
+                getAllUsers()
             ]);
 
             if (vouchersResult.success) {
                 // Filter to show recent vouchers only
                 const recentVouchers = vouchersResult.data
                     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .slice(0, 50); // Show last 50 vouchers
+                    .slice(0, 20);
                 setVouchers(recentVouchers);
             }
 
             if (statsResult.success) setStats(statsResult.data);
+
+            if (usersResult.success) {
+                // Show recent active users
+                const activeUsers = usersResult.data
+                    .filter(u => u.role === 'user' && u.totalScans > 0)
+                    .sort((a, b) => (b.totalScans || 0) - (a.totalScans || 0))
+                    .slice(0, 10);
+                setRecentUsers(activeUsers);
+            }
 
         } catch (error) {
             console.error('Error loading staff data:', error);
@@ -89,17 +104,30 @@ export default function StaffDashboardScreen({ navigation }) {
                             {userProfile?.displayName || 'Staff Member'}
                         </Text>
                     </View>
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('StaffScanner')}
-                        style={styles.scannerButton}
-                    >
-                        <LinearGradient
-                            colors={gradients.accent}
-                            style={styles.scannerButtonGradient}
+                    <View style={styles.headerActions}>
+                        <TouchableOpacity
+                            onPress={handleRefresh}
+                            style={styles.refreshButton}
                         >
-                            <Ionicons name="qr-code" size={24} color="white" />
-                        </LinearGradient>
-                    </TouchableOpacity>
+                            <LinearGradient
+                                colors={gradients.secondary}
+                                style={styles.refreshButtonGradient}
+                            >
+                                <Ionicons name="refresh" size={20} color="white" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('StaffScanner')}
+                            style={styles.scannerButton}
+                        >
+                            <LinearGradient
+                                colors={gradients.accent}
+                                style={styles.scannerButtonGradient}
+                            >
+                                <Ionicons name="qr-code-outline" size={24} color="white" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
                 </LinearGradient>
 
                 <ScrollView
@@ -127,20 +155,20 @@ export default function StaffDashboardScreen({ navigation }) {
 
                         <TouchableOpacity
                             style={styles.actionCard}
-                            onPress={handleRefresh}
+                            onPress={() => Alert.alert('Feature Coming Soon', 'Student verification feature will be available soon')}
                         >
                             <LinearGradient
                                 colors={gradients.secondary}
                                 style={styles.actionGradient}
                             >
-                                <Ionicons name="refresh" size={32} color="white" />
-                                <Text style={styles.actionTitle}>Refresh Data</Text>
-                                <Text style={styles.actionSubtitle}>Update voucher list</Text>
+                                <Ionicons name="school" size={32} color="white" />
+                                <Text style={styles.actionTitle}>Verify Students</Text>
+                                <Text style={styles.actionSubtitle}>Check student IDs</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Stats Overview */}
+                    {/* Enhanced Stats Overview */}
                     <View style={styles.statsGrid}>
                         <Card style={styles.statCard}>
                             <LinearGradient
@@ -148,7 +176,7 @@ export default function StaffDashboardScreen({ navigation }) {
                                 style={styles.statGradient}
                             >
                                 <Ionicons name="checkmark-circle" size={24} color="white" />
-                                <Text style={styles.statValue}>{stats?.redeemedVouchers || 0}</Text>
+                                <Text style={styles.statValue}>{stats?.todayRedemptions || 0}</Text>
                                 <Text style={styles.statLabel}>Redeemed Today</Text>
                             </LinearGradient>
                         </Card>
@@ -163,19 +191,93 @@ export default function StaffDashboardScreen({ navigation }) {
                                 <Text style={styles.statLabel}>Pending Vouchers</Text>
                             </LinearGradient>
                         </Card>
+
+                        <Card style={styles.statCard}>
+                            <LinearGradient
+                                colors={[colors.accent.main, colors.accent.light]}
+                                style={styles.statGradient}
+                            >
+                                <Ionicons name="calendar" size={24} color="white" />
+                                <Text style={styles.statValue}>{stats?.weekRedemptions || 0}</Text>
+                                <Text style={styles.statLabel}>This Week</Text>
+                            </LinearGradient>
+                        </Card>
+
+                        <Card style={styles.statCard}>
+                            <LinearGradient
+                                colors={[colors.secondary.main, colors.secondary.light]}
+                                style={styles.statGradient}
+                            >
+                                <Ionicons name="people" size={24} color="white" />
+                                <Text style={styles.statValue}>{stats?.activeStudents || 0}</Text>
+                                <Text style={styles.statLabel}>Active Students</Text>
+                            </LinearGradient>
+                        </Card>
                     </View>
+
+                    {/* Active Students Overview */}
+                    <Card style={styles.studentsCard}>
+                        <View style={styles.cardHeader}>
+                            <Text style={styles.cardTitle}>Top Active Students</Text>
+                            <Badge style={{ backgroundColor: colors.primary.main }}>
+                                {recentUsers.length}
+                            </Badge>
+                        </View>
+
+                        {recentUsers.slice(0, 8).map((student, index) => (
+                            <View key={student.id} style={styles.studentItem}>
+                                <View style={styles.studentRank}>
+                                    <LinearGradient
+                                        colors={index < 3 ? gradients.accent : gradients.primary}
+                                        style={styles.rankBadge}
+                                    >
+                                        <Text style={styles.rankText}>#{index + 1}</Text>
+                                    </LinearGradient>
+                                </View>
+                                <View style={styles.studentInfo}>
+                                    <Text style={styles.studentName}>{student.displayName || 'Student'}</Text>
+                                    <Text style={styles.studentStats}>
+                                        {student.totalScans || 0} scans • {student.points || 0} points
+                                    </Text>
+                                </View>
+                                <View style={styles.studentLevel}>
+                                    <Text style={styles.levelText}>L{student.level || 1}</Text>
+                                </View>
+                            </View>
+                        ))}
+
+                        {recentUsers.length === 0 && (
+                            <View style={styles.emptyStudents}>
+                                <Ionicons name="school-outline" size={40} color={colors.text.light} />
+                                <Text style={styles.emptyText}>No active students</Text>
+                                <Text style={styles.emptySubtext}>Students will appear here after they start recycling</Text>
+                            </View>
+                        )}
+                    </Card>
 
                     {/* Recent Vouchers */}
                     <Card style={styles.vouchersCard}>
                         <View style={styles.cardHeader}>
                             <Text style={styles.cardTitle}>Recent Vouchers</Text>
-                            <Badge style={{ backgroundColor: colors.primary.main }}>
-                                {vouchers.length}
+                            <Badge style={{ backgroundColor: colors.accent.main }}>
+                                {vouchers.filter(v => v.status === 'active').length} active
                             </Badge>
                         </View>
 
                         {vouchers.slice(0, 10).map((voucher) => (
                             <View key={voucher.id} style={styles.voucherItem}>
+                                <View style={styles.voucherIconContainer}>
+                                    <LinearGradient
+                                        colors={voucher.status === 'active' ? gradients.success : [colors.text.secondary, colors.text.light]}
+                                        style={styles.voucherIcon}
+                                    >
+                                        <Ionicons
+                                            name={voucher.status === 'active' ? 'qr-code' : 'checkmark-circle'}
+                                            size={16}
+                                            color="white"
+                                        />
+                                    </LinearGradient>
+                                </View>
                                 <View style={styles.voucherInfo}>
                                     <Text style={styles.voucherRewardName}>{voucher.rewardName}</Text>
                                     <Text style={styles.voucherCode}>{voucher.voucherCode}</Text>
@@ -189,17 +291,14 @@ export default function StaffDashboardScreen({ navigation }) {
                                     )}
                                 </View>
                                 <View style={styles.voucherStatus}>
-                                    <LinearGradient
-                                        colors={voucher.status === 'active' ? gradients.success : [colors.text.secondary, colors.text.light]}
-                                        style={styles.statusBadgeGradient}
+                                    <Badge
+                                        style={[
+                                            styles.statusBadge,
+                                            { backgroundColor: voucher.status === 'active' ? colors.success.main : colors.text.secondary }
+                                        ]}
                                     >
-                                        <Ionicons
-                                            name={voucher.status === 'active' ? 'time' : 'checkmark-circle'}
-                                            size={12}
-                                            color="white"
-                                        />
-                                        <Text style={styles.statusText}>{voucher.status}</Text>
-                                    </LinearGradient>
+                                        {voucher.status}
+                                    </Badge>
                                 </View>
                             </View>
                         ))}
@@ -291,6 +390,20 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.9)',
         fontWeight: '500',
     },
+    headerActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    refreshButton: {
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    refreshButtonGradient: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     scannerButton: {
         borderRadius: 25,
         overflow: 'hidden',
@@ -336,11 +449,12 @@ const styles = StyleSheet.create({
     },
     statsGrid: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 12,
         marginBottom: 16,
     },
     statCard: {
-        flex: 1,
+        width: (width - 44) / 2,
         borderRadius: 16,
         overflow: 'hidden',
         elevation: 4,
@@ -359,8 +473,9 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(255,255,255,0.9)',
         marginTop: 4,
+        textAlign: 'center',
     },
-    vouchersCard: {
+    studentsCard: {
         borderRadius: 16,
         padding: 20,
         elevation: 2,
@@ -377,12 +492,75 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: colors.text.primary,
     },
+    studentItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.surface.light,
+    },
+    studentRank: {
+        marginRight: 12,
+    },
+    rankBadge: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    rankText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: 'white',
+    },
+    studentInfo: {
+        flex: 1,
+    },
+    studentName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    studentStats: {
+        fontSize: 12,
+        color: colors.text.secondary,
+        marginTop: 2,
+    },
+    studentLevel: {
+        marginLeft: 12,
+    },
+    levelText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.accent.main,
+    },
+    emptyStudents: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    vouchersCard: {
+        borderRadius: 16,
+        padding: 20,
+        elevation: 2,
+        marginBottom: 16,
+    },
     voucherItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: colors.surface.light,
+    },
+    voucherIconContainer: {
+        marginRight: 12,
+    },
+    voucherIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     voucherInfo: {
         flex: 1,
@@ -411,18 +589,8 @@ const styles = StyleSheet.create({
     voucherStatus: {
         marginLeft: 12,
     },
-    statusBadgeGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    statusText: {
-        color: 'white',
+    statusBadge: {
         fontSize: 10,
-        fontWeight: '600',
-        marginLeft: 4,
     },
     emptyVouchers: {
         alignItems: 'center',
