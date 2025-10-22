@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { addToQueue } from '../services/offlineQueue';
-import { recordScan, MATERIAL_TYPES } from '../services/database';
+import {recordScan, MATERIAL_TYPES, recordScanWithNotifications} from '../services/database';
 import { validateScanLocation } from '../services/locationService';
 import NetInfo from '@react-native-community/netinfo';
 import { colors, gradients } from '../theme/colors';
@@ -228,8 +228,9 @@ export default function ScannerScreen({ navigation }) {
                 return;
             }
 
-            // Record scan in Firebase
-            const result = await recordScan(user.uid, scanData);
+            // Replace the recordScan call in ScannerScreen with:
+            const result = await recordScanWithNotifications(user.uid, scanData);
+
 
             if (result.success) {
                 // Refresh user profile to sync points immediately

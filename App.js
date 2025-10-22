@@ -5,21 +5,18 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
-import StaffScannerScreen from './src/screens/StaffScannerScreen';
 import { Ionicons } from '@expo/vector-icons';
-import VouchersScreen from './src/screens/VouchersScreen';
-import StaffDashboardScreen from './src/screens/StaffDashboardScreen';
-
 
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OfflineProvider } from './src/context/OfflineContext';
+import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
 
-// Auth Screens (fixed paths)
+// Auth Screens
 import LoginScreen from './src/screens/Auth/LoginScreen';
 import RegisterScreen from './src/screens/Auth/RegisterScreen';
 
-// Main App Screens (fixed paths)
+// Main App Screens
 import DashboardScreen from './src/screens/DashboardScreen';
 import ScannerScreen from './src/screens/ScannerScreen';
 import RewardsScreen from './src/screens/RewardsScreen';
@@ -27,6 +24,10 @@ import RewardDetailScreen from './src/screens/RewardDetailScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
+import StaffDashboardScreen from './src/screens/StaffDashboardScreen';
+import StaffScannerScreen from './src/screens/StaffScannerScreen';
+import VouchersScreen from './src/screens/VouchersScreen';
+import NotificationScreen from './src/screens/NotificationScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -45,8 +46,10 @@ function AuthStack() {
     );
 }
 
-// Main Tab Navigator - for authenticated users
+// Main Tab Navigator - for regular users
 function MainTabs() {
+    const { unreadCount } = useNotifications();
+
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -66,8 +69,8 @@ function MainTabs() {
                         case 'Vouchers':
                             iconName = focused ? 'qr-code' : 'qr-code-outline';
                             break;
-                        case 'Leaderboard':
-                            iconName = focused ? 'trophy' : 'trophy-outline';
+                        case 'Notifications':
+                            iconName = focused ? 'notifications' : 'notifications-outline';
                             break;
                         case 'Profile':
                             iconName = focused ? 'person' : 'person-outline';
@@ -133,9 +136,12 @@ function MainTabs() {
                 options={{ title: 'Vouchers' }}
             />
             <Tab.Screen
-                name="Leaderboard"
-                component={LeaderboardScreen}
-                options={{ title: 'Leaderboard' }}
+                name="Notifications"
+                component={NotificationScreen}
+                options={{
+                    title: 'Notifications',
+                    tabBarBadge: unreadCount > 0 ? unreadCount : null
+                }}
             />
             <Tab.Screen
                 name="Profile"
@@ -146,8 +152,176 @@ function MainTabs() {
     );
 }
 
-// Main App Stack - includes tabs and modal screens
-function AppStack() {
+// Staff Tab Navigator - for staff members
+function StaffTabs() {
+    return (
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                tabBarIcon: ({ focused, color, size }) => {
+                    let iconName;
+
+                    switch (route.name) {
+                        case 'StaffDashboard':
+                            iconName = focused ? 'analytics' : 'analytics-outline';
+                            break;
+                        case 'StaffScanner':
+                            iconName = focused ? 'qr-code' : 'qr-code-outline';
+                            break;
+                        case 'Profile':
+                            iconName = focused ? 'person' : 'person-outline';
+                            break;
+                        default:
+                            iconName = 'circle';
+                    }
+
+                    return <Ionicons name={iconName} size={size} color={color} />;
+                },
+                tabBarActiveTintColor: '#f59e0b',
+                tabBarInactiveTintColor: '#6b7280',
+                tabBarStyle: {
+                    backgroundColor: '#ffffff',
+                    borderTopWidth: 0,
+                    elevation: 20,
+                    shadowColor: '#d97706',
+                    shadowOffset: {
+                        width: 0,
+                        height: -4,
+                    },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 12,
+                    height: 70,
+                    paddingBottom: 10,
+                    paddingTop: 10,
+                },
+                tabBarLabelStyle: {
+                    fontSize: 11,
+                    fontWeight: '600',
+                },
+                headerStyle: {
+                    backgroundColor: '#f59e0b',
+                    elevation: 0,
+                    shadowOpacity: 0,
+                    borderBottomWidth: 0,
+                },
+                headerTintColor: '#fff',
+                headerTitleStyle: {
+                    fontWeight: '700',
+                    fontSize: 18,
+                },
+            })}
+        >
+            <Tab.Screen
+                name="StaffDashboard"
+                component={StaffDashboardScreen}
+                options={{ title: 'Dashboard' }}
+            />
+            <Tab.Screen
+                name="StaffScanner"
+                component={StaffScannerScreen}
+                options={{ title: 'Scanner' }}
+            />
+            <Tab.Screen
+                name="Profile"
+                component={ProfileScreen}
+                options={{ title: 'Profile' }}
+            />
+        </Tab.Navigator>
+    );
+}
+
+// Admin Stack Navigator - for admin users
+function AdminStack() {
+    return (
+        <Stack.Navigator>
+            <Stack.Screen
+                name="AdminTabs"
+                component={AdminTabs}
+                options={{ headerShown: false }}
+            />
+            <Stack.Screen
+                name="StaffScanner"
+                component={StaffScannerScreen}
+                options={{
+                    title: 'Staff Voucher Scanner',
+                    headerStyle: { backgroundColor: '#f59e0b' },
+                    headerTintColor: '#fff',
+                }}
+            />
+        </Stack.Navigator>
+    );
+}
+
+// Admin Tab Navigator - for admin users
+function AdminTabs() {
+    return (
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                tabBarIcon: ({ focused, color, size }) => {
+                    let iconName;
+
+                    switch (route.name) {
+                        case 'AdminDashboard':
+                            iconName = focused ? 'settings' : 'settings-outline';
+                            break;
+                        case 'Profile':
+                            iconName = focused ? 'person' : 'person-outline';
+                            break;
+                        default:
+                            iconName = 'circle';
+                    }
+
+                    return <Ionicons name={iconName} size={size} color={color} />;
+                },
+                tabBarActiveTintColor: '#8b5cf6',
+                tabBarInactiveTintColor: '#6b7280',
+                tabBarStyle: {
+                    backgroundColor: '#ffffff',
+                    borderTopWidth: 0,
+                    elevation: 20,
+                    shadowColor: '#7c3aed',
+                    shadowOffset: {
+                        width: 0,
+                        height: -4,
+                    },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 12,
+                    height: 70,
+                    paddingBottom: 10,
+                    paddingTop: 10,
+                },
+                tabBarLabelStyle: {
+                    fontSize: 11,
+                    fontWeight: '600',
+                },
+                headerStyle: {
+                    backgroundColor: '#8b5cf6',
+                    elevation: 0,
+                    shadowOpacity: 0,
+                    borderBottomWidth: 0,
+                },
+                headerTintColor: '#fff',
+                headerTitleStyle: {
+                    fontWeight: '700',
+                    fontSize: 18,
+                },
+            })}
+        >
+            <Tab.Screen
+                name="AdminDashboard"
+                component={AdminDashboardScreen}
+                options={{ title: 'Admin' }}
+            />
+            <Tab.Screen
+                name="Profile"
+                component={ProfileScreen}
+                options={{ title: 'Profile' }}
+            />
+        </Tab.Navigator>
+    );
+}
+
+// Regular User Stack - includes tabs and modal screens
+function UserStack() {
     return (
         <Stack.Navigator>
             <Stack.Screen
@@ -165,48 +339,50 @@ function AppStack() {
                 }}
             />
             <Stack.Screen
-                name="AdminDashboard"
-                component={AdminDashboardScreen}
+                name="Leaderboard"
+                component={LeaderboardScreen}
                 options={{
-                    title: 'Admin Dashboard',
+                    title: 'Leaderboard',
                     headerStyle: { backgroundColor: '#059669' },
-                    headerTintColor: '#fff',
-                }}
-            />
-            <Stack.Screen
-                name="StaffDashboard"
-                component={StaffDashboardScreen}
-                options={{
-                    title: 'Staff Dashboard',
-                    headerStyle: { backgroundColor: '#0ea5e9' },
-                    headerTintColor: '#fff',
-                }}
-            />
-            <Stack.Screen
-                name="StaffScanner"
-                component={StaffScannerScreen}
-                options={{
-                    title: 'Voucher Scanner',
-                    headerStyle: { backgroundColor: '#f59e0b' },
                     headerTintColor: '#fff',
                 }}
             />
         </Stack.Navigator>
     );
 }
-// Root Navigator - decides between Auth and App based on auth state
+
+// Root Navigator - decides navigation based on user role
 function RootNavigator() {
-    const { user, loading } = useAuth();
+    const { user, userProfile, loading } = useAuth();
 
     if (loading) {
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#059669" />
+            <View style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: '#059669'
+            }}>
+                <ActivityIndicator size="large" color="#ffffff" />
             </View>
         );
     }
 
-    return user ? <AppStack /> : <AuthStack />;
+    if (!user) {
+        return <AuthStack />;
+    }
+
+    // Role-based navigation
+    console.log('🔄 User role:', userProfile?.role);
+
+    switch (userProfile?.role) {
+        case 'admin':
+            return <AdminStack />;
+        case 'staff':
+            return <StaffTabs />;
+        default:
+            return <UserStack />;
+    }
 }
 
 // Main App Component
@@ -215,10 +391,12 @@ export default function App() {
         <PaperProvider>
             <AuthProvider>
                 <OfflineProvider>
-                    <NavigationContainer>
-                        <StatusBar style="auto" />
-                        <RootNavigator />
-                    </NavigationContainer>
+                    <NotificationProvider>
+                        <NavigationContainer>
+                            <StatusBar style="auto" />
+                            <RootNavigator />
+                        </NavigationContainer>
+                    </NotificationProvider>
                 </OfflineProvider>
             </AuthProvider>
         </PaperProvider>

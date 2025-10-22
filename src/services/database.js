@@ -40,7 +40,14 @@ export const MATERIAL_TYPES = {
         icon: 'newspaper-outline'
     }
 };
-
+import {
+    sendAchievementNotification,
+    sendLevelUpNotification,
+    sendMilestoneNotification,
+    sendStreakNotification,
+    sendRecyclingReminderNotification, sendVoucherExpiringNotification, sendNewRewardNotification,
+    sendBonusEventNotification
+} from './notificationService';
 
 // User Database Operations
 export const createUserProfile = async (userId, userData) => {
@@ -749,37 +756,6 @@ export const getUserVouchers = async (userId) => {
 export const redeemVoucher = async (voucherCode, redeemedBy) => {
     try {
         // Find voucher by code
-        const vouchersRef = ref(database, 'vouchers');
-        const snapshot = await get(vouchersRef);
-
-        let voucherData = null;
-        let voucherId = null;
-
-        if (snapshot.exists()) {
-            snapshot.forEach((childSnapshot) => {
-                const data = childSnapshot.val();
-                if (data.voucherCode === voucherCode) {
-                    voucherData = data;
-                    voucherId = childSnapshot.key;
-                }
-            });
-        }
-
-        if (!voucherData) {
-            return { success: false, error: 'Invalid voucher code' };
-        }
-
-        if (voucherData.status !== 'active') {
-            return { success: false, error: 'Voucher has already been redeemed' };
-        }
-
-        // Check if expired
-        const now = new Date();
-        const expiryDate = new Date(voucherData.expiresAt);
-        if (now > expiryDate) {
-            return { success: false, error: 'Voucher has expired' };
-        }
-
         // Update voucher status
         const voucherRef = ref(database, `vouchers/${voucherId}`);
         await update(voucherRef, {
@@ -937,70 +913,6 @@ export const getAppStats = async () => {
     }
 };
 
-export const redeemVoucherByStaff = async (voucherCode, staffId) => {
-    try {
-        // Find voucher by code
-        const vouchersRef = ref(database, 'vouchers');
-        const snapshot = await get(vouchersRef);
-
-        let voucherData = null;
-        let voucherId = null;
-
-        if (snapshot.exists()) {
-            snapshot.forEach((childSnapshot) => {
-                const data = childSnapshot.val();
-                if (data.voucherCode === voucherCode) {
-                    voucherData = data;
-                    voucherId = childSnapshot.key;
-                }
-            });
-        }
-
-        if (!voucherData) {
-            return { success: false, error: 'Invalid voucher code' };
-        }
-
-        if (voucherData.status !== 'active') {
-            return { success: false, error: 'Voucher has already been redeemed' };
-        }
-
-        // Check if expired
-        const now = new Date();
-        const expiryDate = new Date(voucherData.expiresAt);
-        if (now > expiryDate) {
-            return { success: false, error: 'Voucher has expired' };
-        }
-
-        // Update voucher status
-        const voucherRef = ref(database, `vouchers/${voucherId}`);
-        await update(voucherRef, {
-            status: 'redeemed',
-            redeemedAt: serverTimestamp(),
-            redeemedBy: staffId
-        });
-
-        // Update user's voucher record
-        const userVoucherRef = ref(database, `userVouchers/${voucherData.userId}/${voucherId}`);
-        await update(userVoucherRef, {
-            status: 'redeemed',
-            redeemedAt: serverTimestamp()
-        });
-
-        console.log('✅ Voucher redeemed by staff successfully');
-        return {
-            success: true,
-            reward: voucherData.rewardName,
-            userId: voucherData.userId,
-            studentName: voucherData.studentName,
-            voucherId: voucherId
-        };
-    } catch (error) {
-        console.error("❌ Error redeeming voucher by staff:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-
 // Enhanced Admin User Management Functions
 export const deleteUser = async (userId) => {
     try {
@@ -1147,6 +1059,504 @@ export const getStaffStats = async () => {
         return { success: true, data: stats };
     } catch (error) {
         console.error("❌ Error getting staff stats:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Staff-specific enhanced functions
+export const getStaffDashboardData = async () => {
+    try {
+        const [vouchersResult, usersResult, rewardsResult] = await Promise.all([
+            getAllVouchers(),
+            getAllUsers(),
+            getRewards()
+        ]);
+
+        if (!vouchersResult.success || !usersResult.success || !rewardsResult.success) {
+            return { success: false, error: 'Failed to fetch dashboard data' };
+        }
+
+        const vouchers = vouchersResult.data;
+        const users = usersResult.data;
+        const rewards = rewardsResult.data;
+
+        // Calculate comprehensive stats
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const todayVouchers = vouchers.filter(v =>
+            v.status === 'redeemed' &&
+            v.redeemedAt &&
+            new Date(v.redeemedAt) >= todayStart
+        );
+
+        const weekVouchers = vouchers.filter(v =>
+            v.status === 'redeemed' &&
+            v.redeemedAt &&
+            new Date(v.redeemedAt) >= weekStart
+        );
+
+        const monthVouchers = vouchers.filter(v =>
+            v.status === 'redeemed' &&
+            v.redeemedAt &&
+            new Date(v.redeemedAt) >= monthStart
+        );
+
+        // Popular rewards
+        const rewardRedemptions = {};
+        vouchers.forEach(v => {
+            if (v.status === 'redeemed') {
+                rewardRedemptions[v.rewardName] = (rewardRedemptions[v.rewardName] || 0) + 1;
+            }
+        });
+
+        const popularRewards = Object.entries(rewardRedemptions)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 5);
+
+        const dashboardData = {
+            totalUsers: users.length,
+            activeStudents: users.filter(u => u.role === 'user' && u.totalScans > 0).length,
+            totalVouchers: vouchers.length,
+            activeVouchers: vouchers.filter(v => v.status === 'active').length,
+            redeemedVouchers: vouchers.filter(v => v.status === 'redeemed').length,
+            expiredVouchers: vouchers.filter(v => {
+                if (v.status !== 'active') return false;
+                return new Date() > new Date(v.expiresAt);
+            }).length,
+
+            // Time-based stats
+            todayRedemptions: todayVouchers.length,
+            weekRedemptions: weekVouchers.length,
+            monthRedemptions: monthVouchers.length,
+
+            // Recent data
+            recentVouchers: vouchers
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 15),
+
+            topStudents: users
+                .filter(u => u.role === 'user')
+                .sort((a, b) => (b.totalScans || 0) - (a.totalScans || 0))
+                .slice(0, 10),
+
+            popularRewards,
+
+            // Reward availability
+            totalRewards: rewards.length,
+            availableRewards: rewards.filter(r => r.available).length,
+        };
+
+        return { success: true, data: dashboardData };
+    } catch (error) {
+        console.error("❌ Error getting staff dashboard data:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const redeemVoucherByStaff = async (voucherCode, staffId, staffName) => {
+    try {
+        // Find voucher by code
+        const vouchersRef = ref(database, 'vouchers');
+        const snapshot = await get(vouchersRef);
+
+        let voucherData = null;
+        let voucherId = null;
+
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+                const data = childSnapshot.val();
+                if (data.voucherCode === voucherCode) {
+                    voucherData = data;
+                    voucherId = childSnapshot.key;
+                }
+            });
+        }
+
+        if (!voucherData) {
+            return { success: false, error: 'Invalid voucher code' };
+        }
+
+        if (voucherData.status !== 'active') {
+            return { success: false, error: 'Voucher has already been redeemed' };
+        }
+
+        // Check if expired
+        const now = new Date();
+        const expiryDate = new Date(voucherData.expiresAt);
+        if (now > expiryDate) {
+            return { success: false, error: 'Voucher has expired' };
+        }
+
+        // Get user info for notification
+        const userRef = ref(database, `users/${voucherData.userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        // Update voucher status
+        const voucherRef = ref(database, `vouchers/${voucherId}`);
+        await update(voucherRef, {
+            status: 'redeemed',
+            redeemedAt: serverTimestamp(),
+            redeemedBy: staffId,
+            redeemedByName: staffName
+        });
+
+        // Update user's voucher record
+        const userVoucherRef = ref(database, `userVouchers/${voucherData.userId}/${voucherId}`);
+        await update(userVoucherRef, {
+            status: 'redeemed',
+            redeemedAt: serverTimestamp(),
+            redeemedBy: staffId
+        });
+
+        console.log('✅ Voucher redeemed by staff successfully');
+        return {
+            success: true,
+            reward: voucherData.rewardName,
+            userId: voucherData.userId,
+            studentName: userData?.displayName || 'Student',
+            studentEmail: userData?.email,
+            voucherId: voucherId,
+            pointsCost: voucherData.pointsCost
+        };
+    } catch (error) {
+        console.error("❌ Error redeeming voucher by staff:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const getStaffRedemptionHistory = async (staffId, limit = 50) => {
+    try {
+        const vouchersRef = ref(database, 'vouchers');
+        const snapshot = await get(vouchersRef);
+
+        if (snapshot.exists()) {
+            const redemptions = [];
+            snapshot.forEach((childSnapshot) => {
+                const voucher = childSnapshot.val();
+                if (voucher.status === 'redeemed' && voucher.redeemedBy === staffId) {
+                    redemptions.push({
+                        id: childSnapshot.key,
+                        ...voucher
+                    });
+                }
+            });
+
+            // Sort by redemption date (newest first)
+            redemptions.sort((a, b) => new Date(b.redeemedAt) - new Date(a.redeemedAt));
+
+            return { success: true, data: redemptions.slice(0, limit) };
+        }
+
+        return { success: true, data: [] };
+    } catch (error) {
+        console.error("❌ Error getting staff redemption history:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Enhanced role change function with better feedback
+export const changeUserRole = async (userId, newRole) => {
+    try {
+        console.log(`🔄 Changing user ${userId} role to ${newRole}`);
+
+        const userRef = ref(database, `users/${userId}`);
+
+        // Get current user data first
+        const snapshot = await get(userRef);
+        if (!snapshot.exists()) {
+            return { success: false, error: 'User not found' };
+        }
+
+        const currentData = snapshot.val();
+        console.log('📋 Current user role:', currentData.role);
+
+        // Update role
+        await update(userRef, {
+            role: newRole,
+            roleUpdatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+
+        console.log('✅ User role updated successfully to:', newRole);
+        return { success: true, oldRole: currentData.role, newRole };
+    } catch (error) {
+        console.error("❌ Error changing user role:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Enhanced recordScan with comprehensive notifications
+export const recordScanWithNotifications = async (userId, scanData) => {
+    try {
+        const result = await recordScan(userId, scanData);
+
+        if (result.success) {
+            // Check for achievements and send notifications
+            const newAchievements = await checkAndAwardAchievements(userId, {
+                totalScans: result.newTotalScans,
+                points: result.newTotalPoints,
+                level: result.newLevel
+            });
+
+            // Send achievement notifications
+            for (const achievement of newAchievements) {
+                await sendAchievementNotification(
+                    userId,
+                    achievement.name,
+                    achievement.points
+                );
+            }
+
+            // Level up notification
+            if (result.newLevel > (result.newLevel - Math.floor(result.points / 100))) {
+                const pointsToNext = ((result.newLevel + 1) * 100) - result.newTotalPoints;
+                await sendLevelUpNotification(userId, result.newLevel, pointsToNext);
+            }
+
+            // Milestone notifications
+            const milestones = [5, 10, 25, 50, 100, 250, 500, 1000];
+            if (milestones.includes(result.newTotalScans)) {
+                await sendMilestoneNotification(
+                    userId,
+                    `${result.newTotalScans} Items Recycled`,
+                    result.newTotalScans >= 100 ? 'Special eco-warrior badge!' : null
+                );
+            }
+
+            // Points milestones
+            const pointsMilestones = [100, 500, 1000, 2500, 5000];
+            if (pointsMilestones.includes(result.newTotalPoints)) {
+                await sendMilestoneNotification(
+                    userId,
+                    `${result.newTotalPoints} Points Earned`,
+                    'You\'re becoming an eco-champion!'
+                );
+            }
+
+            // Streak tracking and notifications
+            await checkAndUpdateStreak(userId);
+
+            return {
+                ...result,
+                newAchievements
+            };
+        }
+
+        return result;
+    } catch (error) {
+        console.error("Error recording scan with notifications:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Streak tracking system
+export const checkAndUpdateStreak = async (userId) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        const today = new Date().toDateString();
+        const lastScanDate = userData?.lastScanDate ? new Date(userData.lastScanDate).toDateString() : null;
+        const currentStreak = userData?.streak || 0;
+
+        if (lastScanDate !== today) {
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+
+            let newStreak;
+            if (lastScanDate === yesterday) {
+                // Consecutive day
+                newStreak = currentStreak + 1;
+            } else {
+                // Streak broken or first scan
+                newStreak = 1;
+            }
+
+            await update(userRef, {
+                streak: newStreak,
+                lastScanDate: new Date().toISOString()
+            });
+
+            // Send streak notifications
+            if ([3, 7, 14, 30, 100].includes(newStreak)) {
+                await sendStreakNotification(userId, newStreak);
+            }
+
+            return newStreak;
+        }
+
+        return currentStreak;
+    } catch (error) {
+        console.error('Error checking streak:', error);
+        return 0;
+    }
+};
+
+// Enhanced reward creation with notifications
+export const createRewardWithNotification = async (rewardData) => {
+    try {
+        const result = await createReward(rewardData);
+
+        if (result.success) {
+            // Get all users to notify about new reward
+            const usersResult = await getAllUsers();
+
+            if (usersResult.success) {
+                // Notify all users about new reward (limit to active users)
+                const activeUsers = usersResult.data.filter(user =>
+                    user.role === 'user' &&
+                    (user.totalScans || 0) > 0 &&
+                    (user.points || 0) >= rewardData.points * 0.5 // Only notify users who are close to affording it
+                );
+
+                // Send notifications in batches to avoid overwhelming
+                for (let i = 0; i < Math.min(activeUsers.length, 100); i++) {
+                    const user = activeUsers[i];
+                    setTimeout(() => {
+                        sendNewRewardNotification(user.id, rewardData.name, rewardData.points, rewardData.category);
+                    }, i * 100); // Stagger notifications
+                }
+            }
+        }
+
+        return result;
+    } catch (error) {
+        console.error("Error creating reward with notification:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Check for expiring vouchers and send notifications
+export const checkExpiringVouchers = async () => {
+    try {
+        const vouchersResult = await getAllVouchers();
+
+        if (!vouchersResult.success) return;
+
+        const vouchers = vouchersResult.data;
+        const now = new Date();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const threeDays = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+        for (const voucher of vouchers) {
+            if (voucher.status === 'active') {
+                const expiryDate = new Date(voucher.expiresAt);
+
+                // Notify 3 days before expiry
+                if (expiryDate <= threeDays && expiryDate > tomorrow && !voucher.threeDayNotificationSent) {
+                    await sendVoucherExpiringNotification(voucher.userId, voucher.rewardName, '3 days');
+
+                    // Mark as notified
+                    const voucherRef = ref(database, `vouchers/${voucher.id}`);
+                    await update(voucherRef, { threeDayNotificationSent: true });
+                }
+
+                // Notify 1 day before expiry
+                if (expiryDate <= tomorrow && expiryDate > now && !voucher.oneDayNotificationSent) {
+                    await sendVoucherExpiringNotification(voucher.userId, voucher.rewardName, '1 day');
+
+                    // Mark as notified
+                    const voucherRef = ref(database, `vouchers/${voucher.id}`);
+                    await update(voucherRef, { oneDayNotificationSent: true });
+                }
+            }
+        }
+
+        console.log('✅ Expiring voucher check completed');
+    } catch (error) {
+        console.error('Error checking expiring vouchers:', error);
+    }
+};
+
+// Send daily recycling reminders
+export const sendDailyReminders = async () => {
+    try {
+        const usersResult = await getAllUsers();
+
+        if (!usersResult.success) return;
+
+        const users = usersResult.data;
+        const now = new Date();
+        const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+        for (const user of users) {
+            if (user.role === 'user' && user.lastScanDate) {
+                const lastScan = new Date(user.lastScanDate);
+                const daysSinceLastScan = Math.floor((now - lastScan) / (24 * 60 * 60 * 1000));
+
+                // Send reminder if inactive for 3+ days
+                if (daysSinceLastScan >= 3 && lastScan < threeDaysAgo) {
+                    await sendRecyclingReminderNotification(user.id, daysSinceLastScan);
+                }
+            }
+        }
+
+        console.log('✅ Daily reminders sent');
+    } catch (error) {
+        console.error('Error sending daily reminders:', error);
+    }
+};
+
+// Create bonus events
+export const createBonusEvent = async (eventData) => {
+    try {
+        const eventsRef = ref(database, 'events');
+        const newEventRef = push(eventsRef);
+
+        const event = {
+            ...eventData,
+            id: newEventRef.key,
+            active: true,
+            createdAt: serverTimestamp()
+        };
+
+        await set(newEventRef, event);
+
+        // Notify all active users about bonus event
+        const usersResult = await getAllUsers();
+        if (usersResult.success) {
+            const activeUsers = usersResult.data.filter(u => u.role === 'user' && (u.totalScans || 0) > 0);
+
+            for (let i = 0; i < Math.min(activeUsers.length, 200); i++) {
+                setTimeout(() => {
+                    sendBonusEventNotification(
+                        activeUsers[i].id,
+                        eventData.name,
+                        eventData.bonusMultiplier,
+                        eventData.endsAt
+                    );
+                }, i * 50);
+            }
+        }
+
+        return { success: true, eventId: newEventRef.key };
+    } catch (error) {
+        console.error('Error creating bonus event:', error);
+        return { success: false, error: error.message };
+    }
+};
+// Test function to trigger various notifications (remove in production)
+export const testNotifications = async (userId) => {
+    if (!__DEV__) return;
+
+    try {
+        console.log('🧪 Testing notifications for user:', userId);
+
+        // Test different notification types
+        setTimeout(() => sendAchievementNotification(userId, 'Test Achievement', 50), 1000);
+        setTimeout(() => sendLevelUpNotification(userId, 5, 200), 3000);
+        setTimeout(() => sendMilestoneNotification(userId, '10 Items Recycled', 'Special badge'), 5000);
+        setTimeout(() => sendNewRewardNotification(userId, 'Test Reward', 500, 'food'), 7000);
+        setTimeout(() => sendVoucherExpiringNotification(userId, 'Cafeteria Voucher', '2 days'), 9000);
+
+        console.log('🧪 Test notifications scheduled');
+        return { success: true };
+    } catch (error) {
+        console.error('Error testing notifications:', error);
         return { success: false, error: error.message };
     }
 };

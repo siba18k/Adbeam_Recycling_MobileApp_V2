@@ -34,7 +34,7 @@ import {
     updateUserData,
     promoteToStaff,
     toggleRewardAvailability,
-    getRewards
+    getRewards, createRewardWithNotification
 } from '../services/database';
 import { colors, gradients } from '../theme/colors';
 
@@ -124,10 +124,11 @@ export default function AdminDashboardScreen({ navigation }) {
             stock: parseInt(newReward.stock),
         };
 
-        const result = await createReward(rewardData);
+        // Use the enhanced function that sends notifications
+        const result = await createRewardWithNotification(rewardData);
 
         if (result.success) {
-            Alert.alert('Success', 'Reward created successfully!');
+            Alert.alert('Success', 'Reward created and users have been notified!');
             setShowCreateModal(false);
             resetNewReward();
             await loadAdminData();
@@ -135,7 +136,6 @@ export default function AdminDashboardScreen({ navigation }) {
             Alert.alert('Error', result.error);
         }
     };
-
     const handleEditReward = async () => {
         if (!editRewardData.name || !editRewardData.description || !editRewardData.points) {
             Alert.alert('Error', 'Please fill in all required fields');

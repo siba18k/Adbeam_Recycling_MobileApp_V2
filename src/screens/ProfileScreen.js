@@ -24,11 +24,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native'; // Add this import
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, uploadProfileImage } from '../services/database';
 import { useOffline } from '../context/OfflineContext';
 import { colors, gradients } from '../theme/colors';
+import {useNavigation} from "@react-navigation/native";
 
 const { width } = Dimensions.get('window');
 
@@ -104,7 +104,32 @@ export default function ProfileScreen() {
         );
         setFilteredUniversities(filtered);
     }, [universitySearch]);
+// Add this in the ProfileScreen component (after existing useEffect):
+    useEffect(() => {
+        // Force navigation refresh when role changes
+        if (userProfile?.role) {
+            console.log('🔄 Profile role detected:', userProfile.role);
+        }
+    }, [userProfile?.role]);
 
+// Add this function in ProfileScreen:
+    const handleRoleBasedNavigation = () => {
+        if (userProfile?.role === 'staff') {
+            Alert.alert(
+                'Staff Access Detected',
+                'You have been granted staff access. Please restart the app or logout and login again to access the staff dashboard.',
+                [
+                    { text: 'Restart App', onPress: () => {
+                            // Force app refresh by logging out and back in
+                            logout().then(() => {
+                                Alert.alert('Please login again to access staff dashboard');
+                            });
+                        }},
+                    { text: 'Later', style: 'cancel' }
+                ]
+            );
+        }
+    };
     const handleImagePicker = () => {
         Alert.alert(
             'Update Profile Photo',
@@ -768,6 +793,27 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </Card>
 
+                    // Add this in the settings section (only in development):
+                    {__DEV__ && (
+                        <TouchableOpacity
+                            style={styles.settingItem}
+                            onPress={async () => {
+                                const { testNotifications } = await import('../services/database');
+                                await testNotifications(user.uid);
+                                Alert.alert('Test Notifications', 'Various test notifications have been scheduled!');
+                            }}
+                        >
+                            <LinearGradient
+                                colors={['#ef4444', '#dc2626']}
+                                style={styles.settingIcon}
+                            >
+                                <Ionicons name="notifications-outline" size={20} color="white" />
+                            </LinearGradient>
+                            <Text style={styles.settingText}>Test Notifications (Dev)</Text>
+                            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                    )}
+
                     {/* Offline Sync Status Card */}
                     <Card style={styles.syncCard}>
                         <LinearGradient
@@ -860,6 +906,7 @@ export default function ProfileScreen() {
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
@@ -1345,3 +1392,4 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
     },
 });
+
