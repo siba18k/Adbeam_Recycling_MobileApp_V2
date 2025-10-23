@@ -34,7 +34,9 @@ import {
     updateUserData,
     promoteToStaff,
     toggleRewardAvailability,
-    getRewards, createRewardWithNotification
+    getRewards,
+    createRewardWithNotification,
+    createBonusEvent
 } from '../services/database';
 import { colors, gradients } from '../theme/colors';
 
@@ -50,6 +52,7 @@ export default function AdminDashboardScreen({ navigation }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showUserEditModal, setShowUserEditModal] = useState(false);
+    const [showEventModal, setShowEventModal] = useState(false);
     const [editingReward, setEditingReward] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
 
@@ -77,6 +80,13 @@ export default function AdminDashboardScreen({ navigation }) {
         points: '',
         level: '',
         role: 'user'
+    });
+
+    const [newEvent, setNewEvent] = useState({
+        name: '',
+        description: '',
+        bonusMultiplier: '2',
+        durationHours: '24'
     });
 
     const loadAdminData = async () => {
@@ -136,6 +146,36 @@ export default function AdminDashboardScreen({ navigation }) {
             Alert.alert('Error', result.error);
         }
     };
+
+    const handleCreateBonusEvent = async () => {
+        if (!newEvent.name || !newEvent.description) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        const eventData = {
+            name: newEvent.name,
+            description: newEvent.description,
+            bonusMultiplier: parseInt(newEvent.bonusMultiplier),
+            endsAt: new Date(Date.now() + parseInt(newEvent.durationHours) * 60 * 60 * 1000).toISOString()
+        };
+
+        const result = await createBonusEvent(eventData);
+
+        if (result.success) {
+            Alert.alert('Success', 'Bonus event created and all active users have been notified!');
+            setShowEventModal(false);
+            setNewEvent({
+                name: '',
+                description: '',
+                bonusMultiplier: '2',
+                durationHours: '24'
+            });
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
     const handleEditReward = async () => {
         if (!editRewardData.name || !editRewardData.description || !editRewardData.points) {
             Alert.alert('Error', 'Please fill in all required fields');
@@ -527,18 +567,32 @@ export default function AdminDashboardScreen({ navigation }) {
                         <View>
                             <View style={styles.rewardsHeader}>
                                 <Text style={styles.sectionTitle}>Rewards Management</Text>
-                                <TouchableOpacity
-                                    style={styles.addButton}
-                                    onPress={() => setShowCreateModal(true)}
-                                >
-                                    <LinearGradient
-                                        colors={gradients.success}
-                                        style={styles.addButtonGradient}
+                                <View style={styles.headerButtons}>
+                                    <TouchableOpacity
+                                        style={styles.addButton}
+                                        onPress={() => setShowEventModal(true)}
                                     >
-                                        <Ionicons name="add" size={20} color="white" />
-                                        <Text style={styles.addButtonText}>Add Reward</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
+                                        <LinearGradient
+                                            colors={gradients.accent}
+                                            style={styles.addButtonGradient}
+                                        >
+                                            <Ionicons name="flash" size={20} color="white" />
+                                            <Text style={styles.addButtonText}>Bonus Event</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.addButton}
+                                        onPress={() => setShowCreateModal(true)}
+                                    >
+                                        <LinearGradient
+                                            colors={gradients.success}
+                                            style={styles.addButtonGradient}
+                                        >
+                                            <Ionicons name="add" size={20} color="white" />
+                                            <Text style={styles.addButtonText}>Add Reward</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
 
                             {rewards.map((reward) => (
@@ -899,6 +953,78 @@ export default function AdminDashboardScreen({ navigation }) {
                         </ScrollView>
                     </Card>
                 </Modal>
+
+                {/* Create Bonus Event Modal */}
+                <Modal
+                    visible={showEventModal}
+                    onDismiss={() => setShowEventModal(false)}
+                    contentContainerStyle={styles.modalContainer}
+                >
+                    <Card style={styles.modalCard}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Create Bonus Event</Text>
+                            <TouchableOpacity onPress={() => setShowEventModal(false)}>
+                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalContent}>
+                            <TextInput
+                                label="Event Name *"
+                                value={newEvent.name}
+                                onChangeText={(text) => setNewEvent(prev => ({ ...prev, name: text }))}
+                                mode="outlined"
+                                style={styles.modalInput}
+                                placeholder="e.g. Double Points Weekend"
+                            />
+
+                            <TextInput
+                                label="Description *"
+                                value={newEvent.description}
+                                onChangeText={(text) => setNewEvent(prev => ({ ...prev, description: text }))}
+                                mode="outlined"
+                                multiline
+                                numberOfLines={3}
+                                style={styles.modalInput}
+                                placeholder="Describe the bonus event..."
+                            />
+
+                            <TextInput
+                                label="Bonus Multiplier *"
+                                value={newEvent.bonusMultiplier}
+                                onChangeText={(text) => setNewEvent(prev => ({ ...prev, bonusMultiplier: text }))}
+                                mode="outlined"
+                                keyboardType="numeric"
+                                style={styles.modalInput}
+                                placeholder="2 = 2x points, 3 = 3x points"
+                            />
+
+                            <TextInput
+                                label="Duration (Hours) *"
+                                value={newEvent.durationHours}
+                                onChangeText={(text) => setNewEvent(prev => ({ ...prev, durationHours: text }))}
+                                mode="outlined"
+                                keyboardType="numeric"
+                                style={styles.modalInput}
+                                placeholder="24 = 1 day, 168 = 1 week"
+                            />
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity
+                                    style={styles.createButton}
+                                    onPress={handleCreateBonusEvent}
+                                >
+                                    <LinearGradient
+                                        colors={gradients.accent}
+                                        style={styles.createButtonGradient}
+                                    >
+                                        <Text style={styles.createButtonText}>Create & Notify Users</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </Card>
+                </Modal>
             </LinearGradient>
         </SafeAreaView>
     );
@@ -1117,6 +1243,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 16,
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        gap: 8,
     },
     addButton: {
         borderRadius: 12,
