@@ -8,6 +8,7 @@ import {
     Alert,
     Modal,
     RefreshControl,
+    Dimensions,
 } from 'react-native';
 import {
     Text,
@@ -39,6 +40,8 @@ import {
     createBonusEvent
 } from '../services/database';
 import { colors, gradients } from '../theme/colors';
+
+const { width } = Dimensions.get('window');
 
 export default function AdminDashboardScreen({ navigation }) {
     const { user, userProfile } = useAuth();
@@ -567,32 +570,34 @@ export default function AdminDashboardScreen({ navigation }) {
                         <View>
                             <View style={styles.rewardsHeader}>
                                 <Text style={styles.sectionTitle}>Rewards Management</Text>
-                                <View style={styles.headerButtons}>
-                                    <TouchableOpacity
-                                        style={styles.addButton}
-                                        onPress={() => setShowEventModal(true)}
+                            </View>
+                            
+                            {/* Fixed header buttons - now stacked vertically on smaller screens */}
+                            <View style={styles.headerButtonsContainer}>
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => setShowEventModal(true)}
+                                >
+                                    <LinearGradient
+                                        colors={gradients.accent}
+                                        style={styles.addButtonGradient}
                                     >
-                                        <LinearGradient
-                                            colors={gradients.accent}
-                                            style={styles.addButtonGradient}
-                                        >
-                                            <Ionicons name="flash" size={20} color="white" />
-                                            <Text style={styles.addButtonText}>Bonus Event</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.addButton}
-                                        onPress={() => setShowCreateModal(true)}
+                                        <Ionicons name="flash" size={20} color="white" />
+                                        <Text style={styles.addButtonText}>Bonus Event</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => setShowCreateModal(true)}
+                                >
+                                    <LinearGradient
+                                        colors={gradients.success}
+                                        style={styles.addButtonGradient}
                                     >
-                                        <LinearGradient
-                                            colors={gradients.success}
-                                            style={styles.addButtonGradient}
-                                        >
-                                            <Ionicons name="add" size={20} color="white" />
-                                            <Text style={styles.addButtonText}>Add Reward</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
+                                        <Ionicons name="add" size={20} color="white" />
+                                        <Text style={styles.addButtonText}>Add Reward</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
                             </View>
 
                             {rewards.map((reward) => (
@@ -1148,7 +1153,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '700',
         color: colors.text.primary,
-        marginBottom: 16,
+        marginBottom: 8,
     },
     topUsersCard: {
         borderRadius: 16,
@@ -1225,38 +1230,41 @@ const styles = StyleSheet.create({
     },
     userActions: {
         flexDirection: 'row',
-        gap: 4,
+        gap: 6,
         marginLeft: 12,
+        minWidth: 100,
+        justifyContent: 'flex-end',
     },
     actionButton: {
         borderRadius: 8,
         overflow: 'hidden',
     },
     actionButtonGradient: {
-        width: 28,
-        height: 28,
+        width: 32,
+        height: 32,
         justifyContent: 'center',
         alignItems: 'center',
     },
     rewardsHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         marginBottom: 16,
     },
-    headerButtons: {
-        flexDirection: 'row',
-        gap: 8,
+    headerButtonsContainer: {
+        flexDirection: width < 400 ? 'column' : 'row',
+        gap: 12,
+        marginBottom: 16,
     },
     addButton: {
         borderRadius: 12,
         overflow: 'hidden',
+        flex: width < 400 ? 1 : 0,
+        minWidth: width < 400 ? '100%' : 140,
     },
     addButtonGradient: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingVertical: 12,
     },
     addButtonText: {
         color: 'white',
@@ -1271,11 +1279,11 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     rewardContent: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
+        flexDirection: 'column',
     },
     rewardInfo: {
         flex: 1,
+        marginBottom: 12,
     },
     rewardHeader: {
         flexDirection: 'row',
@@ -1299,28 +1307,35 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 8,
         flexWrap: 'wrap',
+        marginBottom: 8,
     },
     chipText: {
         fontSize: 10,
     },
     rewardActions: {
         flexDirection: 'row',
-        gap: 8,
-        marginLeft: 12,
+        gap: 12,
+        justifyContent: 'center',
     },
     editButton: {
         borderRadius: 8,
         overflow: 'hidden',
+        flex: 1,
     },
     editButtonGradient: {
-        padding: 8,
+        padding: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     deleteButton: {
         borderRadius: 8,
         overflow: 'hidden',
+        flex: 1,
     },
     deleteButtonGradient: {
-        padding: 8,
+        padding: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     voucherStats: {
         flexDirection: 'row',
