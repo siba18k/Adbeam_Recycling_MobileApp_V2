@@ -791,28 +791,28 @@ export default function ProfileScreen() {
                             <Text style={styles.settingText}>Help & Support</Text>
                             <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
                         </TouchableOpacity>
-                    </Card>
 
-                    // Add this in the settings section (only in development):
-                    {__DEV__ && (
-                        <TouchableOpacity
-                            style={styles.settingItem}
-                            onPress={async () => {
-                                const { testNotifications } = await import('../services/database');
-                                await testNotifications(user.uid);
-                                Alert.alert('Test Notifications', 'Various test notifications have been scheduled!');
-                            }}
-                        >
-                            <LinearGradient
-                                colors={['#ef4444', '#dc2626']}
-                                style={styles.settingIcon}
+                        {/* Test Notifications - only in development */}
+                        {__DEV__ && (
+                            <TouchableOpacity
+                                style={styles.settingItem}
+                                onPress={async () => {
+                                    const { testNotifications } = await import('../services/database');
+                                    await testNotifications(user.uid);
+                                    Alert.alert('Test Notifications', 'Various test notifications have been scheduled!');
+                                }}
                             >
-                                <Ionicons name="notifications-outline" size={20} color="white" />
-                            </LinearGradient>
-                            <Text style={styles.settingText}>Test Notifications (Dev)</Text>
-                            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                        </TouchableOpacity>
-                    )}
+                                <LinearGradient
+                                    colors={['#ef4444', '#dc2626']}
+                                    style={styles.settingIcon}
+                                >
+                                    <Ionicons name="notifications-outline" size={20} color="white" />
+                                </LinearGradient>
+                                <Text style={styles.settingText}>Test Notifications (Dev)</Text>
+                                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+                            </TouchableOpacity>
+                        )}
+                    </Card>
 
                     {/* Offline Sync Status Card */}
                     <Card style={styles.syncCard}>
@@ -1392,4 +1392,3 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
     },
 });
-
