@@ -1,38 +1,22 @@
 pluginManagement {
-    includeBuild(new File(["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().toString())
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
 }
-plugins { id("com.facebook.react.settings") }
-
-extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
-  if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
-    ex.autolinkLibrariesFromCommand()
-  } else {
-    def command = [
-      'node',
-      '--no-warnings',
-      '--eval',
-      'require(require.resolve(\'expo-modules-autolinking\', { paths: [require.resolve(\'expo/package.json\')] }))(process.argv.slice(1))',
-      'react-native-config',
-      '--json',
-      '--platform',
-      'android'
-    ].toList()
-    ex.autolinkLibrariesFromCommand(command)
-  }
-}
-
-rootProject.name = 'adbeam-recycling-mobile'
 
 dependencyResolutionManagement {
-  versionCatalogs {
-    reactAndroidLibs {
-      from(files(new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), "../gradle/libs.versions.toml")))
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://www.jitpack.io") }
+        maven { url = uri("$rootDir/../node_modules/react-native/android") }
+        maven { url = uri("$rootDir/../node_modules/expo-modules-core/android/maven") }
+        maven { url = uri("$rootDir/../node_modules/expo/android/maven") }
     }
-  }
 }
 
-apply from: new File(["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim(), "../scripts/autolinking.gradle");
-useExpoModules()
-
-include ':app'
-includeBuild(new File(["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile())
+rootProject.name = "Adbeam_Recycling_MobileApp_V2"
+include(":app")

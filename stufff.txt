@@ -1,0 +1,5 @@
+Implement the use of fluid animations to make the app feel alive and responsive by
+making the gradients move around slowly like a liquid and having the progress bar also fill up like a liquid.
+I also want it so that if the user swipes left or right it takes the to the next screen with a clean
+and responsive animation. Feel free to implement highly responsive and efficient css and react js frameworks to accomplish
+this.

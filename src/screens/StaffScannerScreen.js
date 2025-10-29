@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { sendVoucherRedeemedNotification } from '../services/notificationService';
 import {
     View,
     StyleSheet,
@@ -37,46 +38,47 @@ export default function StaffScannerScreen({ navigation }) {
 
         try {
             console.log('🔄 Processing voucher code:', data);
-            const result = await redeemVoucherByStaff(data, user.uid);
+            const result = await redeemVoucherByStaff(
+                data,
+                user.uid,
+                userProfile?.displayName || 'Staff Member'
+            );
 
             if (result.success) {
-                // Send notification to user
+                // Send notification to user using the proper function
                 try {
-                    await sendNotification(result.userId, {
-                        title: 'Voucher Redeemed! 🎉',
-                        body: `Your "${result.reward}" voucher has been successfully redeemed at campus.`,
-                        data: {
-                            type: 'voucher_redeemed',
-                            voucherId: result.voucherId,
-                            rewardName: result.reward
-                        }
-                    });
+                    await sendVoucherRedeemedNotification(
+                        result.userId,
+                        result.reward,
+                        userProfile?.displayName || 'Staff Member',
+                        result.pointsCost
+                    );
+                    console.log('✅ User notification sent');
                 } catch (notificationError) {
-                    console.log('Notification failed (non-critical):', notificationError);
+                    console.log('⚠️ Notification failed (non-critical):', notificationError);
                 }
 
                 setLastScanResult({
                     success: true,
                     reward: result.reward,
                     studentName: result.studentName || 'Student',
-                    code: data
+                    studentEmail: result.studentEmail,
+                    code: data,
+                    pointsCost: result.pointsCost
                 });
 
+                setScanCount(prev => prev + 1);
                 Vibration.vibrate([0, 200, 100, 200]); // Success vibration
 
                 Alert.alert(
-                    'Voucher Redeemed Successfully! ✅',
-                    `Reward: ${result.reward}\n\nThe student has been notified of the redemption.\n\nCode: ${data}`,
+                    '✅ Voucher Redeemed Successfully!',
+                    `Student: ${result.studentName || 'Student'}\nReward: ${result.reward}\nPoints Used: ${result.pointsCost}\nCode: ${data}\n\n✅ Student has been notified`,
                     [
                         {
                             text: 'Scan Another',
-                            onPress: () => {
-                                setScanned(false);
-                                setIsProcessing(false);
-                                setLastScanResult(null);
-                            }
+                            onPress: () => resetScanner()
                         },
-                        { text: 'Done', onPress: () => navigation.goBack() }
+                        { text: 'Back to Dashboard', onPress: () => navigation.goBack() }
                     ]
                 );
             } else {
@@ -89,17 +91,10 @@ export default function StaffScannerScreen({ navigation }) {
                 Vibration.vibrate([0, 500]); // Error vibration
 
                 Alert.alert(
-                    'Redemption Failed ❌',
+                    '❌ Redemption Failed',
                     result.error,
                     [
-                        {
-                            text: 'Scan Another',
-                            onPress: () => {
-                                setScanned(false);
-                                setIsProcessing(false);
-                                setLastScanResult(null);
-                            }
-                        }
+                        { text: 'Scan Another', onPress: () => resetScanner() }
                     ]
                 );
             }
@@ -115,16 +110,11 @@ export default function StaffScannerScreen({ navigation }) {
                 'Error',
                 'Failed to process voucher. Please try again.',
                 [
-                    {
-                        text: 'Try Again',
-                        onPress: () => {
-                            setScanned(false);
-                            setIsProcessing(false);
-                            setLastScanResult(null);
-                        }
-                    }
+                    { text: 'Try Again', onPress: () => resetScanner() }
                 ]
             );
+        } finally {
+            setIsProcessing(false);
         }
     };
 

@@ -11,6 +11,8 @@ import { ref, onValue, off } from 'firebase/database';
 import { auth, database } from '../config/firebase';
 import { createUserProfile, getUserProfile } from '../services/database';
 import { processQueue } from '../services/offlineQueue';
+import { initializeNotifications } from '../services/notificationService';
+
 
 const AuthContext = createContext({
     user: null,
@@ -73,7 +75,8 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
-    const setupRealtimeProfileListener = (userId) => {
+    // Update the setupRealtimeProfileListener function:
+    const setupRealtimeProfileListener = async (userId) => {
         try {
             const userRef = ref(database, `users/${userId}`);
 
@@ -82,7 +85,7 @@ export const AuthProvider = ({ children }) => {
                 if (snapshot.exists()) {
                     const profileData = snapshot.val();
                     setUserProfile(profileData);
-                    console.log('Real-time profile update:', profileData.points);
+                    console.log('Real-time profile update:', profileData.role);
                 } else {
                     console.log('No user profile found, may need to create one');
                     setUserProfile(null);
@@ -90,6 +93,12 @@ export const AuthProvider = ({ children }) => {
             }, (error) => {
                 console.error('Error in real-time profile listener:', error);
             });
+
+            // Initialize notifications for this user
+            setTimeout(() => {
+                initializeNotifications(userId);
+            }, 1000);
+
         } catch (error) {
             console.error('Error setting up real-time listener:', error);
         }
@@ -280,6 +289,28 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Add this function to AuthContext.js, in the AuthProvider component:
+    const forceRefreshUserProfile = async () => {
+        if (user) {
+            try {
+                console.log('🔄 Force refreshing user profile...');
+
+                // Clear current profile to force re-render
+                setUserProfile(null);
+
+                // Get fresh data from database
+                const result = await getUserProfile(user.uid);
+                if (result.success) {
+                    setUserProfile(result.data);
+                    console.log('✅ Profile force refreshed, new role:', result.data.role);
+                }
+            } catch (error) {
+                console.error('Error force refreshing profile:', error);
+            }
+        }
+    };
+
+// Update the value object to include the new function:
     const value = {
         user,
         userProfile,
@@ -289,7 +320,9 @@ export const AuthProvider = ({ children }) => {
         logout,
         resetPassword,
         refreshUserProfile,
+        forceRefreshUserProfile, // Add this new function
     };
+
 
     return (
         <AuthContext.Provider value={value}>
