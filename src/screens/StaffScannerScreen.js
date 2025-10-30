@@ -22,12 +22,20 @@ import { sendNotification } from '../services/notificationService';
 import { colors, gradients } from '../theme/colors';
 
 export default function StaffScannerScreen({ navigation }) {
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth(); // ✅ Fixed: Added userProfile
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [flashOn, setFlashOn] = useState(false);
     const [lastScanResult, setLastScanResult] = useState(null);
+    const [scanCount, setScanCount] = useState(0); // ✅ Fixed: Added scanCount state
+
+    // ✅ Fixed: Added resetScanner function
+    const resetScanner = () => {
+        setScanned(false);
+        setIsProcessing(false);
+        setLastScanResult(null);
+    };
 
     const handleVoucherScan = async ({ data }) => {
         if (scanned || isProcessing) return;
@@ -182,6 +190,11 @@ export default function StaffScannerScreen({ navigation }) {
                                 <Text style={styles.instructionText}>
                                     Point camera at student's voucher QR code
                                 </Text>
+                                {scanCount > 0 && (
+                                    <Text style={styles.scanCounter}>
+                                        Scans Today: {scanCount}
+                                    </Text>
+                                )}
                             </View>
                         </LinearGradient>
                     </View>
@@ -230,6 +243,19 @@ export default function StaffScannerScreen({ navigation }) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
+                                style={styles.resetButton}
+                                onPress={resetScanner}
+                            >
+                                <LinearGradient
+                                    colors={gradients.primary}
+                                    style={styles.resetButtonGradient}
+                                >
+                                    <Ionicons name="refresh" size={20} color="white" />
+                                    <Text style={styles.resetButtonText}>Reset</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
                                 style={styles.backButton}
                                 onPress={() => navigation.goBack()}
                             >
@@ -238,7 +264,7 @@ export default function StaffScannerScreen({ navigation }) {
                                     style={styles.backButtonGradient}
                                 >
                                     <Ionicons name="arrow-back" size={20} color="white" />
-                                    <Text style={styles.backButtonText}>Back to Admin</Text>
+                                    <Text style={styles.backButtonText}>Back</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
@@ -258,7 +284,7 @@ export default function StaffScannerScreen({ navigation }) {
                                         />
                                         <Text style={styles.resultText}>
                                             {lastScanResult.success
-                                                ? `✅ ${lastScanResult.reward} redeemed!`
+                                                ? `✅ ${lastScanResult.reward} redeemed for ${lastScanResult.studentName}!`
                                                 : `❌ ${lastScanResult.error}`
                                             }
                                         </Text>
@@ -351,6 +377,12 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.9)',
         textAlign: 'center',
     },
+    scanCounter: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.8)',
+        marginTop: 8,
+        fontWeight: '600',
+    },
     centerSection: {
         flex: 2,
         justifyContent: 'center',
@@ -433,6 +465,22 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    resetButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    resetButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    resetButtonText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 4,
+    },
     backButton: {
         borderRadius: 12,
         overflow: 'hidden',
@@ -440,14 +488,14 @@ const styles = StyleSheet.create({
     backButtonGradient: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
     },
     backButtonText: {
         color: 'white',
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
-        marginLeft: 8,
+        marginLeft: 4,
     },
     resultCard: {
         borderRadius: 12,
