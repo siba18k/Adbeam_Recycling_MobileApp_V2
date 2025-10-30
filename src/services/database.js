@@ -13,33 +13,7 @@ import {
 import { database } from '../config/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
-// Material types and their point values
-export const MATERIAL_TYPES = {
-    PLASTIC: {
-        name: 'Plastic Bottle',
-        points: 5,
-        color: '#3b82f6',
-        icon: 'water-outline'
-    },
-    GLASS: {
-        name: 'Glass Bottle',
-        points: 10,
-        color: '#10b981',
-        icon: 'wine-outline'
-    },
-    ALUMINUM: {
-        name: 'Aluminum Can',
-        points: 7,
-        color: '#f59e0b',
-        icon: 'nutrition-outline'
-    },
-    PAPER: {
-        name: 'Paper/Cardboard',
-        points: 3,
-        color: '#8b5cf6',
-        icon: 'newspaper-outline'
-    }
-};
+
 import {
     sendAchievementNotification,
     sendLevelUpNotification,
@@ -1558,5 +1532,32 @@ export const testNotifications = async (userId) => {
     } catch (error) {
         console.error('Error testing notifications:', error);
         return { success: false, error: error.message };
+    }
+};
+// Add this to your existing database.js file
+export const MATERIAL_TYPES = {
+    paper: {
+        name: 'Paper/Cardboard',
+        points: 3,
+        color: '#8b5cf6',
+        icon: 'newspaper-outline'
+    },
+    plastic: {
+        name: 'Plastic Bottles',
+        points: 5,
+        color: '#3b82f6',
+        icon: 'water-outline'
+    },
+    aluminum: {
+        name: 'Aluminum Cans',
+        points: 7,
+        color: '#f59e0b',
+        icon: 'nutrition-outline'
+    },
+    glass: {
+        name: 'Glass Bottles',
+        points: 10,
+        color: '#10b981',
+        icon: 'wine-outline'
     }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     StyleSheet,
@@ -8,18 +8,10 @@ import {
     Alert,
     Dimensions,
     FlatList,
-    Modal
+    Modal,
+    Animated,
 } from 'react-native';
-import {
-    Text,
-    Card,
-    Avatar,
-    Button,
-    TextInput,
-    Portal,
-    ActivityIndicator,
-    Badge
-} from 'react-native-paper';
+import { Text, TextInput, ActivityIndicator, Portal } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
@@ -27,12 +19,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, uploadProfileImage } from '../services/database';
 import { useOffline } from '../context/OfflineContext';
-import { colors, gradients } from '../theme/colors';
-import {useNavigation} from "@react-navigation/native";
 
 const { width } = Dimensions.get('window');
 
-// South African Universities List
 const UNIVERSITIES = [
     { id: 'uj', name: 'University of Johannesburg', domain: 'uj.ac.za' },
     { id: 'wits', name: 'University of the Witwatersrand', domain: 'wits.ac.za' },
@@ -44,15 +33,9 @@ const UNIVERSITIES = [
     { id: 'ru', name: 'Rhodes University', domain: 'ru.ac.za' },
     { id: 'ufs', name: 'University of the Free State', domain: 'ufs.ac.za' },
     { id: 'unisa', name: 'University of South Africa', domain: 'unisa.ac.za' },
-    { id: 'tut', name: 'Tshwane University of Technology', domain: 'tut.ac.za' },
-    { id: 'cut', name: 'Central University of Technology', domain: 'cut.ac.za' },
-    { id: 'dut', name: 'Durban University of Technology', domain: 'dut.ac.za' },
-    { id: 'cput', name: 'Cape Peninsula University of Technology', domain: 'cput.ac.za' },
-    { id: 'vu', name: 'Vaal University of Technology', domain: 'vut.ac.za' }
 ];
 
 export default function ProfileScreen() {
-    const navigation = useNavigation(); // Add navigation hook
     const { user, userProfile, logout, refreshUserProfile } = useAuth();
     const { isOffline, queueSize } = useOffline();
     const [isEditing, setIsEditing] = useState(false);
@@ -60,18 +43,91 @@ export default function ProfileScreen() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [showUniversityPicker, setShowUniversityPicker] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('online');
-    const [localImageUri, setLocalImageUri] = useState(null);
 
     const [editData, setEditData] = useState({
         displayName: '',
         studentNumber: '',
         university: '',
         bio: '',
-        phone: ''
+        phone: '',
     });
 
     const [universitySearch, setUniversitySearch] = useState('');
     const [filteredUniversities, setFilteredUniversities] = useState(UNIVERSITIES);
+
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+    const headerScale = useRef(new Animated.Value(0.95)).current;
+    const float1 = useRef(new Animated.Value(0)).current;
+    const float2 = useRef(new Animated.Value(0)).current;
+    const rotate = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        // Entrance animations
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.spring(headerScale, {
+                toValue: 1,
+                friction: 8,
+                tension: 40,
+                useNativeDriver: true,
+            }),
+        ]).start();
+
+        // Floating backgrounds
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(float1, {
+                    toValue: -20,
+                    duration: 3000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float1, {
+                    toValue: 0,
+                    duration: 3000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(float2, {
+                    toValue: -15,
+                    duration: 4000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float2, {
+                    toValue: 0,
+                    duration: 4000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+
+        Animated.loop(
+            Animated.timing(rotate, {
+                toValue: 1,
+                duration: 20000,
+                useNativeDriver: true,
+            })
+        ).start();
+    }, []);
+
+    const spin = rotate.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+    });
 
     useEffect(() => {
         if (userProfile) {
@@ -80,73 +136,38 @@ export default function ProfileScreen() {
                 studentNumber: userProfile.studentNumber || '',
                 university: userProfile.university || '',
                 bio: userProfile.bio || '',
-                phone: userProfile.phone || ''
+                phone: userProfile.phone || '',
             });
-
-            // Reset local image URI when profile updates
-            setLocalImageUri(null);
         }
     }, [userProfile]);
 
     useEffect(() => {
-        // Monitor connection status
-        const unsubscribe = NetInfo.addEventListener(state => {
+        const unsubscribe = NetInfo.addEventListener((state) => {
             setConnectionStatus(state.isConnected ? 'online' : 'offline');
         });
-
         return unsubscribe;
     }, []);
 
     useEffect(() => {
-        // Filter universities based on search
-        const filtered = UNIVERSITIES.filter(uni =>
+        const filtered = UNIVERSITIES.filter((uni) =>
             uni.name.toLowerCase().includes(universitySearch.toLowerCase())
         );
         setFilteredUniversities(filtered);
     }, [universitySearch]);
-// Add this in the ProfileScreen component (after existing useEffect):
-    useEffect(() => {
-        // Force navigation refresh when role changes
-        if (userProfile?.role) {
-            console.log('🔄 Profile role detected:', userProfile.role);
-        }
-    }, [userProfile?.role]);
 
-// Add this function in ProfileScreen:
-    const handleRoleBasedNavigation = () => {
-        if (userProfile?.role === 'staff') {
-            Alert.alert(
-                'Staff Access Detected',
-                'You have been granted staff access. Please restart the app or logout and login again to access the staff dashboard.',
-                [
-                    { text: 'Restart App', onPress: () => {
-                            // Force app refresh by logging out and back in
-                            logout().then(() => {
-                                Alert.alert('Please login again to access staff dashboard');
-                            });
-                        }},
-                    { text: 'Later', style: 'cancel' }
-                ]
-            );
-        }
-    };
     const handleImagePicker = () => {
-        Alert.alert(
-            'Update Profile Photo',
-            'Choose how to update your profile photo',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Take Photo', onPress: () => openCamera() },
-                { text: 'Choose from Gallery', onPress: () => openGallery() }
-            ]
-        );
+        Alert.alert('Update Profile Photo', 'Choose how to update your profile photo', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Take Photo', onPress: () => openCamera() },
+            { text: 'Choose from Gallery', onPress: () => openGallery() },
+        ]);
     };
 
     const openCamera = async () => {
         try {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Camera permission is required to take photos');
+                Alert.alert('Permission needed', 'Camera permission is required');
                 return;
             }
 
@@ -161,7 +182,6 @@ export default function ProfileScreen() {
                 await uploadImage(result.assets[0].uri);
             }
         } catch (error) {
-            console.error('Camera error:', error);
             Alert.alert('Error', 'Failed to open camera');
         }
     };
@@ -170,7 +190,7 @@ export default function ProfileScreen() {
         try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Gallery permission is required to select photos');
+                Alert.alert('Permission needed', 'Gallery permission is required');
                 return;
             }
 
@@ -185,52 +205,23 @@ export default function ProfileScreen() {
                 await uploadImage(result.assets[0].uri);
             }
         } catch (error) {
-            console.error('Gallery error:', error);
             Alert.alert('Error', 'Failed to open gallery');
         }
     };
 
     const uploadImage = async (imageUri) => {
         try {
-            console.log('🖼️ Starting image upload process...');
             setIsUploadingImage(true);
-
-            // Show the selected image immediately for better UX
-            setLocalImageUri(imageUri);
-
             const result = await uploadProfileImage(user.uid, imageUri);
 
             if (result.success) {
-                console.log('✅ Image upload successful!');
-                Alert.alert(
-                    'Success! 📸',
-                    'Profile photo updated successfully!',
-                    [{ text: 'OK' }]
-                );
-
-                // Force refresh of user profile
+                Alert.alert('Success! 📸', 'Profile photo updated!');
                 await refreshUserProfile();
-
-                // Clear local URI since we now have the real URL
-                setLocalImageUri(null);
             } else {
-                console.error('❌ Image upload failed:', result.error);
-                // Revert to previous image
-                setLocalImageUri(null);
-                Alert.alert(
-                    'Upload Failed',
-                    result.error || 'Failed to upload image. Please try again.',
-                    [{ text: 'OK' }]
-                );
+                Alert.alert('Upload Failed', result.error);
             }
         } catch (error) {
-            console.error('❌ Image upload error:', error);
-            setLocalImageUri(null);
-            Alert.alert(
-                'Error',
-                'Failed to upload image. Please check your connection and try again.',
-                [{ text: 'OK' }]
-            );
+            Alert.alert('Error', 'Failed to upload image');
         } finally {
             setIsUploadingImage(false);
         }
@@ -240,7 +231,6 @@ export default function ProfileScreen() {
         try {
             setSaving(true);
 
-            // Validate required fields
             if (!editData.displayName.trim()) {
                 Alert.alert('Error', 'Display name is required');
                 return;
@@ -261,7 +251,7 @@ export default function ProfileScreen() {
                 studentNumber: editData.studentNumber.trim(),
                 university: editData.university.trim(),
                 bio: editData.bio.trim(),
-                phone: editData.phone.trim()
+                phone: editData.phone.trim(),
             };
 
             const result = await updateUserProfile(user.uid, updates);
@@ -274,7 +264,6 @@ export default function ProfileScreen() {
                 Alert.alert('Error', result.error);
             }
         } catch (error) {
-            console.error('Profile update error:', error);
             Alert.alert('Error', 'Failed to update profile');
         } finally {
             setSaving(false);
@@ -282,27 +271,23 @@ export default function ProfileScreen() {
     };
 
     const handleLogout = async () => {
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Logout',
-                    style: 'destructive',
-                    onPress: async () => {
-                        const result = await logout();
-                        if (!result.success) {
-                            Alert.alert('Error', 'Failed to logout');
-                        }
+        Alert.alert('Logout', 'Are you sure you want to logout?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Logout',
+                style: 'destructive',
+                onPress: async () => {
+                    const result = await logout();
+                    if (!result.success) {
+                        Alert.alert('Error', 'Failed to logout');
                     }
-                }
-            ]
-        );
+                },
+            },
+        ]);
     };
 
     const selectUniversity = (university) => {
-        setEditData(prev => ({ ...prev, university: university.name }));
+        setEditData((prev) => ({ ...prev, university: university.name }));
         setShowUniversityPicker(false);
         setUniversitySearch('');
     };
@@ -312,149 +297,97 @@ export default function ProfileScreen() {
     };
 
     const renderUniversityItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.universityItem}
-            onPress={() => selectUniversity(item)}
-        >
+        <TouchableOpacity style={styles.universityItem} onPress={() => selectUniversity(item)} activeOpacity={0.7}>
             <View style={styles.universityInfo}>
                 <Text style={styles.universityName}>{item.name}</Text>
                 <Text style={styles.universityDomain}>{item.domain}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
         </TouchableOpacity>
     );
 
     return (
         <SafeAreaView style={styles.container}>
-            <LinearGradient colors={gradients.backgroundNeutral} style={styles.gradient}>
+            <LinearGradient colors={['#fef3c7', '#fde68a', '#ffffff']} style={styles.gradient}>
+                {/* Floating circles */}
+                <Animated.View
+                    style={[
+                        styles.floatingCircle,
+                        styles.circle1,
+                        { transform: [{ translateY: float1 }, { rotate: spin }] },
+                    ]}
+                />
+                <Animated.View
+                    style={[styles.floatingCircle, styles.circle2, { transform: [{ translateY: float2 }] }]}
+                />
+
                 {/* Connection Status Bar */}
-                <View style={styles.statusBar}>
-                    <LinearGradient
-                        colors={connectionStatus === 'online' ? gradients.success : ['#ef4444', '#dc2626']}
-                        style={styles.statusBarGradient}
-                    >
-                        <View style={styles.statusContent}>
-                            <Ionicons
-                                name={connectionStatus === 'online' ? 'wifi' : 'wifi-off'}
-                                size={16}
-                                color="white"
-                            />
-                            <Text style={styles.statusText}>
-                                {connectionStatus === 'online' ? 'Online' : 'Offline'}
-                            </Text>
+                {connectionStatus === 'offline' && (
+                    <Animated.View style={[styles.statusBar, { opacity: fadeAnim }]}>
+                        <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.statusBarGradient}>
+                            <Ionicons name="wifi-off" size={16} color="white" />
+                            <Text style={styles.statusText}>Offline</Text>
                             {queueSize > 0 && (
                                 <>
                                     <View style={styles.statusSeparator} />
-                                    <Ionicons name="time" size={14} color="white" />
-                                    <Text style={styles.queueText}>
-                                        {queueSize} item{queueSize !== 1 ? 's' : ''} queued
-                                    </Text>
+                                    <Text style={styles.queueText}>{queueSize} queued</Text>
                                 </>
                             )}
-                        </View>
-                    </LinearGradient>
-                </View>
+                        </LinearGradient>
+                    </Animated.View>
+                )}
 
                 <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                     {/* Profile Header */}
-                    <LinearGradient
-                        colors={gradients.backgroundPrimary}
-                        style={styles.headerCard}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                    >
-                        <View style={styles.headerContent}>
+                    <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: headerScale }] }}>
+                        <LinearGradient colors={['#10b981', '#059669', '#047857']} style={styles.headerCard}>
                             <TouchableOpacity
                                 style={styles.avatarContainer}
                                 onPress={handleImagePicker}
                                 disabled={isUploadingImage}
+                                activeOpacity={0.8}
                             >
-                                {/* Show local image first, then profile image, then default */}
-                                {(localImageUri || userProfile?.profileImageUrl) ? (
-                                    <Avatar.Image
-                                        size={100}
-                                        source={{
-                                            uri: localImageUri || userProfile?.profileImageUrl,
-                                            cache: 'reload' // Force reload from server
-                                        }}
-                                        style={styles.avatar}
-                                    />
-                                ) : (
-                                    <Avatar.Text
-                                        size={100}
-                                        label={(userProfile?.displayName || 'U').charAt(0).toUpperCase()}
-                                        style={styles.avatar}
-                                        labelStyle={styles.avatarLabel}
-                                    />
-                                )}
+                                <View style={styles.avatarCircle}>
+                                    <LinearGradient
+                                        colors={['#ffffff', '#d1fae5']}
+                                        style={styles.avatarGradient}
+                                    >
+                                        <Text style={styles.avatarText}>
+                                            {(userProfile?.displayName || 'U').charAt(0).toUpperCase()}
+                                        </Text>
+                                    </LinearGradient>
+                                </View>
 
                                 <View style={styles.cameraButton}>
                                     <LinearGradient
-                                        colors={gradients.accent}
+                                        colors={['#3b82f6', '#2563eb']}
                                         style={styles.cameraButtonGradient}
                                     >
                                         {isUploadingImage ? (
                                             <ActivityIndicator size="small" color="white" />
                                         ) : (
-                                            <Ionicons name="camera" size={16} color="white" />
+                                            <Ionicons name="camera" size={18} color="white" />
                                         )}
                                     </LinearGradient>
                                 </View>
-
-                                {/* Upload progress indicator */}
-                                {isUploadingImage && (
-                                    <View style={styles.uploadOverlay}>
-                                        <LinearGradient
-                                            colors={['rgba(5, 150, 105, 0.9)', 'rgba(5, 150, 105, 0.7)']}
-                                            style={styles.uploadOverlayGradient}
-                                        >
-                                            <ActivityIndicator size="small" color="white" />
-                                            <Text style={styles.uploadText}>Uploading...</Text>
-                                        </LinearGradient>
-                                    </View>
-                                )}
                             </TouchableOpacity>
 
-                            <Text style={styles.nameText}>
-                                {userProfile?.displayName || user?.displayName || 'User'}
-                            </Text>
-                            <Text style={styles.emailText}>
-                                {userProfile?.email || user?.email}
-                            </Text>
-                            <Text style={styles.universityText}>
-                                {userProfile?.university || 'Add your university'}
-                            </Text>
+                            <Text style={styles.nameText}>{userProfile?.displayName || 'User'}</Text>
+                            <Text style={styles.emailText}>{userProfile?.email || user?.email}</Text>
+                            <Text style={styles.universityText}>{userProfile?.university || 'Add your university'}</Text>
 
-                            {/* Level Badge */}
                             <LinearGradient
-                                colors={gradients.accent}
+                                colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)']}
                                 style={styles.levelBadge}
                             >
-                                <Ionicons name="star" size={16} color="white" />
-                                <Text style={styles.levelBadgeText}>
-                                    Level {userProfile?.level || 1}
-                                </Text>
+                                <Ionicons name="star" size={14} color="white" />
+                                <Text style={styles.levelBadgeText}>Level {userProfile?.level || 1}</Text>
                             </LinearGradient>
 
-                            {/* Admin Badge */}
-                            {userProfile?.role === 'admin' && (
-                                <LinearGradient
-                                    colors={['#8b5cf6', '#a855f7']}
-                                    style={styles.adminBadge}
-                                >
-                                    <Ionicons name="shield-checkmark" size={14} color="white" />
-                                    <Text style={styles.adminBadgeText}>Administrator</Text>
-                                </LinearGradient>
-                            )}
-
-                            {/* Quick Edit Button */}
                             {!isEditing && (
-                                <TouchableOpacity
-                                    style={styles.quickEditButton}
-                                    onPress={startEditing}
-                                >
+                                <TouchableOpacity style={styles.quickEditButton} onPress={startEditing} activeOpacity={0.8}>
                                     <LinearGradient
-                                        colors={gradients.secondary}
+                                        colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)']}
                                         style={styles.quickEditGradient}
                                     >
                                         <Ionicons name="pencil" size={16} color="white" />
@@ -462,398 +395,250 @@ export default function ProfileScreen() {
                                     </LinearGradient>
                                 </TouchableOpacity>
                             )}
-                        </View>
-                    </LinearGradient>
+                        </LinearGradient>
+                    </Animated.View>
 
                     {/* Stats Cards */}
-                    <View style={styles.statsSection}>
-                        <Card style={styles.statCard}>
-                            <LinearGradient
-                                colors={[colors.success.main, colors.success.light]}
-                                style={styles.statGradient}
-                            >
-                                <View style={styles.statContent}>
-                                    <Ionicons name="leaf" size={24} color="white" />
-                                    <View style={styles.statText}>
-                                        <Text style={styles.statValue}>{userProfile?.totalScans || 0}</Text>
-                                        <Text style={styles.statLabel}>Items Recycled</Text>
-                                    </View>
-                                </View>
-                            </LinearGradient>
-                        </Card>
-
-                        <Card style={styles.statCard}>
-                            <LinearGradient
-                                colors={[colors.primary.main, colors.primary.light]}
-                                style={styles.statGradient}
-                            >
-                                <View style={styles.statContent}>
-                                    <Ionicons name="star" size={24} color="white" />
-                                    <View style={styles.statText}>
-                                        <Text style={styles.statValue}>{userProfile?.points || 0}</Text>
-                                        <Text style={styles.statLabel}>Total Points</Text>
-                                    </View>
-                                </View>
-                            </LinearGradient>
-                        </Card>
-                    </View>
-
-                    {/* Profile Information Card */}
-                    <Card style={styles.infoCard}>
-                        <View style={styles.cardHeader}>
-                            <Text style={styles.cardTitle}>Profile Information</Text>
-                            <TouchableOpacity
-                                onPress={() => setIsEditing(!isEditing)}
-                                disabled={isSaving}
-                            >
-                                <LinearGradient
-                                    colors={isEditing ? gradients.secondary : gradients.primary}
-                                    style={styles.editButton}
-                                >
-                                    <Ionicons
-                                        name={isEditing ? 'close' : 'pencil'}
-                                        size={16}
-                                        color="white"
-                                    />
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-
-                        {isEditing ? (
-                            <View style={styles.editForm}>
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        label="Display Name *"
-                                        value={editData.displayName}
-                                        onChangeText={(text) => setEditData(prev => ({ ...prev, displayName: text }))}
-                                        mode="outlined"
-                                        left={<TextInput.Icon icon="account-outline" />}
-                                        style={styles.input}
-                                        theme={{
-                                            colors: {
-                                                primary: colors.primary.main,
-                                                outline: colors.primary.light
-                                            }
-                                        }}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        label="Student Number *"
-                                        value={editData.studentNumber}
-                                        onChangeText={(text) => setEditData(prev => ({ ...prev, studentNumber: text }))}
-                                        mode="outlined"
-                                        keyboardType="numeric"
-                                        maxLength={9}
-                                        left={<TextInput.Icon icon="school-outline" />}
-                                        style={styles.input}
-                                        theme={{
-                                            colors: {
-                                                primary: colors.primary.main,
-                                                outline: colors.primary.light
-                                            }
-                                        }}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TouchableOpacity
-                                        onPress={() => setShowUniversityPicker(true)}
-                                        style={styles.universitySelector}
-                                    >
-                                        <LinearGradient
-                                            colors={[colors.surface.white, colors.surface.light]}
-                                            style={styles.universitySelectorGradient}
-                                        >
-                                            <View style={styles.universitySelectorContent}>
-                                                <Ionicons name="school" size={20} color={colors.primary.main} />
-                                                <View style={styles.universitySelectorText}>
-                                                    <Text style={styles.universitySelectorLabel}>University</Text>
-                                                    <Text style={styles.universitySelectorValue}>
-                                                        {editData.university || 'Select your university'}
-                                                    </Text>
-                                                </View>
-                                                <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
-                                            </View>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        label="Phone Number (Optional)"
-                                        value={editData.phone}
-                                        onChangeText={(text) => setEditData(prev => ({ ...prev, phone: text }))}
-                                        mode="outlined"
-                                        keyboardType="phone-pad"
-                                        left={<TextInput.Icon icon="phone-outline" />}
-                                        style={styles.input}
-                                        theme={{
-                                            colors: {
-                                                primary: colors.primary.main,
-                                                outline: colors.primary.light
-                                            }
-                                        }}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        label="Bio (Optional)"
-                                        value={editData.bio}
-                                        onChangeText={(text) => setEditData(prev => ({ ...prev, bio: text }))}
-                                        mode="outlined"
-                                        multiline
-                                        numberOfLines={3}
-                                        left={<TextInput.Icon icon="text-outline" />}
-                                        style={styles.input}
-                                        theme={{
-                                            colors: {
-                                                primary: colors.primary.main,
-                                                outline: colors.primary.light
-                                            }
-                                        }}
-                                    />
-                                </View>
-
-                                <View style={styles.actionButtons}>
-                                    <TouchableOpacity
-                                        style={styles.saveButton}
-                                        onPress={handleSave}
-                                        disabled={isSaving}
-                                    >
-                                        <LinearGradient
-                                            colors={gradients.success}
-                                            style={styles.saveButtonGradient}
-                                        >
-                                            {isSaving ? (
-                                                <ActivityIndicator size="small" color="white" />
-                                            ) : (
-                                                <>
-                                                    <Ionicons name="checkmark" size={20} color="white" />
-                                                    <Text style={styles.saveButtonText}>Save Changes</Text>
-                                                </>
-                                            )}
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={styles.cancelButton}
-                                        onPress={() => setIsEditing(false)}
-                                        disabled={isSaving}
-                                    >
-                                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ) : (
-                            <View style={styles.infoDisplay}>
-                                {/* Tap-to-edit hint */}
-                                <View style={styles.editHint}>
-                                    <LinearGradient
-                                        colors={[colors.primary.light + '40', colors.primary.light + '20']}
-                                        style={styles.editHintGradient}
-                                    >
-                                        <Ionicons name="information-circle" size={16} color={colors.primary.main} />
-                                        <Text style={styles.editHintText}>
-                                            Tap any field below to edit your information
-                                        </Text>
-                                    </LinearGradient>
-                                </View>
-
-                                <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                    <Ionicons name="person-outline" size={20} color={colors.primary.main} />
-                                    <View style={styles.infoText}>
-                                        <Text style={styles.infoLabel}>Full Name</Text>
-                                        <Text style={styles.infoValue}>
-                                            {userProfile?.displayName || 'Not set'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={16} color={colors.text.light} />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                    <Ionicons name="school-outline" size={20} color={colors.primary.main} />
-                                    <View style={styles.infoText}>
-                                        <Text style={styles.infoLabel}>Student Number</Text>
-                                        <Text style={styles.infoValue}>
-                                            {userProfile?.studentNumber || 'Not set'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={16} color={colors.text.light} />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                    <Ionicons name="school" size={20} color={colors.primary.main} />
-                                    <View style={styles.infoText}>
-                                        <Text style={styles.infoLabel}>University</Text>
-                                        <Text style={styles.infoValue}>
-                                            {userProfile?.university || 'Not set'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={16} color={colors.text.light} />
-                                </TouchableOpacity>
-
-                                {userProfile?.phone ? (
-                                    <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                        <Ionicons name="call-outline" size={20} color={colors.primary.main} />
-                                        <View style={styles.infoText}>
-                                            <Text style={styles.infoLabel}>Phone</Text>
-                                            <Text style={styles.infoValue}>{userProfile.phone}</Text>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={16} color={colors.text.light} />
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                        <Ionicons name="call-outline" size={20} color={colors.text.light} />
-                                        <View style={styles.infoText}>
-                                            <Text style={styles.infoLabel}>Phone</Text>
-                                            <Text style={[styles.infoValue, styles.emptyValue]}>Add phone number</Text>
-                                        </View>
-                                        <Ionicons name="add" size={16} color={colors.text.light} />
-                                    </TouchableOpacity>
-                                )}
-
-                                {userProfile?.bio ? (
-                                    <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                        <Ionicons name="text-outline" size={20} color={colors.primary.main} />
-                                        <View style={styles.infoText}>
-                                            <Text style={styles.infoLabel}>Bio</Text>
-                                            <Text style={styles.infoValue}>{userProfile.bio}</Text>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={16} color={colors.text.light} />
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity style={styles.infoItem} onPress={startEditing}>
-                                        <Ionicons name="text-outline" size={20} color={colors.text.light} />
-                                        <View style={styles.infoText}>
-                                            <Text style={styles.infoLabel}>Bio</Text>
-                                            <Text style={[styles.infoValue, styles.emptyValue]}>Add a bio</Text>
-                                        </View>
-                                        <Ionicons name="add" size={16} color={colors.text.light} />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        )}
-                    </Card>
-
-                    {/* Account Settings */}
-                    <Card style={styles.settingsCard}>
-                        <Text style={styles.cardTitle}>Account Settings</Text>
-
-                        {/* Admin Dashboard Access (only for admins) */}
-                        {userProfile?.role === 'admin' && (
-                            <TouchableOpacity
-                                style={styles.settingItem}
-                                onPress={() => navigation.navigate('AdminDashboard')}
-                            >
-                                <LinearGradient
-                                    colors={['#8b5cf6', '#a855f7']}
-                                    style={styles.settingIcon}
-                                >
-                                    <Ionicons name="settings-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <Text style={styles.settingText}>Admin Dashboard</Text>
-                                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                            </TouchableOpacity>
-                        )}
-
-                        <TouchableOpacity style={styles.settingItem}>
-                            <LinearGradient
-                                colors={[colors.status.info, colors.status.info + '80']}
-                                style={styles.settingIcon}
-                            >
-                                <Ionicons name="notifications-outline" size={20} color="white" />
-                            </LinearGradient>
-                            <Text style={styles.settingText}>Notifications</Text>
-                            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.settingItem}>
-                            <LinearGradient
-                                colors={[colors.secondary.main, colors.secondary.light]}
-                                style={styles.settingIcon}
-                            >
-                                <Ionicons name="shield-outline" size={20} color="white" />
-                            </LinearGradient>
-                            <Text style={styles.settingText}>Privacy & Security</Text>
-                            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.settingItem}>
-                            <LinearGradient
-                                colors={[colors.accent.main, colors.accent.light]}
-                                style={styles.settingIcon}
-                            >
-                                <Ionicons name="help-circle-outline" size={20} color="white" />
-                            </LinearGradient>
-                            <Text style={styles.settingText}>Help & Support</Text>
-                            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                        </TouchableOpacity>
-
-                        {/* Test Notifications - only in development */}
-                        {__DEV__ && (
-                            <TouchableOpacity
-                                style={styles.settingItem}
-                                onPress={async () => {
-                                    const { testNotifications } = await import('../services/database');
-                                    await testNotifications(user.uid);
-                                    Alert.alert('Test Notifications', 'Various test notifications have been scheduled!');
-                                }}
-                            >
-                                <LinearGradient
-                                    colors={['#ef4444', '#dc2626']}
-                                    style={styles.settingIcon}
-                                >
-                                    <Ionicons name="notifications-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <Text style={styles.settingText}>Test Notifications (Dev)</Text>
-                                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-                            </TouchableOpacity>
-                        )}
-                    </Card>
-
-                    {/* Offline Sync Status Card */}
-                    <Card style={styles.syncCard}>
-                        <LinearGradient
-                            colors={connectionStatus === 'online' ? gradients.success : ['#64748b', '#94a3b8']}
-                            style={styles.syncGradient}
-                        >
-                            <View style={styles.syncContent}>
-                                <View style={styles.syncHeader}>
-                                    <Ionicons
-                                        name={connectionStatus === 'online' ? 'cloud-done' : 'cloud-offline'}
-                                        size={24}
-                                        color="white"
-                                    />
-                                    <Text style={styles.syncTitle}>
-                                        {connectionStatus === 'online' ? 'Data Synced' : 'Offline Mode'}
-                                    </Text>
-                                </View>
-                                <Text style={styles.syncDescription}>
-                                    {connectionStatus === 'online'
-                                        ? 'All your data is synchronized with the server'
-                                        : `Your data will sync when you're back online${queueSize > 0 ? ` (${queueSize} items queued)` : ''}`
-                                    }
-                                </Text>
-                                {connectionStatus === 'online' && queueSize === 0 && (
-                                    <View style={styles.syncBadge}>
-                                        <Ionicons name="checkmark-circle" size={16} color="white" />
-                                        <Text style={styles.syncBadgeText}>Up to date</Text>
-                                    </View>
-                                )}
+                    <Animated.View
+                        style={[
+                            styles.statsSection,
+                            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+                        ]}
+                    >
+                        <LinearGradient colors={['#27ae60', '#229954']} style={styles.statCard}>
+                            <Ionicons name="leaf" size={28} color="white" />
+                            <View style={styles.statText}>
+                                <Text style={styles.statValue}>{userProfile?.totalScans || 0}</Text>
+                                <Text style={styles.statLabel}>Items Recycled</Text>
                             </View>
                         </LinearGradient>
-                    </Card>
+
+                        <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.statCard}>
+                            <Ionicons name="star" size={28} color="white" />
+                            <View style={styles.statText}>
+                                <Text style={styles.statValue}>{userProfile?.points || 0}</Text>
+                                <Text style={styles.statLabel}>Total Points</Text>
+                            </View>
+                        </LinearGradient>
+                    </Animated.View>
+
+                    {/* Profile Information Card */}
+                    <Animated.View
+                        style={[
+                            styles.infoCard,
+                            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+                        ]}
+                    >
+                        <LinearGradient colors={['#ffffff', '#f9fafb']} style={styles.cardGradient}>
+                            <View style={styles.cardHeader}>
+                                <Text style={styles.cardTitle}>Profile Information</Text>
+                                <TouchableOpacity
+                                    onPress={() => setIsEditing(!isEditing)}
+                                    disabled={isSaving}
+                                    style={styles.editButtonContainer}
+                                >
+                                    <LinearGradient
+                                        colors={isEditing ? ['#ef4444', '#dc2626'] : ['#10b981', '#059669']}
+                                        style={styles.editButton}
+                                    >
+                                        <Ionicons name={isEditing ? 'close' : 'pencil'} size={16} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+
+                            {isEditing ? (
+                                <View style={styles.editForm}>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Display Name *</Text>
+                                        <View style={styles.inputWrapper}>
+                                            <Ionicons name="person" size={18} color="#10b981" />
+                                            <TextInput
+                                                value={editData.displayName}
+                                                onChangeText={(text) =>
+                                                    setEditData((prev) => ({ ...prev, displayName: text }))
+                                                }
+                                                style={styles.textInput}
+                                                placeholder="Enter your name"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Student Number *</Text>
+                                        <View style={styles.inputWrapper}>
+                                            <Ionicons name="school" size={18} color="#10b981" />
+                                            <TextInput
+                                                value={editData.studentNumber}
+                                                onChangeText={(text) =>
+                                                    setEditData((prev) => ({ ...prev, studentNumber: text }))
+                                                }
+                                                style={styles.textInput}
+                                                placeholder="9 digits"
+                                                keyboardType="numeric"
+                                                maxLength={9}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>University</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setShowUniversityPicker(true)}
+                                            style={styles.inputWrapper}
+                                        >
+                                            <Ionicons name="school" size={18} color="#10b981" />
+                                            <Text
+                                                style={[
+                                                    styles.textInput,
+                                                    !editData.university && styles.placeholderText,
+                                                ]}
+                                            >
+                                                {editData.university || 'Select university'}
+                                            </Text>
+                                            <Ionicons name="chevron-down" size={18} color="#9ca3af" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Phone (Optional)</Text>
+                                        <View style={styles.inputWrapper}>
+                                            <Ionicons name="call" size={18} color="#10b981" />
+                                            <TextInput
+                                                value={editData.phone}
+                                                onChangeText={(text) => setEditData((prev) => ({ ...prev, phone: text }))}
+                                                style={styles.textInput}
+                                                placeholder="Phone number"
+                                                keyboardType="phone-pad"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Bio (Optional)</Text>
+                                        <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+                                            <Ionicons name="text" size={18} color="#10b981" style={styles.textAreaIcon} />
+                                            <TextInput
+                                                value={editData.bio}
+                                                onChangeText={(text) => setEditData((prev) => ({ ...prev, bio: text }))}
+                                                style={[styles.textInput, styles.textArea]}
+                                                placeholder="Tell us about yourself..."
+                                                multiline
+                                                numberOfLines={3}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.actionButtons}>
+                                        <TouchableOpacity
+                                            style={styles.saveButton}
+                                            onPress={handleSave}
+                                            disabled={isSaving}
+                                            activeOpacity={0.8}
+                                        >
+                                            <LinearGradient
+                                                colors={['#27ae60', '#229954']}
+                                                style={styles.saveButtonGradient}
+                                            >
+                                                {isSaving ? (
+                                                    <ActivityIndicator size="small" color="white" />
+                                                ) : (
+                                                    <>
+                                                        <Ionicons name="checkmark" size={20} color="white" />
+                                                        <Text style={styles.saveButtonText}>Save</Text>
+                                                    </>
+                                                )}
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={styles.cancelButton}
+                                            onPress={() => setIsEditing(false)}
+                                            disabled={isSaving}
+                                        >
+                                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ) : (
+                                <View style={styles.infoDisplay}>
+                                    {[
+                                        {
+                                            icon: 'person',
+                                            label: 'Full Name',
+                                            value: userProfile?.displayName || 'Not set',
+                                        },
+                                        {
+                                            icon: 'school',
+                                            label: 'Student Number',
+                                            value: userProfile?.studentNumber || 'Not set',
+                                        },
+                                        {
+                                            icon: 'school',
+                                            label: 'University',
+                                            value: userProfile?.university || 'Not set',
+                                        },
+                                        {
+                                            icon: 'call',
+                                            label: 'Phone',
+                                            value: userProfile?.phone || 'Add phone',
+                                            optional: true,
+                                        },
+                                        { icon: 'text', label: 'Bio', value: userProfile?.bio || 'Add bio', optional: true },
+                                    ].map((item, index) => (
+                                        <TouchableOpacity
+                                            key={index}
+                                            style={styles.infoItem}
+                                            onPress={startEditing}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons name={item.icon} size={20} color="#10b981" />
+                                            <View style={styles.infoText}>
+                                                <Text style={styles.infoLabel}>{item.label}</Text>
+                                                <Text
+                                                    style={[
+                                                        styles.infoValue,
+                                                        item.optional && !userProfile?.[item.label.toLowerCase()] && styles.emptyValue,
+                                                    ]}
+                                                >
+                                                    {item.value}
+                                                </Text>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </LinearGradient>
+                    </Animated.View>
+
+                    {/* Sync Status */}
+                    <Animated.View style={{ opacity: fadeAnim }}>
+                        <LinearGradient
+                            colors={connectionStatus === 'online' ? ['#27ae60', '#229954'] : ['#64748b', '#94a3b8']}
+                            style={styles.syncCard}
+                        >
+                            <View style={styles.syncIconCircle}>
+                                <Ionicons
+                                    name={connectionStatus === 'online' ? 'cloud-done' : 'cloud-offline'}
+                                    size={24}
+                                    color="white"
+                                />
+                            </View>
+                            <Text style={styles.syncTitle}>
+                                {connectionStatus === 'online' ? 'Data Synced' : 'Offline Mode'}
+                            </Text>
+                            <Text style={styles.syncDescription}>
+                                {connectionStatus === 'online'
+                                    ? 'All data is synchronized'
+                                    : `Will sync when online${queueSize > 0 ? ` (${queueSize} items)` : ''}`}
+                            </Text>
+                        </LinearGradient>
+                    </Animated.View>
 
                     {/* Logout Button */}
-                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <LinearGradient
-                            colors={['#ef4444', '#dc2626']}
-                            style={styles.logoutGradient}
-                        >
-                            <Ionicons name="log-out-outline" size={20} color="white" />
+                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+                        <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.logoutGradient}>
+                            <Ionicons name="log-out" size={20} color="white" />
                             <Text style={styles.logoutText}>Logout</Text>
                         </LinearGradient>
                     </TouchableOpacity>
@@ -864,49 +649,45 @@ export default function ProfileScreen() {
                     <Modal
                         visible={showUniversityPicker}
                         onDismiss={() => setShowUniversityPicker(false)}
-                        contentContainerStyle={styles.modalContainer}
+                        transparent
+                        animationType="slide"
                     >
-                        <LinearGradient
-                            colors={[colors.surface.white, colors.surface.light]}
-                            style={styles.modalContent}
-                        >
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Select University</Text>
-                                <TouchableOpacity onPress={() => setShowUniversityPicker(false)}>
-                                    <Ionicons name="close" size={24} color={colors.text.primary} />
-                                </TouchableOpacity>
+                        <View style={styles.modalOverlay}>
+                            <View style={styles.modalContainer}>
+                                <LinearGradient colors={['#ffffff', '#f9fafb']} style={styles.modalContent}>
+                                    <View style={styles.modalHeader}>
+                                        <Text style={styles.modalTitle}>Select University</Text>
+                                        <TouchableOpacity onPress={() => setShowUniversityPicker(false)}>
+                                            <Ionicons name="close" size={24} color="#1f2937" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.searchWrapper}>
+                                        <Ionicons name="search" size={18} color="#9ca3af" />
+                                        <TextInput
+                                            placeholder="Search universities..."
+                                            value={universitySearch}
+                                            onChangeText={setUniversitySearch}
+                                            style={styles.searchInput}
+                                        />
+                                    </View>
+
+                                    <FlatList
+                                        data={filteredUniversities}
+                                        renderItem={renderUniversityItem}
+                                        keyExtractor={(item) => item.id}
+                                        style={styles.universitiesList}
+                                        showsVerticalScrollIndicator={false}
+                                    />
+                                </LinearGradient>
                             </View>
-
-                            <TextInput
-                                placeholder="Search universities..."
-                                value={universitySearch}
-                                onChangeText={setUniversitySearch}
-                                mode="outlined"
-                                left={<TextInput.Icon icon="magnify" />}
-                                style={styles.searchInput}
-                                theme={{
-                                    colors: {
-                                        primary: colors.primary.main,
-                                        outline: colors.primary.light
-                                    }
-                                }}
-                            />
-
-                            <FlatList
-                                data={filteredUniversities}
-                                renderItem={renderUniversityItem}
-                                keyExtractor={(item) => item.id}
-                                style={styles.universitiesList}
-                                showsVerticalScrollIndicator={false}
-                            />
-                        </LinearGradient>
+                        </View>
                     </Modal>
                 </Portal>
             </LinearGradient>
         </SafeAreaView>
     );
 }
-
 
 const styles = StyleSheet.create({
     container: {
@@ -915,6 +696,24 @@ const styles = StyleSheet.create({
     gradient: {
         flex: 1,
     },
+    floatingCircle: {
+        position: 'absolute',
+        borderRadius: 200,
+        opacity: 0.1,
+        backgroundColor: '#10b981',
+    },
+    circle1: {
+        width: 150,
+        height: 150,
+        top: 100,
+        right: -50,
+    },
+    circle2: {
+        width: 120,
+        height: 120,
+        bottom: 200,
+        left: -40,
+    },
     statusBar: {
         marginHorizontal: 16,
         marginTop: 8,
@@ -922,13 +721,11 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     statusBarGradient: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-    },
-    statusContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
     },
     statusText: {
         color: 'white',
@@ -946,92 +743,73 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 12,
         fontWeight: '500',
-        marginLeft: 4,
     },
     scrollView: {
         flex: 1,
     },
     headerCard: {
-        padding: 30,
+        padding: 32,
         alignItems: 'center',
         margin: 16,
-        borderRadius: 20,
-        shadowColor: colors.shadow.medium,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 8,
-    },
-    headerContent: {
-        alignItems: 'center',
-    },
-    avatarContainer: {
-        position: 'relative',
-        marginBottom: 20,
-    },
-    avatar: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        shadowColor: colors.shadow.heavy,
+        borderRadius: 24,
+        shadowColor: '#10b981',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
         elevation: 8,
     },
-    avatarLabel: {
-        color: 'white',
-        fontWeight: '700',
+    avatarContainer: {
+        position: 'relative',
+        marginBottom: 20,
+    },
+    avatarCircle: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    avatarGradient: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarText: {
         fontSize: 36,
+        fontWeight: '700',
+        color: '#10b981',
     },
     cameraButton: {
         position: 'absolute',
-        bottom: 5,
-        right: 5,
-        borderRadius: 18,
+        bottom: 0,
+        right: 0,
+        borderRadius: 20,
         overflow: 'hidden',
     },
     cameraButtonGradient: {
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    uploadOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 50,
-        overflow: 'hidden',
-    },
-    uploadOverlayGradient: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    uploadText: {
-        color: 'white',
-        fontSize: 10,
-        fontWeight: '600',
-        marginTop: 4,
     },
     nameText: {
         fontSize: 24,
         fontWeight: '700',
         color: 'white',
         marginBottom: 4,
-        textAlign: 'center',
     },
     emailText: {
         fontSize: 14,
-        color: 'rgba(255,255,255,0.8)',
+        color: 'rgba(255,255,255,0.9)',
         marginBottom: 4,
     },
     universityText: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.7)',
-        textAlign: 'center',
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.8)',
         marginBottom: 16,
+        textAlign: 'center',
     },
     levelBadge: {
         flexDirection: 'row',
@@ -1039,36 +817,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        marginBottom: 8,
+        marginBottom: 16,
     },
     levelBadgeText: {
         color: 'white',
-        fontSize: 14,
-        fontWeight: '700',
-        marginLeft: 4,
-    },
-    adminBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        marginBottom: 16,
-    },
-    adminBadgeText: {
-        color: 'white',
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '700',
         marginLeft: 4,
     },
     quickEditButton: {
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: 'hidden',
     },
     quickEditGradient: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingVertical: 10,
     },
     quickEditText: {
@@ -1085,36 +849,42 @@ const styles = StyleSheet.create({
     },
     statCard: {
         flex: 1,
-        borderRadius: 16,
-        overflow: 'hidden',
-        elevation: 4,
-    },
-    statGradient: {
-        padding: 20,
-    },
-    statContent: {
         flexDirection: 'row',
         alignItems: 'center',
+        padding: 20,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
     },
     statText: {
         marginLeft: 12,
-        flex: 1,
     },
     statValue: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: '700',
         color: 'white',
     },
     statLabel: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.9)',
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.95)',
         marginTop: 2,
     },
     infoCard: {
-        borderRadius: 16,
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    cardGradient: {
         padding: 20,
-        margin: 16,
-        elevation: 2,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -1125,50 +895,58 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: colors.text.primary,
+        color: '#1f2937',
+    },
+    editButtonContainer: {
+        borderRadius: 16,
+        overflow: 'hidden',
     },
     editButton: {
         width: 32,
         height: 32,
-        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
     },
     editForm: {
         gap: 16,
     },
-    inputContainer: {
-        marginBottom: 8,
+    inputGroup: {
+        gap: 8,
     },
-    input: {
-        backgroundColor: colors.surface.white,
+    inputLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#4b5563',
     },
-    universitySelector: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.primary.light,
-    },
-    universitySelectorGradient: {
-        padding: 16,
-    },
-    universitySelectorContent: {
+    inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
     },
-    universitySelectorText: {
+    textInput: {
         flex: 1,
-        marginLeft: 12,
+        marginLeft: 10,
+        fontSize: 15,
+        color: '#1f2937',
     },
-    universitySelectorLabel: {
-        fontSize: 12,
-        color: colors.text.secondary,
-        marginBottom: 2,
+    placeholderText: {
+        color: '#9ca3af',
     },
-    universitySelectorValue: {
-        fontSize: 16,
-        color: colors.text.primary,
-        fontWeight: '500',
+    textAreaWrapper: {
+        alignItems: 'flex-start',
+        paddingVertical: 12,
+    },
+    textAreaIcon: {
+        marginTop: 2,
+    },
+    textArea: {
+        minHeight: 80,
+        textAlignVertical: 'top',
     },
     actionButtons: {
         flexDirection: 'row',
@@ -1177,61 +955,43 @@ const styles = StyleSheet.create({
     },
     saveButton: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: 'hidden',
     },
     saveButtonGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 16,
+        paddingVertical: 14,
+        gap: 8,
     },
     saveButtonText: {
         color: 'white',
         fontSize: 16,
         fontWeight: '700',
-        marginLeft: 8,
     },
     cancelButton: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: colors.text.light,
-        paddingVertical: 16,
+        borderColor: '#d1d5db',
+        paddingVertical: 14,
         alignItems: 'center',
         justifyContent: 'center',
     },
     cancelButtonText: {
-        color: colors.text.secondary,
+        color: '#6b7280',
         fontSize: 16,
         fontWeight: '600',
     },
     infoDisplay: {
         gap: 12,
     },
-    editHint: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        marginBottom: 8,
-    },
-    editHintGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-    },
-    editHintText: {
-        color: colors.primary.main,
-        fontSize: 12,
-        fontWeight: '500',
-        marginLeft: 6,
-    },
     infoItem: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         paddingVertical: 12,
         paddingHorizontal: 4,
-        borderRadius: 8,
     },
     infoText: {
         marginLeft: 12,
@@ -1239,118 +999,89 @@ const styles = StyleSheet.create({
     },
     infoLabel: {
         fontSize: 12,
-        color: colors.text.secondary,
+        color: '#6b7280',
         fontWeight: '500',
         marginBottom: 2,
     },
     infoValue: {
-        fontSize: 16,
-        color: colors.text.primary,
+        fontSize: 15,
+        color: '#1f2937',
         fontWeight: '500',
     },
     emptyValue: {
-        color: colors.text.light,
+        color: '#9ca3af',
         fontStyle: 'italic',
     },
-    settingsCard: {
-        borderRadius: 16,
+    syncCard: {
+        marginHorizontal: 16,
+        marginBottom: 16,
         padding: 20,
-        margin: 16,
-        elevation: 2,
-    },
-    settingItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.surface.light,
-    },
-    settingIcon: {
-        width: 40,
-        height: 40,
         borderRadius: 20,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    syncIconCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.2)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
-    },
-    settingText: {
-        flex: 1,
-        fontSize: 16,
-        color: colors.text.primary,
-        fontWeight: '500',
-    },
-    syncCard: {
-        borderRadius: 16,
-        margin: 16,
-        overflow: 'hidden',
-        elevation: 2,
-    },
-    syncGradient: {
-        padding: 16,
-    },
-    syncContent: {
-        alignItems: 'center',
-    },
-    syncHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 12,
     },
     syncTitle: {
-        color: 'white',
         fontSize: 16,
         fontWeight: '700',
-        marginLeft: 8,
+        color: 'white',
+        marginBottom: 6,
     },
     syncDescription: {
-        color: 'rgba(255,255,255,0.9)',
         fontSize: 13,
+        color: 'rgba(255,255,255,0.9)',
         textAlign: 'center',
         lineHeight: 18,
     },
-    syncBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginTop: 8,
-    },
-    syncBadgeText: {
-        color: 'white',
-        fontSize: 11,
-        fontWeight: '600',
-        marginLeft: 4,
-    },
     logoutButton: {
-        margin: 16,
-        marginTop: 8,
+        marginHorizontal: 16,
+        marginBottom: 32,
         borderRadius: 16,
         overflow: 'hidden',
-        elevation: 4,
+        shadowColor: '#ef4444',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
     },
     logoutGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 16,
+        gap: 8,
     },
     logoutText: {
         color: 'white',
         fontSize: 16,
         fontWeight: '700',
-        marginLeft: 8,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
     },
     modalContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        padding: 20,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        overflow: 'hidden',
+        maxHeight: '80%',
     },
     modalContent: {
-        borderRadius: 20,
         padding: 20,
-        maxHeight: '70%',
+        paddingBottom: 40,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -1361,22 +1092,34 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: '700',
-        color: colors.text.primary,
+        color: '#1f2937',
+    },
+    searchWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 16,
     },
     searchInput: {
-        marginBottom: 16,
-        backgroundColor: colors.surface.white,
+        flex: 1,
+        marginLeft: 10,
+        fontSize: 15,
+        color: '#1f2937',
     },
     universitiesList: {
-        maxHeight: 300,
+        maxHeight: 400,
     },
     universityItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
-        paddingHorizontal: 4,
         borderBottomWidth: 1,
-        borderBottomColor: colors.surface.light,
+        borderBottomColor: '#f3f4f6',
     },
     universityInfo: {
         flex: 1,
@@ -1384,11 +1127,11 @@ const styles = StyleSheet.create({
     universityName: {
         fontSize: 16,
         fontWeight: '600',
-        color: colors.text.primary,
+        color: '#1f2937',
         marginBottom: 2,
     },
     universityDomain: {
         fontSize: 12,
-        color: colors.text.secondary,
+        color: '#6b7280',
     },
 });

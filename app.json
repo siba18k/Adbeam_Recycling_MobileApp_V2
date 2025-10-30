@@ -1,66 +1,59 @@
 {
   "expo": {
-    "name": "Adbeam Recycling",
-    "slug": "adbeam-recycling-v2",
-    "version": "2.0.0",
-    "newArchEnabled": true,
+    "name": "AdBeam Recycling",
+    "slug": "adbeam-recycling",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "primaryColor": "#059669",
-    "backgroundColor": "#f0fdf4",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#059669",
-      "resizeMode": "contain"
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.adbeam.recycling",
-      "infoPlist": {
-        "NSCameraUsageDescription": "This app needs access to camera to scan barcodes for recycling and take profile photos.",
-        "NSLocationWhenInUseUsageDescription": "We need your location to verify you're on campus when recycling.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to set profile photos.",
-        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your library."
-      }
+      "bundleIdentifier": "com.adbeam.recycling"
     },
     "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
       "package": "com.adbeam.recycling",
       "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
-      "bundler": "metro"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Adbeam Recycling to access your camera to scan barcodes and take profile photos."
+          "cameraPermission": "Allow AdBeam to access your camera to scan recycling items."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUseUsageDescription": "Allow Adbeam Recycling to use your location to verify campus recycling."
+          "locationAlwaysAndWhenInUsePermission": "Allow AdBeam to use your location to verify campus recycling."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you set a profile picture.",
-          "cameraPermission": "The app accesses your camera to let you take a profile picture."
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
         }
-      ],
-      "expo-notifications"
+      ]
     ]
   }
 }
