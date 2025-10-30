@@ -21,13 +21,13 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import ScannerScreen from './src/screens/ScannerScreen';
 import RewardsScreen from './src/screens/RewardsScreen';
 import RewardDetailScreen from './src/screens/RewardDetailScreen';
-import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import StaffDashboardScreen from './src/screens/StaffDashboardScreen';
 import StaffScannerScreen from './src/screens/StaffScannerScreen';
 import VouchersScreen from './src/screens/VouchersScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -141,6 +141,19 @@ function MainTabs() {
                 options={{
                     title: 'Notifications',
                     tabBarBadge: unreadCount > 0 ? unreadCount : null
+                }}
+            />
+            <Tab.Screen
+                name="Leaderboard"
+                component={LeaderboardScreen}
+                options={{
+                    tabBarLabel: 'Leaderboard',
+                    title: 'Leaderboard' // Add explicit title
+                }}
+                listeners={{
+                    tabPress: e => {
+                        console.log('Leaderboard tab pressed');
+                    },
                 }}
             />
             <Tab.Screen

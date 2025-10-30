@@ -1,6 +1,6 @@
 import { Animated } from 'react-native';
 
-export const createFadeAnimation = (value, duration = 600, delay = 0) => {
+export const createEnhancedFadeAnimation = (value, duration = 800, delay = 0) => {
     return Animated.timing(value, {
         toValue: 1,
         duration,
@@ -9,7 +9,7 @@ export const createFadeAnimation = (value, duration = 600, delay = 0) => {
     });
 };
 
-export const createSlideAnimation = (value, from = 30, duration = 600, delay = 0) => {
+export const createDramaticSlideAnimation = (value, from = 60, duration = 800, delay = 0) => {
     return Animated.timing(value, {
         toValue: 0,
         duration,
@@ -18,21 +18,17 @@ export const createSlideAnimation = (value, from = 30, duration = 600, delay = 0
     });
 };
 
-export const createScaleAnimation = (value, duration = 600, delay = 0) => {
+export const createBouncyScaleAnimation = (value, duration = 800, delay = 0) => {
     return Animated.spring(value, {
         toValue: 1,
-        friction: 8,
-        tension: 40,
+        friction: 5, // More bouncy
+        tension: 60, // More dramatic
         delay,
         useNativeDriver: true,
     });
 };
 
-export const createStaggeredAnimation = (animations, stagger = 100) => {
-    return Animated.stagger(stagger, animations);
-};
-
-export const createFloatingAnimation = (value, distance = -20, duration = 3000) => {
+export const createVibrantFloatingAnimation = (value, distance = -35, duration = 2500) => {
     return Animated.loop(
         Animated.sequence([
             Animated.timing(value, {
@@ -49,7 +45,24 @@ export const createFloatingAnimation = (value, distance = -20, duration = 3000) 
     );
 };
 
-export const createRotateAnimation = (value, duration = 20000) => {
+export const createSparkleAnimation = (value, duration = 1500) => {
+    return Animated.loop(
+        Animated.sequence([
+            Animated.timing(value, {
+                toValue: 1,
+                duration,
+                useNativeDriver: true,
+            }),
+            Animated.timing(value, {
+                toValue: 0,
+                duration,
+                useNativeDriver: true,
+            }),
+        ])
+    );
+};
+
+export const createRainbowRotateAnimation = (value, duration = 8000) => {
     return Animated.loop(
         Animated.timing(value, {
             toValue: 1,
@@ -59,7 +72,7 @@ export const createRotateAnimation = (value, duration = 20000) => {
     );
 };
 
-export const createPulseAnimation = (value, scale = 1.1, duration = 1000) => {
+export const createPulseScaleAnimation = (value, scale = 1.1, duration = 1200) => {
     return Animated.loop(
         Animated.sequence([
             Animated.timing(value, {
@@ -76,9 +89,20 @@ export const createPulseAnimation = (value, scale = 1.1, duration = 1000) => {
     );
 };
 
-export const interpolateRotation = (animatedValue) => {
+export const createStaggeredEntranceAnimation = (animations, stagger = 150) => {
+    return Animated.stagger(stagger, animations);
+};
+
+export const interpolateColorRotation = (animatedValue) => {
+    return animatedValue.interpolate({
+        inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1],
+        outputRange: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF6B6B'],
+    });
+};
+
+export const interpolateEnhancedRotation = (animatedValue, degrees = '360deg') => {
     return animatedValue.interpolate({
         inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
+        outputRange: ['0deg', degrees],
     });
 };
