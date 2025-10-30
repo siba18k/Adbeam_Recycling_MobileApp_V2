@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     StyleSheet,
@@ -9,6 +9,8 @@ import {
     Modal,
     RefreshControl,
     Dimensions,
+    Animated,
+    FlatList,
 } from 'react-native';
 import {
     Text,
@@ -18,7 +20,9 @@ import {
     ActivityIndicator,
     Badge,
     Chip,
-    Switch
+    Switch,
+    Searchbar,
+    FAB
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,7 +41,9 @@ import {
     toggleRewardAvailability,
     getRewards,
     createRewardWithNotification,
-    createBonusEvent
+    createBonusEvent,
+    addTestPoints,
+    resetUserPoints
 } from '../services/database';
 import { colors, gradients } from '../theme/colors';
 
@@ -48,6 +54,7 @@ export default function AdminDashboardScreen({ navigation }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [stats, setStats] = useState(null);
     const [users, setUsers] = useState([]);
+    const [filteredUsers, setFilteredUsers] = useState([]);
     const [rewards, setRewards] = useState([]);
     const [vouchers, setVouchers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +65,14 @@ export default function AdminDashboardScreen({ navigation }) {
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingReward, setEditingReward] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [pointsToAdd, setPointsToAdd] = useState('1000');
+    const [showDevTools, setShowDevTools] = useState(false);
+
+    // Animation refs
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideUpAnim = useRef(new Animated.Value(50)).current;
+    const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
     const [newReward, setNewReward] = useState({
         name: '',
@@ -92,6 +107,46 @@ export default function AdminDashboardScreen({ navigation }) {
         durationHours: '24'
     });
 
+    useEffect(() => {
+        // Entrance animations
+        Animated.sequence([
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(slideUpAnim, {
+                    toValue: 0,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(scaleAnim, {
+                    toValue: 1,
+                    friction: 8,
+                    tension: 40,
+                    useNativeDriver: true,
+                }),
+            ]),
+        ]).start();
+        
+        loadAdminData();
+    }, []);
+
+    // User search functionality
+    useEffect(() => {
+        if (searchQuery.trim() === '') {
+            setFilteredUsers(users);
+        } else {
+            const filtered = users.filter(user => 
+                (user.displayName?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (user.email?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (user.role?.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+            setFilteredUsers(filtered);
+        }
+    }, [searchQuery, users]);
+
     const loadAdminData = async () => {
         try {
             setIsLoading(true);
@@ -103,7 +158,10 @@ export default function AdminDashboardScreen({ navigation }) {
             ]);
 
             if (statsResult.success) setStats(statsResult.data);
-            if (usersResult.success) setUsers(usersResult.data);
+            if (usersResult.success) {
+                setUsers(usersResult.data);
+                setFilteredUsers(usersResult.data);
+            }
             if (rewardsResult.success) setRewards(rewardsResult.data);
             if (vouchersResult.success) setVouchers(vouchersResult.data);
 
@@ -114,14 +172,51 @@ export default function AdminDashboardScreen({ navigation }) {
         }
     };
 
-    useEffect(() => {
-        loadAdminData();
-    }, []);
-
     const handleRefresh = async () => {
         setIsRefreshing(true);
         await loadAdminData();
         setIsRefreshing(false);
+    };
+
+    // Development tools functions
+    const handleAddPoints = async () => {
+        const points = parseInt(pointsToAdd);
+        if (isNaN(points) || points <= 0) {
+            Alert.alert('Error', 'Please enter a valid number of points');
+            return;
+        }
+
+        const result = await addTestPoints(user.uid, points);
+        if (result.success) {
+            Alert.alert(
+                'Success! 🎉',
+                `Added ${result.pointsAdded} points!\nTotal: ${result.newPoints}\nLevel: ${result.newLevel}`
+            );
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
+    const handleResetPoints = async () => {
+        Alert.alert(
+            'Reset Points',
+            'Are you sure you want to reset all points to 0?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const result = await resetUserPoints(user.uid);
+                        if (result.success) {
+                            Alert.alert('Success', 'Points reset to 0');
+                        } else {
+                            Alert.alert('Error', result.error);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     // Reward Management Functions
@@ -137,7 +232,6 @@ export default function AdminDashboardScreen({ navigation }) {
             stock: parseInt(newReward.stock),
         };
 
-        // Use the enhanced function that sends notifications
         const result = await createRewardWithNotification(rewardData);
 
         if (result.success) {
@@ -348,12 +442,87 @@ export default function AdminDashboardScreen({ navigation }) {
         });
     };
 
+    const renderUserItem = ({ item: user }) => (
+        <Animated.View
+            style={[
+                styles.userItemAnimated,
+                {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideUpAnim }, { scale: scaleAnim }],
+                },
+            ]}
+        >
+            <Card style={styles.userCard}>
+                <View style={styles.userItem}>
+                    <View style={styles.userInfo}>
+                        <View style={styles.userHeader}>
+                            <Text style={styles.userName}>{user.displayName || 'User'}</Text>
+                            <Badge
+                                style={[
+                                    styles.roleBadge,
+                                    { backgroundColor: user.role === 'admin' ? '#8b5cf6' : user.role === 'staff' ? '#f59e0b' : colors.primary.main }
+                                ]}
+                            >
+                                {user.role || 'user'}
+                            </Badge>
+                        </View>
+                        <Text style={styles.userEmail}>{user.email}</Text>
+                        <Text style={styles.userStats}>
+                            {user.points || 0} pts • Level {user.level || 1} • {user.totalScans || 0} scans
+                        </Text>
+                    </View>
+                    <View style={styles.userActions}>
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleEditUser(user)}
+                        >
+                            <LinearGradient
+                                colors={gradients.primary}
+                                style={styles.actionButtonGradient}
+                            >
+                                <Ionicons name="pencil" size={14} color="white" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        {user.role === 'user' && (
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => handlePromoteToStaff(user)}
+                            >
+                                <LinearGradient
+                                    colors={gradients.accent}
+                                    style={styles.actionButtonGradient}
+                                >
+                                    <Ionicons name="arrow-up" size={14} color="white" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
+
+                        {user.role !== 'admin' && (
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => handleDeleteUser(user)}
+                            >
+                                <LinearGradient
+                                    colors={['#ef4444', '#dc2626']}
+                                    style={styles.actionButtonGradient}
+                                >
+                                    <Ionicons name="trash" size={14} color="white" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            </Card>
+        </Animated.View>
+    );
+
     if (isLoading) {
         return (
             <SafeAreaView style={styles.loadingContainer}>
-                <LinearGradient colors={gradients.backgroundNeutral} style={styles.gradient}>
+                <LinearGradient colors={['#a8e6cf', '#dcedc1', '#ffffff']} style={styles.gradient}>
                     <View style={styles.loadingContent}>
-                        <ActivityIndicator size="large" color={colors.primary.main} />
+                        <ActivityIndicator size="large" color="#27ae60" />
                         <Text style={styles.loadingText}>Loading admin dashboard...</Text>
                     </View>
                 </LinearGradient>
@@ -363,39 +532,106 @@ export default function AdminDashboardScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.container}>
-            <LinearGradient colors={gradients.backgroundNeutral} style={styles.gradient}>
-                {/* Header */}
+            <LinearGradient colors={['#a8e6cf', '#dcedc1', '#ffffff']} style={styles.gradient}>
+                {/* Enhanced Header with Animation */}
                 <LinearGradient
-                    colors={gradients.backgroundPrimary}
+                    colors={['#27ae60', '#229954']}
                     style={styles.header}
                 >
-                    <View style={styles.headerContent}>
-                        <Text style={styles.headerTitle}>Admin Dashboard</Text>
-                        <Text style={styles.headerSubtitle}>
-                            {userProfile?.displayName || 'Administrator'}
-                        </Text>
-                    </View>
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('StaffScanner')}
-                        style={styles.scannerButton}
+                    <Animated.View
+                        style={[
+                            styles.headerContent,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideUpAnim }],
+                            },
+                        ]}
                     >
-                        <LinearGradient
-                            colors={gradients.accent}
-                            style={styles.scannerButtonGradient}
-                        >
-                            <Ionicons name="qr-code-outline" size={24} color="white" />
-                        </LinearGradient>
-                    </TouchableOpacity>
+                        <View style={styles.headerLeft}>
+                            <Text style={styles.headerTitle}>Admin Dashboard</Text>
+                            <Text style={styles.headerSubtitle}>
+                                Welcome, {userProfile?.displayName || 'Administrator'}! 🌱
+                            </Text>
+                        </View>
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity
+                                onPress={() => setShowDevTools(!showDevTools)}
+                                style={styles.devToolsButton}
+                            >
+                                <Ionicons name="construct-outline" size={20} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('StaffScanner')}
+                                style={styles.scannerButton}
+                            >
+                                <Ionicons name="qr-code-outline" size={24} color="white" />
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
                 </LinearGradient>
 
-                {/* Tab Navigation */}
-                <View style={styles.tabContainer}>
+                {/* Development Tools Section */}
+                {showDevTools && (
+                    <Animated.View
+                        style={[
+                            styles.devToolsSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ scale: scaleAnim }],
+                            },
+                        ]}
+                    >
+                        <Card style={styles.devToolsCard}>
+                            <Card.Content>
+                                <Text style={styles.devToolsTitle}>🛠️ Development Tools</Text>
+                                <View style={styles.devToolsRow}>
+                                    <TextInput
+                                        label="Points to Add"
+                                        value={pointsToAdd}
+                                        onChangeText={setPointsToAdd}
+                                        keyboardType="numeric"
+                                        mode="outlined"
+                                        style={styles.pointsInput}
+                                    />
+                                    <TouchableOpacity
+                                        onPress={handleAddPoints}
+                                        style={styles.devButton}
+                                    >
+                                        <LinearGradient
+                                            colors={['#27ae60', '#229954']}
+                                            style={styles.devButtonGradient}
+                                        >
+                                            <Text style={styles.devButtonText}>Add</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={handleResetPoints}
+                                    style={styles.resetButton}
+                                >
+                                    <Text style={styles.resetButtonText}>Reset Points to 0</Text>
+                                </TouchableOpacity>
+                            </Card.Content>
+                        </Card>
+                    </Animated.View>
+                )}
+
+                {/* Enhanced Tab Navigation */}
+                <Animated.View
+                    style={[
+                        styles.tabContainer,
+                        {
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideUpAnim }],
+                        },
+                    ]}
+                >
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {[
-                            { key: 'overview', title: 'Overview', icon: 'analytics-outline' },
-                            { key: 'users', title: 'Users', icon: 'people-outline' },
-                            { key: 'rewards', title: 'Rewards', icon: 'gift-outline' },
-                            { key: 'vouchers', title: 'Vouchers', icon: 'qr-code-outline' }
+                            { key: 'overview', title: 'Overview', icon: 'analytics-outline', color: '#27ae60' },
+                            { key: 'users', title: 'Users', icon: 'people-outline', color: '#3498db' },
+                            { key: 'rewards', title: 'Rewards', icon: 'gift-outline', color: '#e74c3c' },
+                            { key: 'vouchers', title: 'Vouchers', icon: 'qr-code-outline', color: '#f39c12' }
                         ].map((tab) => (
                             <TouchableOpacity
                                 key={tab.key}
@@ -403,13 +639,13 @@ export default function AdminDashboardScreen({ navigation }) {
                                 onPress={() => setActiveTab(tab.key)}
                             >
                                 <LinearGradient
-                                    colors={activeTab === tab.key ? gradients.primary : ['transparent', 'transparent']}
+                                    colors={activeTab === tab.key ? [tab.color, tab.color + '80'] : ['transparent', 'transparent']}
                                     style={styles.tabGradient}
                                 >
                                     <Ionicons
                                         name={tab.icon}
                                         size={18}
-                                        color={activeTab === tab.key ? 'white' : colors.text.secondary}
+                                        color={activeTab === tab.key ? 'white' : '#7f8c8d'}
                                     />
                                     <Text style={[
                                         styles.tabText,
@@ -421,25 +657,35 @@ export default function AdminDashboardScreen({ navigation }) {
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
-                </View>
+                </Animated.View>
 
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     refreshControl={
-                        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+                        <RefreshControl 
+                            refreshing={isRefreshing} 
+                            onRefresh={handleRefresh}
+                            colors={['#27ae60']}
+                            tintColor={'#27ae60'}
+                        />
                     }
                 >
-                    {/* Overview Tab */}
+                    {/* Enhanced Overview Tab */}
                     {activeTab === 'overview' && (
-                        <View>
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideUpAnim }],
+                            }}
+                        >
                             <View style={styles.statsGrid}>
                                 <Card style={styles.statCard}>
                                     <LinearGradient
-                                        colors={[colors.primary.main, colors.primary.light]}
+                                        colors={['#3498db', '#5dade2']}
                                         style={styles.statGradient}
                                     >
-                                        <Ionicons name="people" size={24} color="white" />
+                                        <Ionicons name="people" size={28} color="white" />
                                         <Text style={styles.statValue}>{stats?.totalUsers || 0}</Text>
                                         <Text style={styles.statLabel}>Total Users</Text>
                                     </LinearGradient>
@@ -447,10 +693,10 @@ export default function AdminDashboardScreen({ navigation }) {
 
                                 <Card style={styles.statCard}>
                                     <LinearGradient
-                                        colors={[colors.success.main, colors.success.light]}
+                                        colors={['#27ae60', '#58d68d']}
                                         style={styles.statGradient}
                                     >
-                                        <Ionicons name="leaf" size={24} color="white" />
+                                        <Ionicons name="leaf" size={28} color="white" />
                                         <Text style={styles.statValue}>{stats?.totalScans || 0}</Text>
                                         <Text style={styles.statLabel}>Items Recycled</Text>
                                     </LinearGradient>
@@ -458,10 +704,10 @@ export default function AdminDashboardScreen({ navigation }) {
 
                                 <Card style={styles.statCard}>
                                     <LinearGradient
-                                        colors={[colors.accent.main, colors.accent.light]}
+                                        colors={['#f39c12', '#f7dc6f']}
                                         style={styles.statGradient}
                                     >
-                                        <Ionicons name="qr-code" size={24} color="white" />
+                                        <Ionicons name="qr-code" size={28} color="white" />
                                         <Text style={styles.statValue}>{stats?.activeVouchers || 0}</Text>
                                         <Text style={styles.statLabel}>Active Vouchers</Text>
                                     </LinearGradient>
@@ -469,117 +715,98 @@ export default function AdminDashboardScreen({ navigation }) {
 
                                 <Card style={styles.statCard}>
                                     <LinearGradient
-                                        colors={[colors.secondary.main, colors.secondary.light]}
+                                        colors={['#e74c3c', '#ec7063']}
                                         style={styles.statGradient}
                                     >
-                                        <Ionicons name="star" size={24} color="white" />
+                                        <Ionicons name="star" size={28} color="white" />
                                         <Text style={styles.statValue}>{stats?.totalPoints || 0}</Text>
                                         <Text style={styles.statLabel}>Points Earned</Text>
                                     </LinearGradient>
                                 </Card>
                             </View>
 
-                            {/* Top Users */}
+                            {/* Enhanced Top Users */}
                             <Card style={styles.topUsersCard}>
-                                <Text style={styles.cardTitle}>Top Recyclers</Text>
-                                {stats?.topUsers?.slice(0, 5).map((user, index) => (
-                                    <View key={user.id} style={styles.topUserItem}>
-                                        <Text style={styles.topUserRank}>#{index + 1}</Text>
-                                        <Text style={styles.topUserName}>{user.displayName || 'User'}</Text>
-                                        <Text style={styles.topUserPoints}>{user.points || 0} pts</Text>
-                                    </View>
-                                ))}
-                            </Card>
-                        </View>
-                    )}
-
-                    {/* Enhanced Users Tab with CRUD */}
-                    {activeTab === 'users' && (
-                        <View>
-                            <Card style={styles.usersCard}>
-                                <Text style={styles.cardTitle}>User Management ({users.length} users)</Text>
-
-                                {users.map((user) => (
-                                    <View key={user.id} style={styles.userItem}>
-                                        <View style={styles.userInfo}>
-                                            <View style={styles.userHeader}>
-                                                <Text style={styles.userName}>{user.displayName || 'User'}</Text>
-                                                <Badge
-                                                    style={[
-                                                        styles.roleBadge,
-                                                        { backgroundColor: user.role === 'admin' ? '#8b5cf6' : user.role === 'staff' ? '#f59e0b' : colors.primary.main }
-                                                    ]}
-                                                >
-                                                    {user.role || 'user'}
-                                                </Badge>
+                                <LinearGradient
+                                    colors={['#8e44ad', '#bb8fce']}
+                                    style={styles.topUsersHeader}
+                                >
+                                    <Ionicons name="trophy" size={24} color="white" />
+                                    <Text style={styles.topUsersTitle}>🏆 Top Recyclers</Text>
+                                </LinearGradient>
+                                <View style={styles.topUsersContent}>
+                                    {stats?.topUsers?.slice(0, 5).map((user, index) => (
+                                        <View key={user.id} style={styles.topUserItem}>
+                                            <View style={styles.topUserRankContainer}>
+                                                <Text style={[
+                                                    styles.topUserRank,
+                                                    index === 0 && { color: '#f1c40f' },
+                                                    index === 1 && { color: '#95a5a6' },
+                                                    index === 2 && { color: '#d4ac0d' }
+                                                ]}>#{index + 1}</Text>
                                             </View>
-                                            <Text style={styles.userEmail}>{user.email}</Text>
-                                            <Text style={styles.userStats}>
-                                                {user.points || 0} pts • Level {user.level || 1} • {user.totalScans || 0} scans
-                                            </Text>
+                                            <Text style={styles.topUserName}>{user.displayName || 'User'}</Text>
+                                            <Text style={styles.topUserPoints}>{user.points || 0} pts</Text>
                                         </View>
-                                        <View style={styles.userActions}>
-                                            <TouchableOpacity
-                                                style={styles.actionButton}
-                                                onPress={() => handleEditUser(user)}
-                                            >
-                                                <LinearGradient
-                                                    colors={gradients.primary}
-                                                    style={styles.actionButtonGradient}
-                                                >
-                                                    <Ionicons name="pencil" size={14} color="white" />
-                                                </LinearGradient>
-                                            </TouchableOpacity>
-
-                                            {user.role === 'user' && (
-                                                <TouchableOpacity
-                                                    style={styles.actionButton}
-                                                    onPress={() => handlePromoteToStaff(user)}
-                                                >
-                                                    <LinearGradient
-                                                        colors={gradients.accent}
-                                                        style={styles.actionButtonGradient}
-                                                    >
-                                                        <Ionicons name="arrow-up" size={14} color="white" />
-                                                    </LinearGradient>
-                                                </TouchableOpacity>
-                                            )}
-
-                                            {user.role !== 'admin' && (
-                                                <TouchableOpacity
-                                                    style={styles.actionButton}
-                                                    onPress={() => handleDeleteUser(user)}
-                                                >
-                                                    <LinearGradient
-                                                        colors={['#ef4444', '#dc2626']}
-                                                        style={styles.actionButtonGradient}
-                                                    >
-                                                        <Ionicons name="trash" size={14} color="white" />
-                                                    </LinearGradient>
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    </View>
-                                ))}
+                                    ))}
+                                </View>
                             </Card>
-                        </View>
+                        </Animated.View>
                     )}
 
-                    {/* Enhanced Rewards Tab with Full CRUD */}
+                    {/* Enhanced Users Tab with Search */}
+                    {activeTab === 'users' && (
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideUpAnim }],
+                            }}
+                        >
+                            {/* Search Bar */}
+                            <Card style={styles.searchCard}>
+                                <Searchbar
+                                    placeholder="Search users by name, email, or role..."
+                                    onChangeText={setSearchQuery}
+                                    value={searchQuery}
+                                    style={styles.searchBar}
+                                    iconColor="#27ae60"
+                                    inputStyle={styles.searchInput}
+                                />
+                                <Text style={styles.searchResults}>
+                                    {filteredUsers.length} of {users.length} users
+                                </Text>
+                            </Card>
+
+                            {/* Users List */}
+                            <FlatList
+                                data={filteredUsers}
+                                renderItem={renderUserItem}
+                                keyExtractor={(item) => item.id}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={styles.usersList}
+                            />
+                        </Animated.View>
+                    )}
+
+                    {/* Enhanced Rewards Tab */}
                     {activeTab === 'rewards' && (
-                        <View>
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideUpAnim }],
+                            }}
+                        >
                             <View style={styles.rewardsHeader}>
-                                <Text style={styles.sectionTitle}>Rewards Management</Text>
+                                <Text style={styles.sectionTitle}>🎁 Rewards Management</Text>
                             </View>
                             
-                            {/* Fixed header buttons - now stacked vertically on smaller screens */}
                             <View style={styles.headerButtonsContainer}>
                                 <TouchableOpacity
                                     style={styles.addButton}
                                     onPress={() => setShowEventModal(true)}
                                 >
                                     <LinearGradient
-                                        colors={gradients.accent}
+                                        colors={['#f39c12', '#f7dc6f']}
                                         style={styles.addButtonGradient}
                                     >
                                         <Ionicons name="flash" size={20} color="white" />
@@ -591,7 +818,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                     onPress={() => setShowCreateModal(true)}
                                 >
                                     <LinearGradient
-                                        colors={gradients.success}
+                                        colors={['#27ae60', '#58d68d']}
                                         style={styles.addButtonGradient}
                                     >
                                         <Ionicons name="add" size={20} color="white" />
@@ -609,18 +836,24 @@ export default function AdminDashboardScreen({ navigation }) {
                                                 <Switch
                                                     value={reward.available}
                                                     onValueChange={() => handleToggleRewardAvailability(reward)}
-                                                    color={colors.success.main}
+                                                    color="#27ae60"
                                                 />
                                             </View>
                                             <Text style={styles.rewardDescription}>{reward.description}</Text>
                                             <View style={styles.rewardMeta}>
-                                                <Chip icon="star" textStyle={styles.chipText}>{reward.points} pts</Chip>
-                                                <Chip icon="tag" textStyle={styles.chipText}>{reward.category}</Chip>
-                                                <Chip icon="package" textStyle={styles.chipText}>Stock: {reward.stock || 'N/A'}</Chip>
+                                                <Chip icon="star" textStyle={styles.chipText} style={{ backgroundColor: '#f39c12' + '30' }}>
+                                                    {reward.points} pts
+                                                </Chip>
+                                                <Chip icon="tag" textStyle={styles.chipText} style={{ backgroundColor: '#3498db' + '30' }}>
+                                                    {reward.category}
+                                                </Chip>
+                                                <Chip icon="package" textStyle={styles.chipText} style={{ backgroundColor: '#9b59b6' + '30' }}>
+                                                    Stock: {reward.stock || 'N/A'}
+                                                </Chip>
                                                 <Chip
                                                     icon={reward.available ? "check-circle" : "close-circle"}
                                                     textStyle={styles.chipText}
-                                                    style={{ backgroundColor: reward.available ? colors.success.light : colors.status.error + '30' }}
+                                                    style={{ backgroundColor: reward.available ? '#27ae60' + '30' : '#e74c3c' + '30' }}
                                                 >
                                                     {reward.available ? 'Available' : 'Unavailable'}
                                                 </Chip>
@@ -632,7 +865,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                                 onPress={() => openEditRewardModal(reward)}
                                             >
                                                 <LinearGradient
-                                                    colors={gradients.primary}
+                                                    colors={['#3498db', '#5dade2']}
                                                     style={styles.editButtonGradient}
                                                 >
                                                     <Ionicons name="pencil" size={16} color="white" />
@@ -643,7 +876,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                                 onPress={() => handleDeleteReward(reward)}
                                             >
                                                 <LinearGradient
-                                                    colors={['#ef4444', '#dc2626']}
+                                                    colors={['#e74c3c', '#ec7063']}
                                                     style={styles.deleteButtonGradient}
                                                 >
                                                     <Ionicons name="trash" size={16} color="white" />
@@ -653,23 +886,30 @@ export default function AdminDashboardScreen({ navigation }) {
                                     </View>
                                 </Card>
                             ))}
-                        </View>
+                        </Animated.View>
                     )}
 
-                    {/* Vouchers Tab */}
+                    {/* Enhanced Vouchers Tab */}
                     {activeTab === 'vouchers' && (
-                        <View>
-                            <Text style={styles.sectionTitle}>Voucher Management</Text>
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideUpAnim }],
+                            }}
+                        >
+                            <Text style={styles.sectionTitle}>🎫 Voucher Management</Text>
 
                             <View style={styles.voucherStats}>
                                 <Card style={styles.voucherStatCard}>
-                                    <LinearGradient colors={gradients.success} style={styles.voucherStatGradient}>
+                                    <LinearGradient colors={['#27ae60', '#58d68d']} style={styles.voucherStatGradient}>
+                                        <Ionicons name="checkmark-circle" size={24} color="white" />
                                         <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'active').length}</Text>
                                         <Text style={styles.voucherStatLabel}>Active</Text>
                                     </LinearGradient>
                                 </Card>
                                 <Card style={styles.voucherStatCard}>
-                                    <LinearGradient colors={gradients.accent} style={styles.voucherStatGradient}>
+                                    <LinearGradient colors={['#f39c12', '#f7dc6f']} style={styles.voucherStatGradient}>
+                                        <Ionicons name="gift" size={24} color="white" />
                                         <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'redeemed').length}</Text>
                                         <Text style={styles.voucherStatLabel}>Redeemed</Text>
                                     </LinearGradient>
@@ -692,7 +932,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                                 <Badge
                                                     style={[
                                                         styles.statusBadge,
-                                                        { backgroundColor: voucher.status === 'active' ? colors.success.main : colors.text.secondary }
+                                                        { backgroundColor: voucher.status === 'active' ? '#27ae60' : '#95a5a6' }
                                                     ]}
                                                 >
                                                     {voucher.status}
@@ -704,10 +944,25 @@ export default function AdminDashboardScreen({ navigation }) {
                                         </View>
                                     </Card>
                                 ))}
-                        </View>
+                        </Animated.View>
                     )}
                 </ScrollView>
 
+                {/* Floating Action Button */}
+                <FAB
+                    style={styles.fab}
+                    icon="plus"
+                    color="white"
+                    onPress={() => {
+                        if (activeTab === 'rewards') {
+                            setShowCreateModal(true);
+                        } else if (activeTab === 'users') {
+                            Alert.alert('Add User', 'Users can only register through the app authentication system.');
+                        }
+                    }}
+                />
+
+                {/* All Modals remain the same but with enhanced styling */}
                 {/* Create Reward Modal */}
                 <Modal
                     visible={showCreateModal}
@@ -715,12 +970,15 @@ export default function AdminDashboardScreen({ navigation }) {
                     contentContainerStyle={styles.modalContainer}
                 >
                     <Card style={styles.modalCard}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Create New Reward</Text>
+                        <LinearGradient
+                            colors={['#27ae60', '#58d68d']}
+                            style={styles.modalHeader}
+                        >
+                            <Text style={styles.modalTitle}>✨ Create New Reward</Text>
                             <TouchableOpacity onPress={() => setShowCreateModal(false)}>
-                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                                <Ionicons name="close" size={24} color="white" />
                             </TouchableOpacity>
-                        </View>
+                        </LinearGradient>
 
                         <ScrollView style={styles.modalContent}>
                             <TextInput
@@ -729,6 +987,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 onChangeText={(text) => setNewReward(prev => ({ ...prev, name: text }))}
                                 mode="outlined"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#27ae60' } }}
                             />
 
                             <TextInput
@@ -739,6 +998,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 multiline
                                 numberOfLines={3}
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#27ae60' } }}
                             />
 
                             <TextInput
@@ -748,6 +1008,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="numeric"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#27ae60' } }}
                             />
 
                             <TextInput
@@ -756,6 +1017,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 onChangeText={(text) => setNewReward(prev => ({ ...prev, category: text }))}
                                 mode="outlined"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#27ae60' } }}
                             />
 
                             <TextInput
@@ -765,6 +1027,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="numeric"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#27ae60' } }}
                             />
 
                             <View style={styles.modalActions}>
@@ -773,9 +1036,10 @@ export default function AdminDashboardScreen({ navigation }) {
                                     onPress={handleCreateReward}
                                 >
                                     <LinearGradient
-                                        colors={gradients.success}
+                                        colors={['#27ae60', '#58d68d']}
                                         style={styles.createButtonGradient}
                                     >
+                                        <Ionicons name="checkmark" size={20} color="white" />
                                         <Text style={styles.createButtonText}>Create Reward</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -784,19 +1048,22 @@ export default function AdminDashboardScreen({ navigation }) {
                     </Card>
                 </Modal>
 
-                {/* Edit Reward Modal */}
+                {/* Edit Reward Modal - Similar structure with updated colors */}
                 <Modal
                     visible={showEditModal}
                     onDismiss={() => setShowEditModal(false)}
                     contentContainerStyle={styles.modalContainer}
                 >
                     <Card style={styles.modalCard}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Reward</Text>
+                        <LinearGradient
+                            colors={['#3498db', '#5dade2']}
+                            style={styles.modalHeader}
+                        >
+                            <Text style={styles.modalTitle}>✏️ Edit Reward</Text>
                             <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                                <Ionicons name="close" size={24} color="white" />
                             </TouchableOpacity>
-                        </View>
+                        </LinearGradient>
 
                         <ScrollView style={styles.modalContent}>
                             <TextInput
@@ -805,6 +1072,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 onChangeText={(text) => setEditRewardData(prev => ({ ...prev, name: text }))}
                                 mode="outlined"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#3498db' } }}
                             />
 
                             <TextInput
@@ -815,6 +1083,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 multiline
                                 numberOfLines={3}
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#3498db' } }}
                             />
 
                             <TextInput
@@ -824,6 +1093,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="numeric"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#3498db' } }}
                             />
 
                             <TextInput
@@ -832,6 +1102,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 onChangeText={(text) => setEditRewardData(prev => ({ ...prev, category: text }))}
                                 mode="outlined"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#3498db' } }}
                             />
 
                             <TextInput
@@ -841,6 +1112,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="numeric"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#3498db' } }}
                             />
 
                             <View style={styles.switchContainer}>
@@ -848,7 +1120,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 <Switch
                                     value={editRewardData.available}
                                     onValueChange={(value) => setEditRewardData(prev => ({ ...prev, available: value }))}
-                                    color={colors.success.main}
+                                    color="#27ae60"
                                 />
                             </View>
 
@@ -858,9 +1130,10 @@ export default function AdminDashboardScreen({ navigation }) {
                                     onPress={handleEditReward}
                                 >
                                     <LinearGradient
-                                        colors={gradients.primary}
+                                        colors={['#3498db', '#5dade2']}
                                         style={styles.createButtonGradient}
                                     >
+                                        <Ionicons name="save" size={20} color="white" />
                                         <Text style={styles.createButtonText}>Update Reward</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -876,12 +1149,15 @@ export default function AdminDashboardScreen({ navigation }) {
                     contentContainerStyle={styles.modalContainer}
                 >
                     <Card style={styles.modalCard}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit User</Text>
+                        <LinearGradient
+                            colors={['#9b59b6', '#bb8fce']}
+                            style={styles.modalHeader}
+                        >
+                            <Text style={styles.modalTitle}>👤 Edit User</Text>
                             <TouchableOpacity onPress={() => setShowUserEditModal(false)}>
-                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                                <Ionicons name="close" size={24} color="white" />
                             </TouchableOpacity>
-                        </View>
+                        </LinearGradient>
 
                         <ScrollView style={styles.modalContent}>
                             <TextInput
@@ -890,6 +1166,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 onChangeText={(text) => setEditUserData(prev => ({ ...prev, displayName: text }))}
                                 mode="outlined"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#9b59b6' } }}
                             />
 
                             <TextInput
@@ -899,6 +1176,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="email-address"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#9b59b6' } }}
                             />
 
                             <TextInput
@@ -908,6 +1186,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="numeric"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#9b59b6' } }}
                             />
 
                             <TextInput
@@ -917,6 +1196,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 keyboardType="numeric"
                                 style={styles.modalInput}
+                                theme={{ colors: { primary: '#9b59b6' } }}
                             />
 
                             <View style={styles.roleSelector}>
@@ -948,9 +1228,10 @@ export default function AdminDashboardScreen({ navigation }) {
                                     onPress={handleUpdateUser}
                                 >
                                     <LinearGradient
-                                        colors={gradients.success}
+                                        colors={['#9b59b6', '#bb8fce']}
                                         style={styles.createButtonGradient}
                                     >
+                                        <Ionicons name="person-add" size={20} color="white" />
                                         <Text style={styles.createButtonText}>Update User</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -966,12 +1247,15 @@ export default function AdminDashboardScreen({ navigation }) {
                     contentContainerStyle={styles.modalContainer}
                 >
                     <Card style={styles.modalCard}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Create Bonus Event</Text>
+                        <LinearGradient
+                            colors={['#f39c12', '#f7dc6f']}
+                            style={styles.modalHeader}
+                        >
+                            <Text style={styles.modalTitle}>⚡ Create Bonus Event</Text>
                             <TouchableOpacity onPress={() => setShowEventModal(false)}>
-                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                                <Ionicons name="close" size={24} color="white" />
                             </TouchableOpacity>
-                        </View>
+                        </LinearGradient>
 
                         <ScrollView style={styles.modalContent}>
                             <TextInput
@@ -981,6 +1265,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 mode="outlined"
                                 style={styles.modalInput}
                                 placeholder="e.g. Double Points Weekend"
+                                theme={{ colors: { primary: '#f39c12' } }}
                             />
 
                             <TextInput
@@ -992,6 +1277,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 numberOfLines={3}
                                 style={styles.modalInput}
                                 placeholder="Describe the bonus event..."
+                                theme={{ colors: { primary: '#f39c12' } }}
                             />
 
                             <TextInput
@@ -1002,6 +1288,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 keyboardType="numeric"
                                 style={styles.modalInput}
                                 placeholder="2 = 2x points, 3 = 3x points"
+                                theme={{ colors: { primary: '#f39c12' } }}
                             />
 
                             <TextInput
@@ -1012,6 +1299,7 @@ export default function AdminDashboardScreen({ navigation }) {
                                 keyboardType="numeric"
                                 style={styles.modalInput}
                                 placeholder="24 = 1 day, 168 = 1 week"
+                                theme={{ colors: { primary: '#f39c12' } }}
                             />
 
                             <View style={styles.modalActions}>
@@ -1020,9 +1308,10 @@ export default function AdminDashboardScreen({ navigation }) {
                                     onPress={handleCreateBonusEvent}
                                 >
                                     <LinearGradient
-                                        colors={gradients.accent}
+                                        colors={['#f39c12', '#f7dc6f']}
                                         style={styles.createButtonGradient}
                                     >
+                                        <Ionicons name="flash" size={20} color="white" />
                                         <Text style={styles.createButtonText}>Create & Notify Users</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -1052,8 +1341,8 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         fontSize: 16,
-        color: colors.text.secondary,
-        fontWeight: '500',
+        color: '#27ae60',
+        fontWeight: '600',
         marginTop: 16,
     },
     header: {
@@ -1064,10 +1353,15 @@ const styles = StyleSheet.create({
         paddingBottom: 30,
     },
     headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    headerLeft: {
         flex: 1,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: '700',
         color: 'white',
         marginBottom: 4,
@@ -1077,20 +1371,76 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.9)',
         fontWeight: '500',
     },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    devToolsButton: {
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        padding: 10,
+    },
     scannerButton: {
         borderRadius: 25,
-        overflow: 'hidden',
-    },
-    scannerButtonGradient: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
         width: 50,
         height: 50,
         justifyContent: 'center',
         alignItems: 'center',
     },
+    devToolsSection: {
+        margin: 16,
+        marginBottom: 8,
+    },
+    devToolsCard: {
+        borderRadius: 16,
+        elevation: 4,
+    },
+    devToolsTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#27ae60',
+        marginBottom: 16,
+    },
+    devToolsRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 12,
+        marginBottom: 12,
+    },
+    pointsInput: {
+        flex: 1,
+    },
+    devButton: {
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    devButtonGradient: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+    },
+    devButtonText: {
+        color: 'white',
+        fontWeight: '600',
+    },
+    resetButton: {
+        backgroundColor: '#ecf0f1',
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    resetButtonText: {
+        color: '#7f8c8d',
+        fontWeight: '600',
+    },
     tabContainer: {
-        backgroundColor: colors.surface.white,
+        backgroundColor: 'rgba(255,255,255,0.9)',
         paddingHorizontal: 16,
         paddingVertical: 8,
+        marginHorizontal: 16,
+        borderRadius: 16,
+        marginBottom: 8,
     },
     tab: {
         marginRight: 8,
@@ -1108,7 +1458,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontSize: 14,
-        color: colors.text.secondary,
+        color: '#7f8c8d',
         fontWeight: '500',
         marginLeft: 6,
     },
@@ -1135,11 +1485,11 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     statGradient: {
-        padding: 16,
+        padding: 20,
         alignItems: 'center',
     },
     statValue: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: '700',
         color: 'white',
         marginTop: 8,
@@ -1148,59 +1498,98 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(255,255,255,0.9)',
         marginTop: 4,
+        textAlign: 'center',
     },
     sectionTitle: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: '700',
-        color: colors.text.primary,
+        color: '#2c3e50',
         marginBottom: 8,
+        textAlign: 'center',
     },
     topUsersCard: {
         borderRadius: 16,
-        padding: 20,
-        elevation: 2,
+        elevation: 4,
+        overflow: 'hidden',
     },
-    cardTitle: {
+    topUsersHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        gap: 8,
+    },
+    topUsersTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: colors.text.primary,
-        marginBottom: 16,
+        color: 'white',
+    },
+    topUsersContent: {
+        padding: 20,
     },
     topUserItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: colors.surface.light,
+        borderBottomColor: '#ecf0f1',
+    },
+    topUserRankContainer: {
+        width: 40,
+        alignItems: 'center',
     },
     topUserRank: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '700',
-        color: colors.accent.main,
-        width: 40,
+        color: '#27ae60',
     },
     topUserName: {
         flex: 1,
-        fontSize: 14,
-        color: colors.text.primary,
+        fontSize: 16,
+        color: '#2c3e50',
         fontWeight: '500',
+        marginLeft: 12,
     },
     topUserPoints: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '700',
-        color: colors.success.main,
+        color: '#27ae60',
     },
-    usersCard: {
+    searchCard: {
         borderRadius: 16,
-        padding: 20,
+        padding: 16,
+        marginBottom: 16,
+        elevation: 2,
+    },
+    searchBar: {
+        borderRadius: 12,
+        elevation: 0,
+        backgroundColor: '#f8f9fa',
+    },
+    searchInput: {
+        fontSize: 16,
+    },
+    searchResults: {
+        fontSize: 14,
+        color: '#7f8c8d',
+        marginTop: 12,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    usersList: {
+        paddingBottom: 80,
+    },
+    userItemAnimated: {
+        marginBottom: 12,
+    },
+    userCard: {
+        borderRadius: 16,
         elevation: 2,
     },
     userItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.surface.light,
+        padding: 16,
     },
     userInfo: {
         flex: 1,
@@ -1211,22 +1600,22 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     userName: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '600',
-        color: colors.text.primary,
+        color: '#2c3e50',
         marginRight: 8,
     },
     roleBadge: {
         fontSize: 10,
     },
     userEmail: {
-        fontSize: 12,
-        color: colors.text.secondary,
+        fontSize: 14,
+        color: '#7f8c8d',
         marginBottom: 2,
     },
     userStats: {
-        fontSize: 12,
-        color: colors.text.light,
+        fontSize: 14,
+        color: '#95a5a6',
     },
     userActions: {
         flexDirection: 'row',
@@ -1273,7 +1662,7 @@ const styles = StyleSheet.create({
         marginLeft: 6,
     },
     rewardItem: {
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         marginBottom: 12,
         elevation: 2,
@@ -1289,19 +1678,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 8,
     },
     rewardName: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '700',
-        color: colors.text.primary,
+        color: '#2c3e50',
         flex: 1,
         marginRight: 8,
     },
     rewardDescription: {
         fontSize: 14,
-        color: colors.text.secondary,
-        marginBottom: 8,
+        color: '#7f8c8d',
+        marginBottom: 12,
+        lineHeight: 20,
     },
     rewardMeta: {
         flexDirection: 'row',
@@ -1310,7 +1700,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     chipText: {
-        fontSize: 10,
+        fontSize: 12,
+        fontWeight: '600',
     },
     rewardActions: {
         flexDirection: 'row',
@@ -1326,6 +1717,8 @@ const styles = StyleSheet.create({
         padding: 12,
         alignItems: 'center',
         justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
     },
     deleteButton: {
         borderRadius: 8,
@@ -1336,6 +1729,8 @@ const styles = StyleSheet.create({
         padding: 12,
         alignItems: 'center',
         justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
     },
     voucherStats: {
         flexDirection: 'row',
@@ -1344,25 +1739,29 @@ const styles = StyleSheet.create({
     },
     voucherStatCard: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: 'hidden',
+        elevation: 2,
     },
     voucherStatGradient: {
-        padding: 16,
+        padding: 20,
         alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
     },
     voucherStatValue: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '700',
         color: 'white',
     },
     voucherStatLabel: {
-        fontSize: 12,
+        fontSize: 14,
         color: 'rgba(255,255,255,0.9)',
-        marginTop: 4,
+        fontWeight: '600',
     },
     voucherItem: {
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         marginBottom: 12,
         elevation: 2,
@@ -1377,17 +1776,20 @@ const styles = StyleSheet.create({
     voucherRewardName: {
         fontSize: 16,
         fontWeight: '600',
-        color: colors.text.primary,
+        color: '#2c3e50',
     },
     voucherCode: {
-        fontSize: 12,
-        color: colors.text.secondary,
+        fontSize: 14,
+        color: '#7f8c8d',
         fontFamily: 'monospace',
-        marginTop: 2,
+        marginTop: 4,
+        backgroundColor: '#f8f9fa',
+        padding: 4,
+        borderRadius: 4,
     },
     voucherUser: {
-        fontSize: 11,
-        color: colors.text.light,
+        fontSize: 12,
+        color: '#95a5a6',
         marginTop: 4,
     },
     voucherStatus: {
@@ -1397,8 +1799,8 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     voucherDate: {
-        fontSize: 11,
-        color: colors.text.light,
+        fontSize: 12,
+        color: '#95a5a6',
     },
     modalContainer: {
         flex: 1,
@@ -1408,22 +1810,22 @@ const styles = StyleSheet.create({
     modalCard: {
         borderRadius: 20,
         maxHeight: '80%',
+        overflow: 'hidden',
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.surface.light,
     },
     modalTitle: {
         fontSize: 20,
         fontWeight: '700',
-        color: colors.text.primary,
+        color: 'white',
     },
     modalContent: {
         padding: 20,
+        backgroundColor: 'white',
     },
     modalInput: {
         marginBottom: 16,
@@ -1437,7 +1839,7 @@ const styles = StyleSheet.create({
     },
     switchLabel: {
         fontSize: 16,
-        color: colors.text.primary,
+        color: '#2c3e50',
         fontWeight: '500',
     },
     roleSelector: {
@@ -1445,7 +1847,7 @@ const styles = StyleSheet.create({
     },
     roleSelectorLabel: {
         fontSize: 16,
-        color: colors.text.primary,
+        color: '#2c3e50',
         fontWeight: '500',
         marginBottom: 8,
     },
@@ -1458,16 +1860,16 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: colors.surface.medium,
+        borderColor: '#bdc3c7',
         alignItems: 'center',
     },
     activeRoleOption: {
-        backgroundColor: colors.primary.main,
-        borderColor: colors.primary.main,
+        backgroundColor: '#9b59b6',
+        borderColor: '#9b59b6',
     },
     roleOptionText: {
         fontSize: 14,
-        color: colors.text.secondary,
+        color: '#7f8c8d',
         fontWeight: '500',
     },
     activeRoleOptionText: {
@@ -1484,10 +1886,20 @@ const styles = StyleSheet.create({
     createButtonGradient: {
         paddingVertical: 16,
         alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
     },
     createButtonText: {
         color: 'white',
         fontSize: 16,
         fontWeight: '700',
+    },
+    fab: {
+        position: 'absolute',
+        margin: 16,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#27ae60',
     },
 });
