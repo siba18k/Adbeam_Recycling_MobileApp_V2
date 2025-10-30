@@ -10,17 +10,16 @@ import {
     ActivityIndicator,
     Dimensions,
     SafeAreaView,
-    ScrollView
+    ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { addToQueue } from '../services/offlineQueue';
-import {recordScan, MATERIAL_TYPES, recordScanWithNotifications} from '../services/database';
+import { recordScan, MATERIAL_TYPES } from '../services/database';
 import { validateScanLocation } from '../services/locationService';
 import NetInfo from '@react-native-community/netinfo';
-import { colors, gradients } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,13 +31,75 @@ export default function ScannerScreen({ navigation }) {
     const [selectedMaterial, setSelectedMaterial] = useState(null);
     const { user, refreshUserProfile } = useAuth();
 
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
     const scanAnimation = useRef(new Animated.Value(0)).current;
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const float1 = useRef(new Animated.Value(0)).current;
+    const float2 = useRef(new Animated.Value(0)).current;
+    const rotate = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        if (selectedMaterial) {
+        // Entrance animations
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+        ]).start();
+
+        // Floating background
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(float1, {
+                    toValue: -20,
+                    duration: 3000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float1, {
+                    toValue: 0,
+                    duration: 3000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(float2, {
+                    toValue: -15,
+                    duration: 4000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float2, {
+                    toValue: 0,
+                    duration: 4000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+
+        Animated.loop(
+            Animated.timing(rotate, {
+                toValue: 1,
+                duration: 20000,
+                useNativeDriver: true,
+            })
+        ).start();
+    }, []);
+
+    useEffect(() => {
+        if (selectedMaterial && !scanned) {
             startScanAnimation();
         }
-    }, [selectedMaterial]);
+    }, [selectedMaterial, scanned]);
 
     const startScanAnimation = () => {
         Animated.loop(
@@ -57,63 +118,111 @@ export default function ScannerScreen({ navigation }) {
         ).start();
     };
 
-    // Show material selection first
+    const spin = rotate.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+    });
+
+    // Material Selection Screen
     if (!selectedMaterial) {
         return (
             <SafeAreaView style={styles.container}>
-                <LinearGradient colors={gradients.backgroundPrimary} style={styles.gradient}>
+                <LinearGradient colors={['#27ae60', '#229954', '#1e8449']} style={styles.gradient}>
+                    {/* Floating circles */}
+                    <Animated.View
+                        style={[
+                            styles.floatingCircle,
+                            styles.circle1,
+                            { transform: [{ translateY: float1 }, { rotate: spin }] },
+                        ]}
+                    />
+                    <Animated.View
+                        style={[styles.floatingCircle, styles.circle2, { transform: [{ translateY: float2 }] }]}
+                    />
+
                     <ScrollView contentContainerStyle={styles.materialSelectionContainer}>
-                        <View style={styles.selectionHeader}>
-                            <View style={styles.headerIcon}>
-                                <Ionicons name="scan" size={60} color="white" />
-                            </View>
-                            <Text style={styles.selectionTitle}>What are you recycling?</Text>
-                            <Text style={styles.selectionSubtitle}>
-                                Select the type of material you want to scan
-                            </Text>
-                        </View>
-
-                        <View style={styles.materialGrid}>
-                            {Object.entries(MATERIAL_TYPES).map(([key, material]) => (
-                                <TouchableOpacity
-                                    key={key}
-                                    style={styles.materialCard}
-                                    onPress={() => setSelectedMaterial(key)}
-                                    activeOpacity={0.8}
-                                >
-                                    <LinearGradient
-                                        colors={[material.color, material.color + 'CC']}
-                                        style={styles.materialCardGradient}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                    >
-                                        <View style={styles.materialIconContainer}>
-                                            <Ionicons
-                                                name={material.icon || 'leaf'}
-                                                size={32}
-                                                color="white"
-                                            />
-                                        </View>
-                                        <Text style={styles.materialCardTitle}>
-                                            {material.name}
-                                        </Text>
-                                        <View style={styles.pointsBadge}>
-                                            <Ionicons name="star" size={14} color="white" />
-                                            <Text style={styles.pointsBadgeText}>
-                                                +{material.points} points
-                                            </Text>
-                                        </View>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.backButton}
-                            onPress={() => navigation.goBack()}
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }],
+                            }}
                         >
-                            <Text style={styles.backButtonText}>← Back to Dashboard</Text>
-                        </TouchableOpacity>
+                            <View style={styles.selectionHeader}>
+                                <View style={styles.headerIconContainer}>
+                                    <LinearGradient
+                                        colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
+                                        style={styles.headerIcon}
+                                    >
+                                        <Ionicons name="scan" size={50} color="white" />
+                                    </LinearGradient>
+                                </View>
+                                <Text style={styles.selectionTitle}>What are you recycling?</Text>
+                                <Text style={styles.selectionSubtitle}>
+                                    Select the type of material you want to scan
+                                </Text>
+                            </View>
+
+                            <View style={styles.materialGrid}>
+                                {Object.entries(MATERIAL_TYPES).map(([key, material], index) => (
+                                    <Animated.View
+                                        key={key}
+                                        style={{
+                                            opacity: fadeAnim,
+                                            transform: [
+                                                {
+                                                    translateX: fadeAnim.interpolate({
+                                                        inputRange: [0, 1],
+                                                        outputRange: [index % 2 === 0 ? -50 : 50, 0],
+                                                    }),
+                                                },
+                                            ],
+                                        }}
+                                    >
+                                        <TouchableOpacity
+                                            style={styles.materialCard}
+                                            onPress={() => setSelectedMaterial(key)}
+                                            activeOpacity={0.9}
+                                        >
+                                            <LinearGradient
+                                                colors={[material.color, material.color + 'dd']}
+                                                style={styles.materialCardGradient}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                            >
+                                                <View style={styles.materialIconContainer}>
+                                                    <View style={styles.materialIconCircle}>
+                                                        <Ionicons
+                                                            name={material.icon || 'leaf'}
+                                                            size={28}
+                                                            color="white"
+                                                        />
+                                                    </View>
+                                                </View>
+                                                <View style={styles.materialInfo}>
+                                                    <Text style={styles.materialCardTitle}>{material.name}</Text>
+                                                    <View style={styles.pointsBadge}>
+                                                        <Ionicons name="star" size={12} color="#fbbf24" />
+                                                        <Text style={styles.pointsBadgeText}>
+                                                            +{material.points} points
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.backButton}
+                                onPress={() => navigation.goBack()}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="arrow-back" size={20} color="rgba(255,255,255,0.9)" />
+                                <Text style={styles.backButtonText}>Back to Dashboard</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
                     </ScrollView>
                 </LinearGradient>
             </SafeAreaView>
@@ -124,7 +233,7 @@ export default function ScannerScreen({ navigation }) {
     if (!permission) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary.main} />
+                <ActivityIndicator size="large" color="#27ae60" />
             </View>
         );
     }
@@ -132,32 +241,39 @@ export default function ScannerScreen({ navigation }) {
     if (!permission.granted) {
         return (
             <SafeAreaView style={styles.permissionContainer}>
-                <LinearGradient
-                    colors={gradients.backgroundPrimary}
-                    style={styles.permissionGradient}
-                >
-                    <View style={styles.permissionContent}>
+                <LinearGradient colors={['#27ae60', '#229954']} style={styles.permissionGradient}>
+                    <Animated.View
+                        style={[
+                            styles.permissionContent,
+                            { opacity: fadeAnim, transform: [{ scale: fadeAnim }] },
+                        ]}
+                    >
                         <View style={styles.permissionIconContainer}>
-                            <Ionicons name="camera-outline" size={80} color="white" />
+                            <LinearGradient
+                                colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
+                                style={styles.permissionIconCircle}
+                            >
+                                <Ionicons name="camera-outline" size={60} color="white" />
+                            </LinearGradient>
                         </View>
-                        <Text style={styles.permissionTitle}>
-                            Camera Access Required
-                        </Text>
+                        <Text style={styles.permissionTitle}>Camera Access Required</Text>
                         <Text style={styles.permissionText}>
                             We need camera permissions to scan barcodes for recycling items
                         </Text>
-                        <LinearGradient
-                            colors={gradients.success}
+                        <TouchableOpacity
                             style={styles.permissionButton}
+                            onPress={requestPermission}
+                            activeOpacity={0.9}
                         >
-                            <TouchableOpacity
-                                onPress={requestPermission}
-                                style={styles.permissionButtonContent}
+                            <LinearGradient
+                                colors={['#fff', '#f0fdf4']}
+                                style={styles.permissionButtonGradient}
                             >
                                 <Text style={styles.permissionButtonText}>Grant Permission</Text>
-                            </TouchableOpacity>
-                        </LinearGradient>
-                    </View>
+                                <Ionicons name="camera" size={20} color="#27ae60" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </Animated.View>
                 </LinearGradient>
             </SafeAreaView>
         );
@@ -171,43 +287,34 @@ export default function ScannerScreen({ navigation }) {
         Vibration.vibrate(100);
 
         try {
-            // Validate location first
             const locationValidation = await validateScanLocation();
 
             if (!locationValidation.valid) {
-                Alert.alert(
-                    'Location Required',
-                    locationValidation.error || 'You must be on campus to scan items',
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => {
-                                setScanned(false);
-                                setIsProcessing(false);
-                            }
-                        }
-                    ]
-                );
+                Alert.alert('Location Required', locationValidation.error || 'You must be on campus to scan items', [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setScanned(false);
+                            setIsProcessing(false);
+                        },
+                    },
+                ]);
                 return;
             }
 
-            // Get material info from selected type
             const material = MATERIAL_TYPES[selectedMaterial];
 
             const scanData = {
                 barcode: data,
                 materialType: material.name,
                 points: material.points,
-                location: locationValidation.location || { latitude: 0, longitude: 0 }
+                location: locationValidation.location || { latitude: 0, longitude: 0 },
             };
 
-            // Check network connectivity
             const netInfo = await NetInfo.fetch();
 
             if (!netInfo.isConnected) {
-                // Queue for later if offline
                 await addToQueue(scanData);
-
                 Alert.alert(
                     'Scan Queued ⏳',
                     `You're offline! This ${material.name} scan will be processed when you reconnect.`,
@@ -217,33 +324,28 @@ export default function ScannerScreen({ navigation }) {
                             onPress: () => {
                                 setScanned(false);
                                 setIsProcessing(false);
-                            }
+                            },
                         },
                         {
                             text: 'View Dashboard',
-                            onPress: () => navigation.navigate('Dashboard')
-                        }
+                            onPress: () => navigation.navigate('Dashboard'),
+                        },
                     ]
                 );
                 return;
             }
 
-            // Replace the recordScan call in ScannerScreen with:
-            const result = await recordScanWithNotifications(user.uid, scanData);
-
+            const result = await recordScan(user.uid, scanData);
 
             if (result.success) {
-                // Refresh user profile to sync points immediately
                 await refreshUserProfile();
-
                 Vibration.vibrate([0, 200, 100, 200]);
 
                 Alert.alert(
                     '🎉 Recycling Success!',
-                    `Great job! You've earned points for recycling!\n\n` +
+                    `Great job! You've earned points!\n\n` +
                     `Material: ${material.name}\n` +
-                    `Points Earned: +${material.points}\n\n` +
-                    `Your Stats:\n` +
+                    `Points: +${material.points}\n\n` +
                     `Total Points: ${result.newTotalPoints}\n` +
                     `Level: ${result.newLevel}\n` +
                     `Items Recycled: ${result.newTotalScans}`,
@@ -253,7 +355,7 @@ export default function ScannerScreen({ navigation }) {
                             onPress: () => {
                                 setScanned(false);
                                 setIsProcessing(false);
-                            }
+                            },
                         },
                         {
                             text: 'Change Material',
@@ -261,26 +363,26 @@ export default function ScannerScreen({ navigation }) {
                                 setSelectedMaterial(null);
                                 setScanned(false);
                                 setIsProcessing(false);
-                            }
+                            },
                         },
                         {
                             text: 'View Dashboard',
-                            onPress: () => navigation.navigate('Dashboard')
-                        }
+                            onPress: () => navigation.navigate('Dashboard'),
+                        },
                     ]
                 );
             } else if (result.duplicate) {
                 Alert.alert(
                     'Already Recycled ♻️',
-                    `This item has already been scanned and recycled.\n\nBarcode: ${data}\n\nEach item can only be recycled once to prevent fraud.`,
+                    `This item has already been scanned.\n\nBarcode: ${data}`,
                     [
                         {
-                            text: 'Try Another Item',
+                            text: 'Try Another',
                             onPress: () => {
                                 setScanned(false);
                                 setIsProcessing(false);
-                            }
-                        }
+                            },
+                        },
                     ]
                 );
             } else {
@@ -288,19 +390,15 @@ export default function ScannerScreen({ navigation }) {
             }
         } catch (error) {
             console.error('Scan error:', error);
-            Alert.alert(
-                'Scan Error',
-                `Failed to process scan. Please try again.\n\nError: ${error.message}`,
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            setScanned(false);
-                            setIsProcessing(false);
-                        }
-                    }
-                ]
-            );
+            Alert.alert('Scan Error', `Failed to process scan.\n\nError: ${error.message}`, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setScanned(false);
+                        setIsProcessing(false);
+                    },
+                },
+            ]);
         }
     };
 
@@ -311,47 +409,44 @@ export default function ScannerScreen({ navigation }) {
     });
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.cameraContainer}>
             <CameraView
                 style={styles.camera}
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
-                    barcodeTypes: [
-                        'ean13',
-                        'ean8',
-                        'upc_a',
-                        'upc_e',
-                        'code39',
-                        'code128',
-                        'qr',
-                        'pdf417'
-                    ],
+                    barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code39', 'code128', 'qr', 'pdf417'],
                 }}
                 enableTorch={flashOn}
             >
                 <LinearGradient
-                    colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.7)']}
+                    colors={['rgba(0,0,0,0.7)', 'transparent', 'transparent', 'rgba(0,0,0,0.7)']}
                     style={styles.overlay}
                 >
-                    {/* Top Section - Selected Material Info */}
+                    {/* Top Section */}
                     <View style={styles.topSection}>
                         <LinearGradient
-                            colors={[material.color, material.color + 'CC']}
+                            colors={[material.color + 'ee', material.color + 'dd']}
                             style={styles.selectedMaterialCard}
                         >
                             <TouchableOpacity
                                 style={styles.changeButton}
                                 onPress={() => setSelectedMaterial(null)}
+                                activeOpacity={0.7}
                             >
                                 <Ionicons name="chevron-back" size={20} color="white" />
                                 <Text style={styles.changeButtonText}>Change</Text>
                             </TouchableOpacity>
 
                             <View style={styles.selectedMaterialInfo}>
-                                <Ionicons name={material.icon || 'leaf'} size={24} color="white" />
+                                <View style={styles.selectedIconCircle}>
+                                    <Ionicons name={material.icon || 'leaf'} size={22} color="white" />
+                                </View>
                                 <Text style={styles.selectedMaterialName}>{material.name}</Text>
-                                <Text style={styles.selectedMaterialPoints}>+{material.points} pts</Text>
+                                <View style={styles.selectedPointsBadge}>
+                                    <Ionicons name="star" size={14} color="#fbbf24" />
+                                    <Text style={styles.selectedMaterialPoints}>+{material.points}</Text>
+                                </View>
                             </View>
                         </LinearGradient>
                     </View>
@@ -359,7 +454,7 @@ export default function ScannerScreen({ navigation }) {
                     {/* Center Section - Scanning Frame */}
                     <View style={styles.centerSection}>
                         <Text style={styles.instructionText}>
-                            Scan any barcode or QR code
+                            {isProcessing ? 'Processing...' : 'Point at barcode or QR code'}
                         </Text>
 
                         <View style={styles.scanFrame}>
@@ -372,46 +467,53 @@ export default function ScannerScreen({ navigation }) {
                             {/* Animated scan line */}
                             {!scanned && !isProcessing && (
                                 <Animated.View
-                                    style={[
-                                        styles.scanLine,
-                                        { transform: [{ translateY: scanLineTranslateY }] }
-                                    ]}
-                                />
+                                    style={[styles.scanLine, { transform: [{ translateY: scanLineTranslateY }] }]}
+                                >
+                                    <LinearGradient
+                                        colors={['transparent', '#27ae60', 'transparent']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.scanLineGradient}
+                                    />
+                                </Animated.View>
                             )}
 
                             {/* Processing indicator */}
                             {isProcessing && (
                                 <View style={styles.processingContainer}>
-                                    <ActivityIndicator size="large" color={colors.success.main} />
-                                    <Text style={styles.processingText}>
-                                        Processing {material.name}...
-                                    </Text>
+                                    <ActivityIndicator size="large" color="#27ae60" />
+                                    <Text style={styles.processingText}>Processing {material.name}...</Text>
                                 </View>
                             )}
                         </View>
+
+                        <Text style={styles.tipText}>
+                            💡 Works with any barcode or QR code
+                        </Text>
                     </View>
 
-                    {/* Bottom Section - Controls */}
+                    {/* Bottom Section */}
                     <View style={styles.bottomSection}>
                         <TouchableOpacity
                             style={styles.flashButton}
                             onPress={() => setFlashOn(!flashOn)}
+                            activeOpacity={0.7}
                         >
                             <LinearGradient
-                                colors={flashOn ? gradients.accent : ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                                colors={
+                                    flashOn
+                                        ? ['#fbbf24', '#f59e0b']
+                                        : ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']
+                                }
                                 style={styles.flashButtonGradient}
                             >
-                                <Ionicons
-                                    name={flashOn ? 'flash' : 'flash-off'}
-                                    size={24}
-                                    color="white"
-                                />
+                                <Ionicons name={flashOn ? 'flash' : 'flash-off'} size={24} color="white" />
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <View style={styles.tipContainer}>
-                            <Text style={styles.tipText}>
-                                💡 Point camera at any barcode or QR code on your {material.name.toLowerCase()}
+                        <View style={styles.infoCard}>
+                            <Text style={styles.infoText}>
+                                Scanning: <Text style={styles.infoMaterial}>{material.name}</Text>
                             </Text>
                         </View>
                     </View>
@@ -424,16 +526,34 @@ export default function ScannerScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000',
+        backgroundColor: '#27ae60',
     },
     gradient: {
         flex: 1,
+    },
+    floatingCircle: {
+        position: 'absolute',
+        borderRadius: 200,
+        opacity: 0.15,
+        backgroundColor: '#fff',
+    },
+    circle1: {
+        width: 150,
+        height: 150,
+        top: 50,
+        right: -50,
+    },
+    circle2: {
+        width: 120,
+        height: 120,
+        bottom: 100,
+        left: -40,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: colors.surface.light,
+        backgroundColor: '#f0fdf4',
     },
     materialSelectionContainer: {
         flexGrow: 1,
@@ -444,8 +564,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 40,
     },
-    headerIcon: {
+    headerIconContainer: {
         marginBottom: 20,
+    },
+    headerIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
     },
     selectionTitle: {
         fontSize: 28,
@@ -453,7 +585,6 @@ const styles = StyleSheet.create({
         color: 'white',
         textAlign: 'center',
         marginBottom: 12,
-        letterSpacing: -0.5,
     },
     selectionSubtitle: {
         fontSize: 16,
@@ -467,48 +598,68 @@ const styles = StyleSheet.create({
     materialCard: {
         borderRadius: 20,
         overflow: 'hidden',
-        shadowColor: colors.shadow.heavy,
-        shadowOffset: { width: 0, height: 8 },
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 12,
+        shadowRadius: 12,
+        elevation: 8,
     },
     materialCardGradient: {
-        padding: 24,
+        padding: 20,
         flexDirection: 'row',
         alignItems: 'center',
     },
     materialIconContainer: {
-        marginRight: 20,
+        marginRight: 16,
+    },
+    materialIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    materialInfo: {
+        flex: 1,
     },
     materialCardTitle: {
-        flex: 1,
         fontSize: 18,
         fontWeight: '700',
         color: 'white',
+        marginBottom: 6,
     },
     pointsBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        alignSelf: 'flex-start',
     },
     pointsBadgeText: {
         color: 'white',
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '700',
         marginLeft: 4,
     },
     backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 40,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 20,
         alignSelf: 'center',
     },
     backButtonText: {
-        color: 'rgba(255,255,255,0.8)',
+        color: 'rgba(255,255,255,0.95)',
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: '600',
+        marginLeft: 8,
     },
     permissionContainer: {
         flex: 1,
@@ -525,6 +676,13 @@ const styles = StyleSheet.create({
     permissionIconContainer: {
         marginBottom: 24,
     },
+    permissionIconCircle: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     permissionTitle: {
         fontSize: 24,
         fontWeight: '700',
@@ -538,23 +696,32 @@ const styles = StyleSheet.create({
         marginBottom: 32,
         color: 'rgba(255,255,255,0.9)',
         lineHeight: 24,
+        paddingHorizontal: 20,
     },
     permissionButton: {
-        borderRadius: 16,
-        shadowColor: colors.success.main,
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 12,
         elevation: 8,
     },
-    permissionButtonContent: {
+    permissionButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 32,
         paddingVertical: 16,
+        gap: 8,
     },
     permissionButtonText: {
-        color: 'white',
+        color: '#27ae60',
         fontSize: 18,
         fontWeight: '700',
+    },
+    cameraContainer: {
+        flex: 1,
+        backgroundColor: '#000',
     },
     camera: {
         flex: 1,
@@ -566,43 +733,68 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         padding: 20,
+        paddingTop: 40,
     },
     selectedMaterialCard: {
-        borderRadius: 16,
+        borderRadius: 20,
         padding: 20,
-        marginHorizontal: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
     },
     changeButton: {
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
         marginBottom: 16,
     },
     changeButtonText: {
         color: 'white',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
         marginLeft: 4,
     },
     selectedMaterialInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+    },
+    selectedIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
     selectedMaterialName: {
         flex: 1,
         color: 'white',
         fontSize: 18,
         fontWeight: '700',
-        marginLeft: 12,
+    },
+    selectedPointsBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        gap: 4,
     },
     selectedMaterialPoints: {
         color: 'white',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '700',
     },
     centerSection: {
-        flex: 2,
+        flex: 2.5,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -612,8 +804,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
         marginBottom: 30,
-        backgroundColor: 'rgba(5, 150, 105, 0.8)',
-        paddingHorizontal: 20,
+        backgroundColor: 'rgba(39, 174, 96, 0.9)',
+        paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 20,
     },
@@ -628,7 +820,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         width: 40,
         height: 40,
-        borderColor: colors.success.main,
+        borderColor: '#27ae60',
         borderWidth: 4,
     },
     topLeft: {
@@ -636,34 +828,35 @@ const styles = StyleSheet.create({
         left: 0,
         borderBottomWidth: 0,
         borderRightWidth: 0,
+        borderTopLeftRadius: 8,
     },
     topRight: {
         top: 0,
         right: 0,
         borderBottomWidth: 0,
         borderLeftWidth: 0,
+        borderTopRightRadius: 8,
     },
     bottomLeft: {
         bottom: 0,
         left: 0,
         borderTopWidth: 0,
         borderRightWidth: 0,
+        borderBottomLeftRadius: 8,
     },
     bottomRight: {
         bottom: 0,
         right: 0,
         borderTopWidth: 0,
         borderLeftWidth: 0,
+        borderBottomRightRadius: 8,
     },
     scanLine: {
-        width: '90%',
+        width: '100%',
         height: 3,
-        backgroundColor: colors.success.main,
-        shadowColor: colors.success.main,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 10,
-        elevation: 5,
+    },
+    scanLineGradient: {
+        flex: 1,
     },
     processingContainer: {
         justifyContent: 'center',
@@ -672,8 +865,15 @@ const styles = StyleSheet.create({
     processingText: {
         color: 'white',
         fontSize: 16,
-        marginTop: 12,
+        marginTop: 16,
         fontWeight: '600',
+    },
+    tipText: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 13,
+        marginTop: 24,
+        textAlign: 'center',
+        fontWeight: '500',
     },
     bottomSection: {
         flex: 1,
@@ -681,28 +881,38 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 20,
+        paddingBottom: 30,
     },
     flashButton: {
-        borderRadius: 25,
+        borderRadius: 28,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
     },
     flashButtonGradient: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    tipContainer: {
+    infoCard: {
         flex: 1,
-        marginLeft: 15,
-        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-        borderRadius: 12,
-        padding: 12,
+        marginLeft: 16,
+        backgroundColor: 'rgba(39, 174, 96, 0.9)',
+        borderRadius: 16,
+        padding: 16,
     },
-    tipText: {
-        color: 'white',
-        fontSize: 12,
+    infoText: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 14,
         textAlign: 'center',
         fontWeight: '500',
+    },
+    infoMaterial: {
+        fontWeight: '700',
+        color: 'white',
     },
 });

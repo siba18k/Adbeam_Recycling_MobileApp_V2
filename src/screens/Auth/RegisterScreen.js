@@ -1,42 +1,135 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
+    Text,
+    TextInput,
+    TouchableOpacity,
     StyleSheet,
-    ScrollView,
+    Animated,
+    Dimensions,
     KeyboardAvoidingView,
     Platform,
+    ScrollView,
     Alert,
-    TouchableOpacity,
-    Dimensions
 } from 'react-native';
-import {
-    TextInput,
-    Text,
-    HelperText
-} from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { colors, gradients } from '../../theme/colors';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function RegisterScreen({ navigation }) {
+    const { register } = useAuth();
     const [formData, setFormData] = useState({
         displayName: '',
         email: '',
         studentNumber: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const { register } = useAuth();
+
+    // Animation values
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
+    const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+    // Floating animations for decorative elements
+    const float1 = useRef(new Animated.Value(0)).current;
+    const float2 = useRef(new Animated.Value(0)).current;
+    const float3 = useRef(new Animated.Value(0)).current;
+    const rotate = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        // Main entrance animation
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                friction: 8,
+                tension: 40,
+                useNativeDriver: true,
+            }),
+        ]).start();
+
+        // Continuous floating animations
+        const floatingAnimation1 = Animated.loop(
+            Animated.sequence([
+                Animated.timing(float1, {
+                    toValue: -20,
+                    duration: 3000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float1, {
+                    toValue: 0,
+                    duration: 3000,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        const floatingAnimation2 = Animated.loop(
+            Animated.sequence([
+                Animated.timing(float2, {
+                    toValue: -15,
+                    duration: 4000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float2, {
+                    toValue: 0,
+                    duration: 4000,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        const floatingAnimation3 = Animated.loop(
+            Animated.sequence([
+                Animated.timing(float3, {
+                    toValue: -25,
+                    duration: 5000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(float3, {
+                    toValue: 0,
+                    duration: 5000,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        const rotateAnimation = Animated.loop(
+            Animated.timing(rotate, {
+                toValue: 1,
+                duration: 20000,
+                useNativeDriver: true,
+            })
+        );
+
+        floatingAnimation1.start();
+        floatingAnimation2.start();
+        floatingAnimation3.start();
+        rotateAnimation.start();
+    }, []);
+
+    const spin = rotate.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+    });
 
     const updateField = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
     const validateForm = () => {
@@ -131,250 +224,201 @@ export default function RegisterScreen({ navigation }) {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <LinearGradient
-                colors={gradients.primary}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            >
-                {/* Background decoration */}
-                <View style={styles.backgroundDecoration}>
-                    <LinearGradient
-                        colors={[colors.surface.glass, 'transparent']}
-                        style={[styles.decorationCircle, styles.circle1]}
-                    />
-                    <LinearGradient
-                        colors={[colors.surface.glass, 'transparent']}
-                        style={[styles.decorationCircle, styles.circle2]}
-                    />
-                </View>
+        <LinearGradient colors={['#a8e6cf', '#dcedc1', '#ffffff']} style={styles.container}>
+            {/* Animated Decorative Elements */}
+            <Animated.View
+                style={[
+                    styles.decorativeCircle,
+                    styles.circle1,
+                    { transform: [{ translateY: float1 }, { rotate: spin }] },
+                ]}
+            />
+            <Animated.View
+                style={[
+                    styles.decorativeCircle,
+                    styles.circle2,
+                    { transform: [{ translateY: float2 }] },
+                ]}
+            />
+            <Animated.View
+                style={[
+                    styles.decorativeCircle,
+                    styles.circle3,
+                    { transform: [{ translateY: float3 }] },
+                ]}
+            />
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardView}
+            >
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    {/* Header */}
-                    <View style={styles.header}>
+                    <Animated.View
+                        style={[
+                            styles.content,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+                            },
+                        ]}
+                    >
+                        {/* Logo */}
                         <View style={styles.logoContainer}>
-                            <LinearGradient
-                                colors={[colors.surface.white, colors.surface.light]}
-                                style={styles.logoBackground}
-                            >
-                                <Ionicons name="leaf" size={40} color={colors.success.main} />
-                            </LinearGradient>
+                            <View style={styles.logoCircle}>
+                                <Ionicons name="leaf" size={50} color="#145a32" />
+                            </View>
+                            <Text style={styles.appName}>AdBeam Recycling</Text>
                         </View>
-                        <Text style={styles.title}>Join Adbeam</Text>
-                        <Text style={styles.subtitle}>
-                            Create your account and start making a difference
-                        </Text>
-                    </View>
 
-                    {/* Registration Form */}
-                    <View style={styles.cardContainer}>
-                        <BlurView intensity={20} tint="light" style={styles.cardBlur}>
-                            <LinearGradient
-                                colors={[colors.surface.white, colors.surface.light]}
-                                style={styles.card}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
+                        {/* Register Card */}
+                        <View style={styles.card}>
+                            <Text style={styles.title}>Join Adbeam</Text>
+                            <Text style={styles.subtitle}>Create your account and start making a difference</Text>
+
+                            {/* Full Name Input */}
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="person-outline" size={20} color="#27ae60" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Full Name"
+                                    placeholderTextColor="#95a5a6"
+                                    value={formData.displayName}
+                                    onChangeText={(value) => updateField('displayName', value)}
+                                    autoCapitalize="words"
+                                />
+                            </View>
+
+                            {/* Student Email Input */}
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="mail-outline" size={20} color="#27ae60" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Student Email (@uj.ac.za)"
+                                    placeholderTextColor="#95a5a6"
+                                    value={formData.email}
+                                    onChangeText={(value) => updateField('email', value)}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                            {hasErrors('email') && (
+                                <Text style={styles.errorText}>Please enter a valid email address</Text>
+                            )}
+
+                            {/* Student Number Input */}
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="school-outline" size={20} color="#27ae60" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Student Number (9 digits)"
+                                    placeholderTextColor="#95a5a6"
+                                    value={formData.studentNumber}
+                                    onChangeText={(value) => updateField('studentNumber', value)}
+                                    keyboardType="numeric"
+                                    maxLength={9}
+                                />
+                            </View>
+                            {hasErrors('studentNumber') && (
+                                <Text style={styles.errorText}>Student number must be 9 digits</Text>
+                            )}
+
+                            {/* Password Input */}
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="lock-closed-outline" size={20} color="#27ae60" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Password"
+                                    placeholderTextColor="#95a5a6"
+                                    value={formData.password}
+                                    onChangeText={(value) => updateField('password', value)}
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    style={styles.eyeIcon}
+                                >
+                                    <Ionicons
+                                        name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                                        size={20}
+                                        color="#7f8c8d"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                            {hasErrors('password') && (
+                                <Text style={styles.errorText}>Password must be at least 6 characters</Text>
+                            )}
+
+                            {/* Confirm Password Input */}
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="lock-closed-outline" size={20} color="#27ae60" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Confirm Password"
+                                    placeholderTextColor="#95a5a6"
+                                    value={formData.confirmPassword}
+                                    onChangeText={(value) => updateField('confirmPassword', value)}
+                                    secureTextEntry={!showConfirmPassword}
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    style={styles.eyeIcon}
+                                >
+                                    <Ionicons
+                                        name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                                        size={20}
+                                        color="#7f8c8d"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                            {hasErrors('confirmPassword') && (
+                                <Text style={styles.errorText}>Passwords do not match</Text>
+                            )}
+
+                            {/* Register Button */}
+                            <TouchableOpacity
+                                style={styles.button}
+                                onPress={handleRegister}
+                                disabled={isLoading}
                             >
-                                <View style={styles.cardContent}>
-                                    <Text style={styles.formTitle}>Create Account</Text>
+                                <LinearGradient
+                                    colors={['#27ae60', '#229954']}
+                                    style={styles.buttonGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                >
+                                    {isLoading ? (
+                                        <Text style={styles.buttonText}>Creating Account...</Text>
+                                    ) : (
+                                        <Text style={styles.buttonText}>Create Account</Text>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
 
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            label="Full Name"
-                                            value={formData.displayName}
-                                            onChangeText={(value) => updateField('displayName', value)}
-                                            mode="outlined"
-                                            autoCapitalize="words"
-                                            textContentType="name"
-                                            left={<TextInput.Icon icon="account-outline" />}
-                                            style={styles.input}
-                                            disabled={isLoading}
-                                            theme={{
-                                                colors: {
-                                                    primary: colors.primary.main,
-                                                    outline: colors.primary.light
-                                                }
-                                            }}
-                                        />
-                                    </View>
+                            {/* Divider */}
+                            <View style={styles.divider}>
+                                <View style={styles.dividerLine} />
+                                <Text style={styles.dividerText}>OR</Text>
+                                <View style={styles.dividerLine} />
+                            </View>
 
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            label="Student Email"
-                                            value={formData.email}
-                                            onChangeText={(value) => updateField('email', value)}
-                                            mode="outlined"
-                                            autoCapitalize="none"
-                                            keyboardType="email-address"
-                                            autoCompleteType="email"
-                                            textContentType="emailAddress"
-                                            left={<TextInput.Icon icon="email-outline" />}
-                                            style={styles.input}
-                                            disabled={isLoading}
-                                            error={hasErrors('email')}
-                                            theme={{
-                                                colors: {
-                                                    primary: colors.primary.main,
-                                                    outline: colors.primary.light,
-                                                    error: colors.status.error
-                                                }
-                                            }}
-                                        />
-                                        <HelperText type="error" visible={hasErrors('email')}>
-                                            Please enter a valid email address
-                                        </HelperText>
-                                    </View>
+                            {/* Login Link */}
+                            <Text style={styles.loginText}>
+                                Already have an account?{' '}
+                                <Text style={styles.link} onPress={() => navigation.navigate('Login')}>
+                                    Sign In
+                                </Text>
+                            </Text>
 
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            label="Student Number"
-                                            value={formData.studentNumber}
-                                            onChangeText={(value) => updateField('studentNumber', value)}
-                                            mode="outlined"
-                                            keyboardType="numeric"
-                                            maxLength={9}
-                                            left={<TextInput.Icon icon="school-outline" />}
-                                            style={styles.input}
-                                            disabled={isLoading}
-                                            error={hasErrors('studentNumber')}
-                                            theme={{
-                                                colors: {
-                                                    primary: colors.primary.main,
-                                                    outline: colors.primary.light,
-                                                    error: colors.status.error
-                                                }
-                                            }}
-                                        />
-                                        <HelperText type="error" visible={hasErrors('studentNumber')}>
-                                            Student number must be 9 digits
-                                        </HelperText>
-                                    </View>
-
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            label="Password"
-                                            value={formData.password}
-                                            onChangeText={(value) => updateField('password', value)}
-                                            mode="outlined"
-                                            secureTextEntry={!showPassword}
-                                            autoCompleteType="password"
-                                            textContentType="newPassword"
-                                            left={<TextInput.Icon icon="lock-outline" />}
-                                            right={
-                                                <TextInput.Icon
-                                                    icon={showPassword ? "eye-off-outline" : "eye-outline"}
-                                                    onPress={() => setShowPassword(!showPassword)}
-                                                />
-                                            }
-                                            style={styles.input}
-                                            disabled={isLoading}
-                                            error={hasErrors('password')}
-                                            theme={{
-                                                colors: {
-                                                    primary: colors.primary.main,
-                                                    outline: colors.primary.light,
-                                                    error: colors.status.error
-                                                }
-                                            }}
-                                        />
-                                        <HelperText type="error" visible={hasErrors('password')}>
-                                            Password must be at least 6 characters
-                                        </HelperText>
-                                    </View>
-
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            label="Confirm Password"
-                                            value={formData.confirmPassword}
-                                            onChangeText={(value) => updateField('confirmPassword', value)}
-                                            mode="outlined"
-                                            secureTextEntry={!showConfirmPassword}
-                                            textContentType="newPassword"
-                                            left={<TextInput.Icon icon="lock-check-outline" />}
-                                            right={
-                                                <TextInput.Icon
-                                                    icon={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                                                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                />
-                                            }
-                                            style={styles.input}
-                                            disabled={isLoading}
-                                            error={hasErrors('confirmPassword')}
-                                            theme={{
-                                                colors: {
-                                                    primary: colors.primary.main,
-                                                    outline: colors.primary.light,
-                                                    error: colors.status.error
-                                                }
-                                            }}
-                                        />
-                                        <HelperText type="error" visible={hasErrors('confirmPassword')}>
-                                            Passwords do not match
-                                        </HelperText>
-                                    </View>
-
-                                    <LinearGradient
-                                        colors={gradients.success} // Bright green for CTA
-                                        style={styles.registerButton}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                    >
-                                        <TouchableOpacity
-                                            onPress={handleRegister}
-                                            disabled={isLoading}
-                                            style={styles.registerButtonContent}
-                                        >
-                                            {isLoading ? (
-                                                <View style={styles.loadingContainer}>
-                                                    <Text style={styles.registerButtonText}>Creating Account...</Text>
-                                                </View>
-                                            ) : (
-                                                <Text style={styles.registerButtonText}>Create Account</Text>
-                                            )}
-                                        </TouchableOpacity>
-                                    </LinearGradient>
-
-                                    <View style={styles.dividerContainer}>
-                                        <View style={styles.dividerLine} />
-                                        <Text style={styles.dividerText}>or</Text>
-                                        <View style={styles.dividerLine} />
-                                    </View>
-
-                                    <View style={styles.loginSection}>
-                                        <Text style={styles.loginText}>
-                                            Already have an account?{' '}
-                                        </Text>
-                                        <TouchableOpacity
-                                            onPress={() => navigation.navigate('Login')}
-                                            disabled={isLoading}
-                                        >
-                                            <LinearGradient
-                                                colors={gradients.backgroundSecondary} // Vibrant green
-                                                style={styles.gradient}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 1 }}
-                                            >
-                                                <Text style={styles.loginLink}>
-                                                    Sign In
-                                                </Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </LinearGradient>
-                        </BlurView>
-                    </View>
+                            <Text style={styles.devModeText}>🌱 Start your eco-journey today!</Text>
+                        </View>
+                    </Animated.View>
                 </ScrollView>
-            </LinearGradient>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </LinearGradient>
     );
 }
 
@@ -382,175 +426,171 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    gradient: {
+    keyboardView: {
         flex: 1,
-    },
-    backgroundDecoration: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    decorationCircle: {
-        position: 'absolute',
-        borderRadius: 200,
-    },
-    circle1: {
-        width: 400,
-        height: 400,
-        top: -200,
-        right: -200,
-    },
-    circle2: {
-        width: 300,
-        height: 300,
-        bottom: -150,
-        left: -150,
     },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
-        padding: 24,
-        paddingTop: 60,
-    },
-    header: {
         alignItems: 'center',
-        marginBottom: 32,
+        paddingVertical: 40,
+    },
+    content: {
+        width: '100%',
+        alignItems: 'center',
+    },
+    decorativeCircle: {
+        position: 'absolute',
+        borderRadius: 200,
+        opacity: 0.15,
+    },
+    circle1: {
+        width: 150,
+        height: 150,
+        backgroundColor: '#27ae60',
+        top: 100,
+        right: -50,
+    },
+    circle2: {
+        width: 100,
+        height: 100,
+        backgroundColor: '#2ecc71',
+        top: 250,
+        left: -30,
+    },
+    circle3: {
+        width: 120,
+        height: 120,
+        backgroundColor: '#27ae60',
+        bottom: 100,
+        right: 40,
     },
     logoContainer: {
-        marginBottom: 20,
+        alignItems: 'center',
+        marginBottom: 30,
     },
-    logoBackground: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
+    logoCircle: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: colors.shadow.light,
-        shadowOffset: {
-            width: 0,
-            height: 8,
-        },
+        shadowColor: '#27ae60',
         shadowOpacity: 0.3,
-        shadowRadius: 12,
+        shadowRadius: 15,
+        shadowOffset: { width: 0, height: 5 },
         elevation: 8,
     },
-    title: {
+    appName: {
         fontSize: 28,
         fontWeight: '700',
-        color: colors.text.inverse,
-        marginBottom: 8,
-        textAlign: 'center',
-        letterSpacing: -0.5,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: colors.text.inverse,
-        textAlign: 'center',
-        opacity: 0.9,
-        fontWeight: '400',
-    },
-    cardContainer: {
-        marginBottom: 24,
-    },
-    cardBlur: {
-        borderRadius: 24,
-        overflow: 'hidden',
+        color: '#145a32',
+        marginTop: 10,
     },
     card: {
-        borderRadius: 24,
-        shadowColor: colors.shadow.heavy,
-        shadowOffset: {
-            width: 0,
-            height: 16,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 24,
-        elevation: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        width: '85%',
+        paddingVertical: 30,
+        paddingHorizontal: 20,
+        borderRadius: 25,
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 5,
+        alignItems: 'center',
     },
-    cardContent: {
-        padding: 28,
-    },
-    formTitle: {
+    title: {
         fontSize: 22,
         fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: 28,
-        color: colors.text.primary,
-        letterSpacing: -0.3,
+        color: '#145a32',
+        marginBottom: 10,
     },
-    inputContainer: {
-        marginBottom: 16,
+    subtitle: {
+        fontSize: 14,
+        color: '#3e6551',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    inputWrapper: {
+        width: '90%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        borderRadius: 12,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: '#2ecc71',
+        paddingHorizontal: 15,
+        height: 50,
+    },
+    inputIcon: {
+        marginRight: 10,
     },
     input: {
-        backgroundColor: colors.surface.white,
+        flex: 1,
+        color: '#145a32',
         fontSize: 16,
     },
-    registerButton: {
-        borderRadius: 16,
-        marginTop: 16,
-        marginBottom: 24,
-        shadowColor: colors.success.main,
-        shadowOffset: {
-            width: 0,
-            height: 8,
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+    eyeIcon: {
+        padding: 5,
     },
-    registerButtonContent: {
-        paddingVertical: 16,
-        paddingHorizontal: 24,
+    errorText: {
+        width: '90%',
+        color: '#e74c3c',
+        fontSize: 12,
+        marginTop: -10,
+        marginBottom: 10,
+        marginLeft: 5,
+    },
+    button: {
+        width: '90%',
+        marginTop: 5,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    buttonGradient: {
+        paddingVertical: 14,
         alignItems: 'center',
-        justifyContent: 'center',
     },
-    registerButtonText: {
-        color: colors.text.inverse,
+    buttonText: {
+        color: '#fff',
         fontSize: 18,
-        fontWeight: '700',
-        letterSpacing: 0.5,
+        fontWeight: '600',
     },
-    loadingContainer: {
+    divider: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    dividerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        width: '90%',
         marginVertical: 20,
     },
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: colors.text.light,
+        backgroundColor: '#bdc3c7',
     },
     dividerText: {
-        marginHorizontal: 16,
-        color: colors.text.secondary,
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    loginSection: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexWrap: 'wrap',
+        marginHorizontal: 10,
+        color: '#7f8c8d',
+        fontSize: 12,
+        fontWeight: '600',
     },
     loginText: {
-        color: colors.text.secondary,
-        fontSize: 16,
-        fontWeight: '400',
+        marginTop: 15,
+        color: '#3e6551',
+        fontSize: 14,
     },
-    loginLinkGradient: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    loginLink: {
-        color: colors.text.inverse,
-        fontSize: 16,
+    link: {
+        color: '#145a32',
         fontWeight: '700',
+    },
+    devModeText: {
+        marginTop: 15,
+        fontSize: 11,
+        color: '#27ae60',
+        fontStyle: 'italic',
+        textAlign: 'center',
+        paddingHorizontal: 10,
     },
 });
