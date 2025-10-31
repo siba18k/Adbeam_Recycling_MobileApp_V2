@@ -35,7 +35,7 @@ const UNIVERSITIES = [
     { id: 'unisa', name: 'University of South Africa', domain: 'unisa.ac.za' },
 ];
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
     const { user, userProfile, logout, refreshUserProfile } = useAuth();
     const { isOffline, queueSize } = useOffline();
     const [isEditing, setIsEditing] = useState(false);
@@ -55,7 +55,7 @@ export default function ProfileScreen() {
     const [universitySearch, setUniversitySearch] = useState('');
     const [filteredUniversities, setFilteredUniversities] = useState(UNIVERSITIES);
 
-    // Animations
+    // Gentle animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
     const headerScale = useRef(new Animated.Value(0.95)).current;
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
     const rotate = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // Entrance animations
+        // Gentle entrance animations
         Animated.parallel([
             Animated.timing(fadeAnim, {
                 toValue: 1,
@@ -84,7 +84,7 @@ export default function ProfileScreen() {
             }),
         ]).start();
 
-        // Floating backgrounds
+        // Subtle floating backgrounds
         Animated.loop(
             Animated.sequence([
                 Animated.timing(float1, {
@@ -306,10 +306,23 @@ export default function ProfileScreen() {
         </TouchableOpacity>
     );
 
+    // Navigation handlers for new screens
+    const navigateToSettings = () => {
+        navigation.navigate('Settings');
+    };
+
+    const navigateToPrivacy = () => {
+        navigation.navigate('Privacy');
+    };
+
+    const navigateToNotifications = () => {
+        navigation.navigate('Notifications');
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <LinearGradient colors={['#fef3c7', '#fde68a', '#ffffff']} style={styles.gradient}>
-                {/* Floating circles */}
+                {/* Subtle floating circles */}
                 <Animated.View
                     style={[
                         styles.floatingCircle,
@@ -337,7 +350,11 @@ export default function ProfileScreen() {
                     </Animated.View>
                 )}
 
-                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
                     {/* Profile Header */}
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: headerScale }] }}>
                         <LinearGradient colors={['#10b981', '#059669', '#047857']} style={styles.headerCard}>
@@ -405,7 +422,7 @@ export default function ProfileScreen() {
                             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
                         ]}
                     >
-                        <LinearGradient colors={['#27ae60', '#229954']} style={styles.statCard}>
+                        <LinearGradient colors={['#059669', '#047857']} style={styles.statCard}>
                             <Ionicons name="leaf" size={28} color="white" />
                             <View style={styles.statText}>
                                 <Text style={styles.statValue}>{userProfile?.totalScans || 0}</Text>
@@ -536,7 +553,7 @@ export default function ProfileScreen() {
                                             activeOpacity={0.8}
                                         >
                                             <LinearGradient
-                                                colors={['#27ae60', '#229954']}
+                                                colors={['#059669', '#047857']}
                                                 style={styles.saveButtonGradient}
                                             >
                                                 {isSaving ? (
@@ -611,10 +628,96 @@ export default function ProfileScreen() {
                         </LinearGradient>
                     </Animated.View>
 
+                    {/* NEW: Settings Menu Card */}
+                    <Animated.View
+                        style={[
+                            styles.settingsCard,
+                            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+                        ]}
+                    >
+                        <LinearGradient colors={['#ffffff', '#f9fafb']} style={styles.cardGradient}>
+                            <View style={styles.cardHeader}>
+                                <Text style={styles.cardTitle}>App Settings</Text>
+                                <Ionicons name="settings" size={20} color="#10b981" />
+                            </View>
+
+                            <View style={styles.settingsMenu}>
+                                {/* Settings Button */}
+                                <TouchableOpacity
+                                    style={styles.settingsMenuItem}
+                                    onPress={navigateToSettings}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.settingsIconContainer}>
+                                        <LinearGradient
+                                            colors={['#3b82f6', '#2563eb']}
+                                            style={styles.settingsIcon}
+                                        >
+                                            <Ionicons name="cog" size={20} color="white" />
+                                        </LinearGradient>
+                                    </View>
+                                    <View style={styles.settingsContent}>
+                                        <Text style={styles.settingsItemTitle}>Settings</Text>
+                                        <Text style={styles.settingsItemDescription}>
+                                            App preferences and configuration
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#d1d5db" />
+                                </TouchableOpacity>
+
+                                {/* Privacy Button */}
+                                <TouchableOpacity
+                                    style={styles.settingsMenuItem}
+                                    onPress={navigateToPrivacy}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.settingsIconContainer}>
+                                        <LinearGradient
+                                            colors={['#8b5cf6', '#7c3aed']}
+                                            style={styles.settingsIcon}
+                                        >
+                                            <Ionicons name="shield-checkmark" size={20} color="white" />
+                                        </LinearGradient>
+                                    </View>
+                                    <View style={styles.settingsContent}>
+                                        <Text style={styles.settingsItemTitle}>Privacy</Text>
+                                        <Text style={styles.settingsItemDescription}>
+                                            Data privacy and security settings
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#d1d5db" />
+                                </TouchableOpacity>
+
+                                {/* Notifications Button */}
+                                <TouchableOpacity
+                                    style={styles.settingsMenuItem}
+                                    onPress={navigateToNotifications}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.settingsIconContainer}>
+                                        <LinearGradient
+                                            colors={['#f59e0b', '#d97706']}
+                                            style={styles.settingsIcon}
+                                        >
+                                            <Ionicons name="notifications" size={20} color="white" />
+                                        </LinearGradient>
+                                    </View>
+                                    <View style={styles.settingsContent}>
+                                        <Text style={styles.settingsItemTitle}>Notifications</Text>
+                                        <Text style={styles.settingsItemDescription}>
+                                            Push notifications and alerts
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#d1d5db" />
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </Animated.View>
+
                     {/* Sync Status */}
                     <Animated.View style={{ opacity: fadeAnim }}>
                         <LinearGradient
-                            colors={connectionStatus === 'online' ? ['#27ae60', '#229954'] : ['#64748b', '#94a3b8']}
+                            colors={connectionStatus === 'online' ? ['#059669', '#047857'] : ['#64748b', '#94a3b8']}
                             style={styles.syncCard}
                         >
                             <View style={styles.syncIconCircle}>
@@ -635,7 +738,7 @@ export default function ProfileScreen() {
                         </LinearGradient>
                     </Animated.View>
 
-                    {/* Logout Button */}
+                    {/* Logout Button - with proper spacing to avoid navbar overlap */}
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
                         <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.logoutGradient}>
                             <Ionicons name="log-out" size={20} color="white" />
@@ -746,6 +849,9 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 150, // Extra padding to prevent navbar overlap
     },
     headerCard: {
         padding: 32,
@@ -1012,6 +1118,58 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         fontStyle: 'italic',
     },
+    // NEW: Settings Menu Styles
+    settingsCard: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    settingsMenu: {
+        gap: 8,
+    },
+    settingsMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+    },
+    settingsIconContainer: {
+        marginRight: 16,
+    },
+    settingsIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    settingsContent: {
+        flex: 1,
+    },
+    settingsItemTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 2,
+    },
+    settingsItemDescription: {
+        fontSize: 13,
+        color: '#6b7280',
+        lineHeight: 18,
+    },
     syncCard: {
         marginHorizontal: 16,
         marginBottom: 16,
@@ -1047,7 +1205,7 @@ const styles = StyleSheet.create({
     },
     logoutButton: {
         marginHorizontal: 16,
-        marginBottom: 32,
+        marginBottom: 50, // Extra space to avoid navbar overlap
         borderRadius: 16,
         overflow: 'hidden',
         shadowColor: '#ef4444',

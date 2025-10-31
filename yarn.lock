@@ -1974,18 +1974,7 @@
     wcwidth "^1.0.1"
     yaml "^2.2.1"
 
-"@react-native-community/cli-platform-android@20.0.2":
-  version "20.0.2"
-  resolved "https://registry.npmjs.org/@react-native-community/cli-platform-android/-/cli-platform-android-20.0.2.tgz"
-  integrity sha512-Wo2AIkdv3PMEMT4k7QiNm3smNpWK6rd+glVH4Nm6Hco1EgLQ4I9x+gwcS1yN53UHYtq9YnguDCXk2L8duUESDQ==
-  dependencies:
-    "@react-native-community/cli-config-android" "20.0.2"
-    "@react-native-community/cli-tools" "20.0.2"
-    chalk "^4.1.2"
-    execa "^5.0.0"
-    logkitty "^0.7.1"
-
-"@react-native-community/cli-platform-android@^20.0.2":
+"@react-native-community/cli-platform-android@20.0.2", "@react-native-community/cli-platform-android@^20.0.2":
   version "20.0.2"
   resolved "https://registry.yarnpkg.com/@react-native-community/cli-platform-android/-/cli-platform-android-20.0.2.tgz#29ce670d2040175564481ed3ec83bf3e2bb67432"
   integrity sha512-Wo2AIkdv3PMEMT4k7QiNm3smNpWK6rd+glVH4Nm6Hco1EgLQ4I9x+gwcS1yN53UHYtq9YnguDCXk2L8duUESDQ==
@@ -3799,7 +3788,7 @@ expo-background-task@^1.0.8:
 
 expo-barcode-scanner@^13.0.1:
   version "13.0.1"
-  resolved "https://registry.npmjs.org/expo-barcode-scanner/-/expo-barcode-scanner-13.0.1.tgz"
+  resolved "https://registry.yarnpkg.com/expo-barcode-scanner/-/expo-barcode-scanner-13.0.1.tgz#c7218c78f9e3d27086473a9826756bbcacd7f117"
   integrity sha512-xBGLT1An2gpAMIQRTLU3oHydKohX8r8F9/ait1Fk9Vgd0GraFZbP4IiT7nHMlaw4H6E7Muucf7vXpGV6u7d4HQ==
   dependencies:
     expo-image-loader "~4.7.0"
