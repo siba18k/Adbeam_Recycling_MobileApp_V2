@@ -545,60 +545,7 @@ export const redeemReward = async (userId, rewardId, pointsCost) => {
     }
 };
 
-export const addTestPoints = async (userId, points) => {
-    if (!__DEV__) {
-        return { success: false, error: 'Only available in development' };
-    }
 
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val() || {};
-
-        const currentPoints = userData.points || 0;
-        const newPoints = currentPoints + points;
-        const newLevel = Math.floor(newPoints / 100) + 1;
-
-        await update(userRef, {
-            points: newPoints,
-            level: newLevel,
-            updatedAt: serverTimestamp()
-        });
-
-        console.log(`✅ Added ${points} points. Total: ${newPoints}`);
-        return {
-            success: true,
-            newPoints,
-            newLevel,
-            pointsAdded: points
-        };
-    } catch (error) {
-        console.error('❌ Error adding test points:', error);
-        return { success: false, error: error.message };
-    }
-};
-
-export const resetUserPoints = async (userId) => {
-    if (!__DEV__) {
-        return { success: false, error: 'Only available in development' };
-    }
-
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        await update(userRef, {
-            points: 0,
-            level: 1,
-            totalScans: 0,
-            updatedAt: serverTimestamp()
-        });
-
-        console.log('✅ Reset user points to 0');
-        return { success: true };
-    } catch (error) {
-        console.error('❌ Error resetting points:', error);
-        return { success: false, error: error.message };
-    }
-};
 
 // Add this function to handle profile image uploads
 export const uploadProfileImage = async (userId, imageUri) => {
@@ -1561,3 +1508,78 @@ export const MATERIAL_TYPES = {
         icon: 'wine-outline'
     }
 };
+
+// ADD THESE FUNCTIONS to your existing src/services/database.js
+
+// Developer testing function to add points
+export const addTestPoints = async (userId, pointsToAdd) => {
+    try {
+        // Get current user stats
+        const currentStats = await getUserStats(userId);
+        if (!currentStats.success) {
+            return { success: false, error: 'Failed to get current stats' };
+        }
+
+        const currentPoints = currentStats.data.points || 0;
+        const currentLevel = currentStats.data.level || 1;
+
+        // Calculate new points and level
+        const newPoints = currentPoints + pointsToAdd;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+
+        // Update in your database (replace with your actual database update logic)
+        // This is a mock implementation - replace with your real database calls
+        const updatedStats = {
+            ...currentStats.data,
+            points: newPoints,
+            level: newLevel,
+            lastUpdated: new Date().toISOString(),
+        };
+
+        // Store updated stats (replace with your database logic)
+        await AsyncStorage.setItem(`userStats_${userId}`, JSON.stringify(updatedStats));
+
+        return {
+            success: true,
+            pointsAdded: pointsToAdd,
+            newPoints,
+            newLevel,
+            levelUp: newLevel > currentLevel,
+        };
+    } catch (error) {
+        console.error('Error adding test points:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Developer function to reset user points
+export const resetUserPoints = async (userId) => {
+    try {
+        // Get current user stats
+        const currentStats = await getUserStats(userId);
+        if (!currentStats.success) {
+            return { success: false, error: 'Failed to get current stats' };
+        }
+
+        // Reset points and level
+        const resetStats = {
+            ...currentStats.data,
+            points: 0,
+            level: 1,
+            totalScans: 0,
+            lastUpdated: new Date().toISOString(),
+        };
+
+        // Store reset stats (replace with your database logic)
+        await AsyncStorage.setItem(`userStats_${userId}`, JSON.stringify(resetStats));
+
+        return {
+            success: true,
+            message: 'Points and level reset successfully',
+        };
+    } catch (error) {
+        console.error('Error resetting points:', error);
+        return { success: false, error: error.message };
+    }
+};
+

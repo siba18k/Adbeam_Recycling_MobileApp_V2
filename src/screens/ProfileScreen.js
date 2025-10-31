@@ -43,6 +43,10 @@ export default function ProfileScreen({ navigation }) {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [showUniversityPicker, setShowUniversityPicker] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('online');
+    // ADD these state variables to your existing ones - don't remove anything
+    const [showDevTools, setShowDevTools] = useState(false);
+    const [devClickCount, setDevClickCount] = useState(0);
+
 
     const [editData, setEditData] = useState({
         displayName: '',
