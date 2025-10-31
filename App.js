@@ -33,7 +33,7 @@ import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacyScreen from './src/screens/PrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
-
+import AchievementsScreen from './src/screens/AchievementsScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -328,6 +328,11 @@ function AppStack() {
             <Stack.Screen
                 name="Notifications"
                 component={NotificationsScreen}
+                options={{ headerShown: false }}
+            />
+            <Stack.Screen
+                name="Achievements"
+                component={AchievementsScreen}
                 options={{ headerShown: false }}
             />
         </Stack.Navigator>
