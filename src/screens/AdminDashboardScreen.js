@@ -659,294 +659,299 @@ export default function AdminDashboardScreen({ navigation }) {
                     </ScrollView>
                 </Animated.View>
 
-                <ScrollView
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.scrollContent}
-                    refreshControl={
-                        <RefreshControl 
-                            refreshing={isRefreshing} 
-                            onRefresh={handleRefresh}
-                            colors={['#27ae60']}
-                            tintColor={'#27ae60'}
-                        />
-                    }
-                >
-                    {/* Enhanced Overview Tab */}
-                    {activeTab === 'overview' && (
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideUpAnim }],
-                            }}
-                        >
-                            <View style={styles.statsGrid}>
-                                <Card style={styles.statCard}>
-                                    <LinearGradient
-                                        colors={['#3498db', '#5dade2']}
-                                        style={styles.statGradient}
-                                    >
-                                        <Ionicons name="people" size={28} color="white" />
-                                        <Text style={styles.statValue}>{stats?.totalUsers || 0}</Text>
-                                        <Text style={styles.statLabel}>Total Users</Text>
-                                    </LinearGradient>
-                                </Card>
-
-                                <Card style={styles.statCard}>
-                                    <LinearGradient
-                                        colors={['#27ae60', '#58d68d']}
-                                        style={styles.statGradient}
-                                    >
-                                        <Ionicons name="leaf" size={28} color="white" />
-                                        <Text style={styles.statValue}>{stats?.totalScans || 0}</Text>
-                                        <Text style={styles.statLabel}>Items Recycled</Text>
-                                    </LinearGradient>
-                                </Card>
-
-                                <Card style={styles.statCard}>
-                                    <LinearGradient
-                                        colors={['#f39c12', '#f7dc6f']}
-                                        style={styles.statGradient}
-                                    >
-                                        <Ionicons name="qr-code" size={28} color="white" />
-                                        <Text style={styles.statValue}>{stats?.activeVouchers || 0}</Text>
-                                        <Text style={styles.statLabel}>Active Vouchers</Text>
-                                    </LinearGradient>
-                                </Card>
-
-                                <Card style={styles.statCard}>
-                                    <LinearGradient
-                                        colors={['#e74c3c', '#ec7063']}
-                                        style={styles.statGradient}
-                                    >
-                                        <Ionicons name="star" size={28} color="white" />
-                                        <Text style={styles.statValue}>{stats?.totalPoints || 0}</Text>
-                                        <Text style={styles.statLabel}>Points Earned</Text>
-                                    </LinearGradient>
-                                </Card>
-                            </View>
-
-                            {/* Enhanced Top Users */}
-                            <Card style={styles.topUsersCard}>
-                                <LinearGradient
-                                    colors={['#8e44ad', '#bb8fce']}
-                                    style={styles.topUsersHeader}
-                                >
-                                    <Ionicons name="trophy" size={24} color="white" />
-                                    <Text style={styles.topUsersTitle}>🏆 Top Recyclers</Text>
-                                </LinearGradient>
-                                <View style={styles.topUsersContent}>
-                                    {stats?.topUsers?.slice(0, 5).map((user, index) => (
-                                        <View key={user.id} style={styles.topUserItem}>
-                                            <View style={styles.topUserRankContainer}>
-                                                <Text style={[
-                                                    styles.topUserRank,
-                                                    index === 0 && { color: '#f1c40f' },
-                                                    index === 1 && { color: '#95a5a6' },
-                                                    index === 2 && { color: '#d4ac0d' }
-                                                ]}>#{index + 1}</Text>
-                                            </View>
-                                            <Text style={styles.topUserName}>{user.displayName || 'User'}</Text>
-                                            <Text style={styles.topUserPoints}>{user.points || 0} pts</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </Card>
-                        </Animated.View>
-                    )}
-
-                    {/* Enhanced Users Tab with Search */}
-                    {activeTab === 'users' && (
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideUpAnim }],
-                            }}
-                        >
-                            {/* Search Bar */}
-                            <Card style={styles.searchCard}>
-                                <Searchbar
-                                    placeholder="Search users by name, email, or role..."
-                                    onChangeText={setSearchQuery}
-                                    value={searchQuery}
-                                    style={styles.searchBar}
-                                    iconColor="#27ae60"
-                                    inputStyle={styles.searchInput}
-                                />
-                                <Text style={styles.searchResults}>
-                                    {filteredUsers.length} of {users.length} users
-                                </Text>
-                            </Card>
-
-                            {/* Users List */}
-                            <FlatList
-                                data={filteredUsers}
-                                renderItem={renderUserItem}
-                                keyExtractor={(item) => item.id}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.usersList}
+                {/* Main Content Area */}
+                {activeTab !== 'users' ? (
+                    // For all tabs except users, use ScrollView
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        refreshControl={
+                            <RefreshControl 
+                                refreshing={isRefreshing} 
+                                onRefresh={handleRefresh}
+                                colors={['#27ae60']}
+                                tintColor={'#27ae60'}
                             />
-                        </Animated.View>
-                    )}
+                        }
+                    >
+                        {activeTab === 'overview' && (
+                            <Animated.View
+                                style={{
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: slideUpAnim }],
+                                }}
+                            >
+                                <View style={styles.statsGrid}>
+                                    <Card style={styles.statCard}>
+                                        <LinearGradient
+                                            colors={['#3498db', '#5dade2']}
+                                            style={styles.statGradient}
+                                        >
+                                            <Ionicons name="people" size={28} color="white" />
+                                            <Text style={styles.statValue}>{stats?.totalUsers || 0}</Text>
+                                            <Text style={styles.statLabel}>Total Users</Text>
+                                        </LinearGradient>
+                                    </Card>
 
-                    {/* Enhanced Rewards Tab */}
-                    {activeTab === 'rewards' && (
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideUpAnim }],
-                            }}
-                        >
-                            <View style={styles.rewardsHeader}>
-                                <Text style={styles.sectionTitle}>🎁 Rewards Management</Text>
-                            </View>
-                            
-                            <View style={styles.headerButtonsContainer}>
-                                <TouchableOpacity
-                                    style={styles.addButton}
-                                    onPress={() => setShowEventModal(true)}
-                                >
-                                    <LinearGradient
-                                        colors={['#f39c12', '#f7dc6f']}
-                                        style={styles.addButtonGradient}
-                                    >
-                                        <Ionicons name="flash" size={20} color="white" />
-                                        <Text style={styles.addButtonText}>Bonus Event</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.addButton}
-                                    onPress={() => setShowCreateModal(true)}
-                                >
-                                    <LinearGradient
-                                        colors={['#27ae60', '#58d68d']}
-                                        style={styles.addButtonGradient}
-                                    >
-                                        <Ionicons name="add" size={20} color="white" />
-                                        <Text style={styles.addButtonText}>Add Reward</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
+                                    <Card style={styles.statCard}>
+                                        <LinearGradient
+                                            colors={['#27ae60', '#58d68d']}
+                                            style={styles.statGradient}
+                                        >
+                                            <Ionicons name="leaf" size={28} color="white" />
+                                            <Text style={styles.statValue}>{stats?.totalScans || 0}</Text>
+                                            <Text style={styles.statLabel}>Items Recycled</Text>
+                                        </LinearGradient>
+                                    </Card>
 
-                            {rewards.map((reward) => (
-                                <Card key={reward.id} style={styles.rewardItem}>
-                                    <View style={styles.rewardContent}>
-                                        <View style={styles.rewardInfo}>
-                                            <View style={styles.rewardHeader}>
-                                                <Text style={styles.rewardName}>{reward.name}</Text>
-                                                <Switch
-                                                    value={reward.available}
-                                                    onValueChange={() => handleToggleRewardAvailability(reward)}
-                                                    color="#27ae60"
-                                                />
+                                    <Card style={styles.statCard}>
+                                        <LinearGradient
+                                            colors={['#f39c12', '#f7dc6f']}
+                                            style={styles.statGradient}
+                                        >
+                                            <Ionicons name="qr-code" size={28} color="white" />
+                                            <Text style={styles.statValue}>{stats?.activeVouchers || 0}</Text>
+                                            <Text style={styles.statLabel}>Active Vouchers</Text>
+                                        </LinearGradient>
+                                    </Card>
+
+                                    <Card style={styles.statCard}>
+                                        <LinearGradient
+                                            colors={['#e74c3c', '#ec7063']}
+                                            style={styles.statGradient}
+                                        >
+                                            <Ionicons name="star" size={28} color="white" />
+                                            <Text style={styles.statValue}>{stats?.totalPoints || 0}</Text>
+                                            <Text style={styles.statLabel}>Points Earned</Text>
+                                        </LinearGradient>
+                                    </Card>
+                                </View>
+
+                                {/* Enhanced Top Users */}
+                                <Card style={styles.topUsersCard}>
+                                    <LinearGradient
+                                        colors={['#8e44ad', '#bb8fce']}
+                                        style={styles.topUsersHeader}
+                                    >
+                                        <Ionicons name="trophy" size={24} color="white" />
+                                        <Text style={styles.topUsersTitle}>🏆 Top Recyclers</Text>
+                                    </LinearGradient>
+                                    <View style={styles.topUsersContent}>
+                                        {stats?.topUsers?.slice(0, 5).map((user, index) => (
+                                            <View key={user.id} style={styles.topUserItem}>
+                                                <View style={styles.topUserRankContainer}>
+                                                    <Text style={[
+                                                        styles.topUserRank,
+                                                        index === 0 && { color: '#f1c40f' },
+                                                        index === 1 && { color: '#95a5a6' },
+                                                        index === 2 && { color: '#d4ac0d' }
+                                                    ]}>#{index + 1}</Text>
+                                                </View>
+                                                <Text style={styles.topUserName}>{user.displayName || 'User'}</Text>
+                                                <Text style={styles.topUserPoints}>{user.points || 0} pts</Text>
                                             </View>
-                                            <Text style={styles.rewardDescription}>{reward.description}</Text>
-                                            <View style={styles.rewardMeta}>
-                                                <Chip icon="star" textStyle={styles.chipText} style={{ backgroundColor: '#f39c12' + '30' }}>
-                                                    {reward.points} pts
-                                                </Chip>
-                                                <Chip icon="tag" textStyle={styles.chipText} style={{ backgroundColor: '#3498db' + '30' }}>
-                                                    {reward.category}
-                                                </Chip>
-                                                <Chip icon="package" textStyle={styles.chipText} style={{ backgroundColor: '#9b59b6' + '30' }}>
-                                                    Stock: {reward.stock || 'N/A'}
-                                                </Chip>
-                                                <Chip
-                                                    icon={reward.available ? "check-circle" : "close-circle"}
-                                                    textStyle={styles.chipText}
-                                                    style={{ backgroundColor: reward.available ? '#27ae60' + '30' : '#e74c3c' + '30' }}
-                                                >
-                                                    {reward.available ? 'Available' : 'Unavailable'}
-                                                </Chip>
-                                            </View>
-                                        </View>
-                                        <View style={styles.rewardActions}>
-                                            <TouchableOpacity
-                                                style={styles.editButton}
-                                                onPress={() => openEditRewardModal(reward)}
-                                            >
-                                                <LinearGradient
-                                                    colors={['#3498db', '#5dade2']}
-                                                    style={styles.editButtonGradient}
-                                                >
-                                                    <Ionicons name="pencil" size={16} color="white" />
-                                                </LinearGradient>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.deleteButton}
-                                                onPress={() => handleDeleteReward(reward)}
-                                            >
-                                                <LinearGradient
-                                                    colors={['#e74c3c', '#ec7063']}
-                                                    style={styles.deleteButtonGradient}
-                                                >
-                                                    <Ionicons name="trash" size={16} color="white" />
-                                                </LinearGradient>
-                                            </TouchableOpacity>
-                                        </View>
+                                        ))}
                                     </View>
                                 </Card>
-                            ))}
-                        </Animated.View>
-                    )}
+                            </Animated.View>
+                        )}
 
-                    {/* Enhanced Vouchers Tab */}
-                    {activeTab === 'vouchers' && (
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideUpAnim }],
-                            }}
-                        >
-                            <Text style={styles.sectionTitle}>🎫 Voucher Management</Text>
+                        {/* Enhanced Rewards Tab */}
+                        {activeTab === 'rewards' && (
+                            <Animated.View
+                                style={{
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: slideUpAnim }],
+                                }}
+                            >
+                                <View style={styles.rewardsHeader}>
+                                    <Text style={styles.sectionTitle}>🎁 Rewards Management</Text>
+                                </View>
+                                
+                                <View style={styles.headerButtonsContainer}>
+                                    <TouchableOpacity
+                                        style={styles.addButton}
+                                        onPress={() => setShowEventModal(true)}
+                                    >
+                                        <LinearGradient
+                                            colors={['#f39c12', '#f7dc6f']}
+                                            style={styles.addButtonGradient}
+                                        >
+                                            <Ionicons name="flash" size={20} color="white" />
+                                            <Text style={styles.addButtonText}>Bonus Event</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.addButton}
+                                        onPress={() => setShowCreateModal(true)}
+                                    >
+                                        <LinearGradient
+                                            colors={['#27ae60', '#58d68d']}
+                                            style={styles.addButtonGradient}
+                                        >
+                                            <Ionicons name="add" size={20} color="white" />
+                                            <Text style={styles.addButtonText}>Add Reward</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View style={styles.voucherStats}>
-                                <Card style={styles.voucherStatCard}>
-                                    <LinearGradient colors={['#27ae60', '#58d68d']} style={styles.voucherStatGradient}>
-                                        <Ionicons name="checkmark-circle" size={24} color="white" />
-                                        <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'active').length}</Text>
-                                        <Text style={styles.voucherStatLabel}>Active</Text>
-                                    </LinearGradient>
-                                </Card>
-                                <Card style={styles.voucherStatCard}>
-                                    <LinearGradient colors={['#f39c12', '#f7dc6f']} style={styles.voucherStatGradient}>
-                                        <Ionicons name="gift" size={24} color="white" />
-                                        <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'redeemed').length}</Text>
-                                        <Text style={styles.voucherStatLabel}>Redeemed</Text>
-                                    </LinearGradient>
-                                </Card>
-                            </View>
-
-                            {vouchers
-                                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                                .map((voucher) => (
-                                    <Card key={voucher.id} style={styles.voucherItem}>
-                                        <View style={styles.voucherContent}>
-                                            <View style={styles.voucherInfo}>
-                                                <Text style={styles.voucherRewardName}>{voucher.rewardName}</Text>
-                                                <Text style={styles.voucherCode}>{voucher.voucherCode}</Text>
-                                                <Text style={styles.voucherUser}>
-                                                    User ID: {voucher.userId?.substring(0, 8)}...
-                                                </Text>
+                                {rewards.map((reward) => (
+                                    <Card key={reward.id} style={styles.rewardItem}>
+                                        <View style={styles.rewardContent}>
+                                            <View style={styles.rewardInfo}>
+                                                <View style={styles.rewardHeader}>
+                                                    <Text style={styles.rewardName}>{reward.name}</Text>
+                                                    <Switch
+                                                        value={reward.available}
+                                                        onValueChange={() => handleToggleRewardAvailability(reward)}
+                                                        color="#27ae60"
+                                                    />
+                                                </View>
+                                                <Text style={styles.rewardDescription}>{reward.description}</Text>
+                                                <View style={styles.rewardMeta}>
+                                                    <Chip icon="star" textStyle={styles.chipText} style={{ backgroundColor: '#f39c12' + '30' }}>
+                                                        {reward.points} pts
+                                                    </Chip>
+                                                    <Chip icon="tag" textStyle={styles.chipText} style={{ backgroundColor: '#3498db' + '30' }}>
+                                                        {reward.category}
+                                                    </Chip>
+                                                    <Chip icon="package" textStyle={styles.chipText} style={{ backgroundColor: '#9b59b6' + '30' }}>
+                                                        Stock: {reward.stock || 'N/A'}
+                                                    </Chip>
+                                                    <Chip
+                                                        icon={reward.available ? "check-circle" : "close-circle"}
+                                                        textStyle={styles.chipText}
+                                                        style={{ backgroundColor: reward.available ? '#27ae60' + '30' : '#e74c3c' + '30' }}
+                                                    >
+                                                        {reward.available ? 'Available' : 'Unavailable'}
+                                                    </Chip>
+                                                </View>
                                             </View>
-                                            <View style={styles.voucherStatus}>
-                                                <Badge
-                                                    style={[
-                                                        styles.statusBadge,
-                                                        { backgroundColor: voucher.status === 'active' ? '#27ae60' : '#95a5a6' }
-                                                    ]}
+                                            <View style={styles.rewardActions}>
+                                                <TouchableOpacity
+                                                    style={styles.editButton}
+                                                    onPress={() => openEditRewardModal(reward)}
                                                 >
-                                                    {voucher.status}
-                                                </Badge>
-                                                <Text style={styles.voucherDate}>
-                                                    {new Date(voucher.createdAt).toLocaleDateString()}
-                                                </Text>
+                                                    <LinearGradient
+                                                        colors={['#3498db', '#5dade2']}
+                                                        style={styles.editButtonGradient}
+                                                    >
+                                                        <Ionicons name="pencil" size={16} color="white" />
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.deleteButton}
+                                                    onPress={() => handleDeleteReward(reward)}
+                                                >
+                                                    <LinearGradient
+                                                        colors={['#e74c3c', '#ec7063']}
+                                                        style={styles.deleteButtonGradient}
+                                                    >
+                                                        <Ionicons name="trash" size={16} color="white" />
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
                                             </View>
                                         </View>
                                     </Card>
                                 ))}
-                        </Animated.View>
-                    )}
-                </ScrollView>
+                            </Animated.View>
+                        )}
+
+                        {/* Enhanced Vouchers Tab */}
+                        {activeTab === 'vouchers' && (
+                            <Animated.View
+                                style={{
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: slideUpAnim }],
+                                }}
+                            >
+                                <Text style={styles.sectionTitle}>🎫 Voucher Management</Text>
+
+                                <View style={styles.voucherStats}>
+                                    <Card style={styles.voucherStatCard}>
+                                        <LinearGradient colors={['#27ae60', '#58d68d']} style={styles.voucherStatGradient}>
+                                            <Ionicons name="checkmark-circle" size={24} color="white" />
+                                            <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'active').length}</Text>
+                                            <Text style={styles.voucherStatLabel}>Active</Text>
+                                        </LinearGradient>
+                                    </Card>
+                                    <Card style={styles.voucherStatCard}>
+                                        <LinearGradient colors={['#f39c12', '#f7dc6f']} style={styles.voucherStatGradient}>
+                                            <Ionicons name="gift" size={24} color="white" />
+                                            <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'redeemed').length}</Text>
+                                            <Text style={styles.voucherStatLabel}>Redeemed</Text>
+                                        </LinearGradient>
+                                    </Card>
+                                </View>
+
+                                {vouchers
+                                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                    .map((voucher) => (
+                                        <Card key={voucher.id} style={styles.voucherItem}>
+                                            <View style={styles.voucherContent}>
+                                                <View style={styles.voucherInfo}>
+                                                    <Text style={styles.voucherRewardName}>{voucher.rewardName}</Text>
+                                                    <Text style={styles.voucherCode}>{voucher.voucherCode}</Text>
+                                                    <Text style={styles.voucherUser}>
+                                                        User ID: {voucher.userId?.substring(0, 8)}...
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.voucherStatus}>
+                                                    <Badge
+                                                        style={[
+                                                            styles.statusBadge,
+                                                            { backgroundColor: voucher.status === 'active' ? '#27ae60' : '#95a5a6' }
+                                                        ]}
+                                                    >
+                                                        {voucher.status}
+                                                    </Badge>
+                                                    <Text style={styles.voucherDate}>
+                                                        {new Date(voucher.createdAt).toLocaleDateString()}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        </Card>
+                                    ))}
+                            </Animated.View>
+                        )}
+                    </ScrollView>
+                ) : (
+                    // FIXED: For users tab, use FlatList directly without ScrollView
+                    <View style={styles.usersTabContainer}>
+                        {/* Search Bar */}
+                        <Card style={styles.searchCard}>
+                            <Searchbar
+                                placeholder="Search users by name, email, or role..."
+                                onChangeText={setSearchQuery}
+                                value={searchQuery}
+                                style={styles.searchBar}
+                                iconColor="#27ae60"
+                                inputStyle={styles.searchInput}
+                            />
+                            <Text style={styles.searchResults}>
+                                {filteredUsers.length} of {users.length} users
+                            </Text>
+                        </Card>
+
+                        {/* Users List - Direct FlatList without ScrollView */}
+                        <FlatList
+                            data={filteredUsers}
+                            renderItem={renderUserItem}
+                            keyExtractor={(item) => item.id}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.usersList}
+                            refreshControl={
+                                <RefreshControl 
+                                    refreshing={isRefreshing} 
+                                    onRefresh={handleRefresh}
+                                    colors={['#27ae60']}
+                                    tintColor={'#27ae60'}
+                                />
+                            }
+                            style={styles.usersListContainer}
+                        />
+                    </View>
+                )}
 
                 {/* Floating Action Button */}
                 <FAB
@@ -1471,6 +1476,14 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
+    },
+    // FIXED: New styles for users tab container
+    usersTabContainer: {
+        flex: 1,
+        padding: 16,
+    },
+    usersListContainer: {
+        flex: 1,
     },
     statsGrid: {
         flexDirection: 'row',
