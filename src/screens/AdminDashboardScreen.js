@@ -555,12 +555,6 @@ export default function AdminDashboardScreen({ navigation }) {
                         </View>
                         <View style={styles.headerRight}>
                             <TouchableOpacity
-                                onPress={() => setShowDevTools(!showDevTools)}
-                                style={styles.devToolsButton}
-                            >
-                                <Ionicons name="construct-outline" size={20} color="white" />
-                            </TouchableOpacity>
-                            <TouchableOpacity
                                 onPress={() => navigation.navigate('StaffScanner')}
                                 style={styles.scannerButton}
                             >

@@ -242,9 +242,9 @@ export default function StaffDashboardScreen({ navigation }) {
     if (isLoading) {
         return (
             <SafeAreaView style={styles.loadingContainer}>
-                <LinearGradient colors={['#a8e6cf', '#dcedc1', '#ffffff']} style={styles.gradient}>
+                <LinearGradient colors={['#fed7aa', '#fdba74', '#ffffff']} style={styles.gradient}>
                     <View style={styles.loadingContent}>
-                        <ActivityIndicator size="large" color="#27ae60" />
+                        <ActivityIndicator size="large" color="#f59e0b" />
                         <Text style={styles.loadingText}>Loading staff dashboard...</Text>
                     </View>
                 </LinearGradient>
@@ -254,7 +254,7 @@ export default function StaffDashboardScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.container}>
-            <LinearGradient colors={['#a8e6cf', '#dcedc1', '#ffffff']} style={styles.gradient}>
+            <LinearGradient colors={['#fed7aa', '#fdba74', '#ffffff']} style={styles.gradient}>
                 {/* Enhanced Header */}
                 <LinearGradient
                     colors={['#f59e0b', '#d97706']}
@@ -328,21 +328,21 @@ export default function StaffDashboardScreen({ navigation }) {
                     </ScrollView>
                 </Animated.View>
 
-                {/* Main Content */}
-                <ScrollView
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.scrollContent}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefresh}
-                            colors={['#f59e0b']}
-                            tintColor={'#f59e0b'}
-                        />
-                    }
-                >
-                    {/* Overview Tab */}
-                    {activeTab === 'overview' && (
+                {/* FIXED: Conditional content rendering to avoid VirtualizedList nesting */}
+                {activeTab === 'overview' && (
+                    // Overview tab uses ScrollView - no VirtualizedList
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefresh}
+                                colors={['#f59e0b']}
+                                tintColor={'#f59e0b'}
+                            />
+                        }
+                    >
                         <Animated.View
                             style={{
                                 opacity: fadeAnim,
@@ -441,118 +441,129 @@ export default function StaffDashboardScreen({ navigation }) {
                                 </Card>
                             )}
                         </Animated.View>
-                    )}
+                    </ScrollView>
+                )}
 
-                    {/* Vouchers Tab */}
-                    {activeTab === 'vouchers' && (
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideUpAnim }],
-                            }}
-                        >
-                            {/* Search and Filter */}
-                            <Card style={styles.searchCard}>
-                                <Searchbar
-                                    placeholder="Search vouchers by code, reward, or user..."
-                                    onChangeText={setSearchQuery}
-                                    value={searchQuery}
-                                    style={styles.searchBar}
-                                    iconColor="#f59e0b"
-                                    inputStyle={styles.searchInput}
-                                />
-                                <View style={styles.filterChips}>
-                                    {[
-                                        { key: 'all', label: 'All', count: vouchers.length },
-                                        { key: 'active', label: 'Active', count: vouchers.filter(v => v.status === 'active').length },
-                                        { key: 'redeemed', label: 'Redeemed', count: vouchers.filter(v => v.status === 'redeemed').length }
-                                    ].map(filter => (
-                                        <Chip
-                                            key={filter.key}
-                                            selected={voucherFilter === filter.key}
-                                            onPress={() => setVoucherFilter(filter.key)}
-                                            style={[
-                                                styles.filterChip,
-                                                voucherFilter === filter.key && styles.selectedChip
-                                            ]}
-                                            textStyle={[
-                                                styles.filterChipText,
-                                                voucherFilter === filter.key && styles.selectedChipText
-                                            ]}
-                                        >
-                                            {filter.label} ({filter.count})
-                                        </Chip>
-                                    ))}
-                                </View>
-                                <Text style={styles.searchResults}>
-                                    {filteredVouchers.length} of {vouchers.length} vouchers
-                                </Text>
-                            </Card>
-
-                            {/* Vouchers List */}
-                            <FlatList
-                                data={filteredVouchers}
-                                renderItem={renderVoucherItem}
-                                keyExtractor={(item) => item.id}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.vouchersList}
-                                ListEmptyComponent={
-                                    <View style={styles.emptyContainer}>
-                                        <Ionicons name="qr-code-outline" size={64} color="#d1d5db" />
-                                        <Text style={styles.emptyTitle}>No vouchers found</Text>
-                                        <Text style={styles.emptyText}>
-                                            {searchQuery ? 'Try adjusting your search terms' : 'Vouchers will appear here when students redeem rewards'}
-                                        </Text>
-                                    </View>
-                                }
+                {/* FIXED: Vouchers Tab - Direct container without nested ScrollView */}
+                {activeTab === 'vouchers' && (
+                    <View style={styles.vouchersTabContainer}>
+                        {/* Search and Filter */}
+                        <Card style={styles.searchCard}>
+                            <Searchbar
+                                placeholder="Search vouchers by code, reward, or user..."
+                                onChangeText={setSearchQuery}
+                                value={searchQuery}
+                                style={styles.searchBar}
+                                iconColor="#f59e0b"
+                                inputStyle={styles.searchInput}
                             />
-                        </Animated.View>
-                    )}
+                            <View style={styles.filterChips}>
+                                {[
+                                    { key: 'all', label: 'All', count: vouchers.length },
+                                    { key: 'active', label: 'Active', count: vouchers.filter(v => v.status === 'active').length },
+                                    { key: 'redeemed', label: 'Redeemed', count: vouchers.filter(v => v.status === 'redeemed').length }
+                                ].map(filter => (
+                                    <Chip
+                                        key={filter.key}
+                                        selected={voucherFilter === filter.key}
+                                        onPress={() => setVoucherFilter(filter.key)}
+                                        style={[
+                                            styles.filterChip,
+                                            voucherFilter === filter.key && styles.selectedChip
+                                        ]}
+                                        textStyle={[
+                                            styles.filterChipText,
+                                            voucherFilter === filter.key && styles.selectedChipText
+                                        ]}
+                                    >
+                                        {filter.label} ({filter.count})
+                                    </Chip>
+                                ))}
+                            </View>
+                            <Text style={styles.searchResults}>
+                                {filteredVouchers.length} of {vouchers.length} vouchers
+                            </Text>
+                        </Card>
 
-                    {/* History Tab */}
-                    {activeTab === 'history' && (
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideUpAnim }],
-                            }}
-                        >
+                        {/* FIXED: Direct FlatList without ScrollView wrapper */}
+                        <FlatList
+                            data={filteredVouchers}
+                            renderItem={renderVoucherItem}
+                            keyExtractor={(item) => item.id}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.vouchersList}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={isRefreshing}
+                                    onRefresh={handleRefresh}
+                                    colors={['#f59e0b']}
+                                    tintColor={'#f59e0b'}
+                                />
+                            }
+                            style={styles.vouchersListContainer}
+                            ListEmptyComponent={
+                                <View style={styles.emptyContainer}>
+                                    <Ionicons name="qr-code-outline" size={64} color="#d1d5db" />
+                                    <Text style={styles.emptyTitle}>No vouchers found</Text>
+                                    <Text style={styles.emptyText}>
+                                        {searchQuery ? 'Try adjusting your search terms' : 'Vouchers will appear here when students redeem rewards'}
+                                    </Text>
+                                </View>
+                            }
+                        />
+                    </View>
+                )}
+
+                {/* FIXED: History Tab - Direct container without nested ScrollView */}
+                {activeTab === 'history' && (
+                    <View style={styles.historyTabContainer}>
+                        <View style={styles.historyHeader}>
                             <Text style={styles.sectionTitle}>🕒 My Redemption History</Text>
                             <Text style={styles.sectionSubtitle}>
                                 Vouchers you've personally redeemed ({redemptionHistory.length})
                             </Text>
+                        </View>
 
-                            <FlatList
-                                data={redemptionHistory}
-                                renderItem={renderHistoryItem}
-                                keyExtractor={(item) => item.id}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.historyList}
-                                ListEmptyComponent={
-                                    <View style={styles.emptyContainer}>
-                                        <Ionicons name="time-outline" size={64} color="#d1d5db" />
-                                        <Text style={styles.emptyTitle}>No redemptions yet</Text>
-                                        <Text style={styles.emptyText}>
-                                            Start scanning student vouchers to see your redemption history here
-                                        </Text>
-                                        <TouchableOpacity
-                                            style={styles.scanButton}
-                                            onPress={() => navigation.navigate('StaffScanner')}
+                        {/* FIXED: Direct FlatList without ScrollView wrapper */}
+                        <FlatList
+                            data={redemptionHistory}
+                            renderItem={renderHistoryItem}
+                            keyExtractor={(item) => item.id}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.historyList}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={isRefreshing}
+                                    onRefresh={handleRefresh}
+                                    colors={['#f59e0b']}
+                                    tintColor={'#f59e0b'}
+                                />
+                            }
+                            style={styles.historyListContainer}
+                            ListEmptyComponent={
+                                <View style={styles.emptyContainer}>
+                                    <Ionicons name="time-outline" size={64} color="#d1d5db" />
+                                    <Text style={styles.emptyTitle}>No redemptions yet</Text>
+                                    <Text style={styles.emptyText}>
+                                        Start scanning student vouchers to see your redemption history here
+                                    </Text>
+                                    <TouchableOpacity
+                                        style={styles.scanButton}
+                                        onPress={() => navigation.navigate('StaffScanner')}
+                                    >
+                                        <LinearGradient
+                                            colors={['#f59e0b', '#d97706']}
+                                            style={styles.scanButtonGradient}
                                         >
-                                            <LinearGradient
-                                                colors={['#f59e0b', '#d97706']}
-                                                style={styles.scanButtonGradient}
-                                            >
-                                                <Ionicons name="qr-code" size={20} color="white" />
-                                                <Text style={styles.scanButtonText}>Start Scanning</Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    </View>
-                                }
-                            />
-                        </Animated.View>
-                    )}
-                </ScrollView>
+                                            <Ionicons name="qr-code" size={20} color="white" />
+                                            <Text style={styles.scanButtonText}>Start Scanning</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
+                            }
+                        />
+                    </View>
+                )}
             </LinearGradient>
         </SafeAreaView>
     );
@@ -656,6 +667,24 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 16,
         paddingBottom: 100,
+    },
+    // FIXED: New container styles for tabs with FlatList
+    vouchersTabContainer: {
+        flex: 1,
+        padding: 16,
+    },
+    vouchersListContainer: {
+        flex: 1,
+    },
+    historyTabContainer: {
+        flex: 1,
+        padding: 16,
+    },
+    historyListContainer: {
+        flex: 1,
+    },
+    historyHeader: {
+        marginBottom: 16,
     },
     statsGrid: {
         flexDirection: 'row',
@@ -819,7 +848,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     vouchersList: {
-        paddingBottom: 20,
+        paddingBottom: 80,
     },
     voucherItemAnimated: {
         marginBottom: 12,
@@ -901,7 +930,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     historyList: {
-        paddingBottom: 20,
+        paddingBottom: 80,
     },
     historyItemAnimated: {
         marginBottom: 8,
