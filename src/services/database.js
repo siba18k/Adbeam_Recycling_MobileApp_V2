@@ -22,6 +22,8 @@ import {
     sendRecyclingReminderNotification, sendVoucherExpiringNotification, sendNewRewardNotification,
     sendBonusEventNotification
 } from './notificationService';
+import {doc, getDoc, updateDoc} from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // User Database Operations
 export const createUserProfile = async (userId, userData) => {
@@ -1583,3 +1585,78 @@ export const resetUserPoints = async (userId) => {
     }
 };
 
+// DEVELOPER TESTING FUNCTIONS - ADD THESE TO END OF YOUR EXISTING DATABASE.JS
+
+/**
+ * Developer testing function to add points to user profile
+ * @param {string} userId - User ID
+ * @param {number} pointsToAdd - Points to add
+ * @returns {Object} Result object with success status
+ */
+export const addTestPointsToUser = async (userId, pointsToAdd) => {
+    try {
+        // Get current user profile from Firestore
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            return { success: false, error: 'User not found' };
+        }
+
+        const currentData = userSnap.data();
+        const currentPoints = currentData.points || 0;
+        const currentLevel = currentData.level || 1;
+
+        // Calculate new values
+        const newPoints = currentPoints + pointsToAdd;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+
+        // Update user profile in Firestore
+        const updates = {
+            points: newPoints,
+            level: newLevel,
+            lastUpdated: serverTimestamp(),
+        };
+
+        await updateDoc(userRef, updates);
+
+        return {
+            success: true,
+            pointsAdded: pointsToAdd,
+            newPoints,
+            newLevel,
+            levelUp: newLevel > currentLevel,
+        };
+    } catch (error) {
+        console.error('Error adding test points:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Developer testing function to reset user points and level
+ * @param {string} userId - User ID
+ * @returns {Object} Result object with success status
+ */
+export const resetUserPointsAndLevel = async (userId) => {
+    try {
+        const userRef = doc(db, 'users', userId);
+
+        const updates = {
+            points: 0,
+            level: 1,
+            totalScans: 0,
+            lastUpdated: serverTimestamp(),
+        };
+
+        await updateDoc(userRef, updates);
+
+        return {
+            success: true,
+            message: 'Points and level reset successfully',
+        };
+    } catch (error) {
+        console.error('Error resetting points:', error);
+        return { success: false, error: error.message };
+    }
+};
