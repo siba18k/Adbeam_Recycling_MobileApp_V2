@@ -5,9 +5,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native'; // Added TouchableOpacity and Animated
+import { View, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient'; // Added LinearGradient import
+import { LinearGradient } from 'expo-linear-gradient';
 import VouchersScreen from './src/screens/VouchersScreen';
 import LoadingScreen from './src/screens/LoadingScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -16,11 +16,11 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 
-// Auth Screens (fixed paths)
+// Auth Screens
 import LoginScreen from './src/screens/Auth/LoginScreen';
 import RegisterScreen from './src/screens/Auth/RegisterScreen';
 
-// Main App Screens (fixed paths)
+// Main App Screens
 import DashboardScreen from './src/screens/DashboardScreen';
 import ScannerScreen from './src/screens/ScannerScreen';
 import RewardsScreen from './src/screens/RewardsScreen';
@@ -28,16 +28,22 @@ import RewardDetailScreen from './src/screens/RewardDetailScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
+import StaffScannerScreen from './src/screens/StaffScannerScreen';
 
-// NEW: Settings Screens (ADD THESE IMPORTS)
+// Settings Screens
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacyScreen from './src/screens/PrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import AchievementsScreen from './src/screens/AchievementsScreen';
+
+// Services
+import { testNotification, getNotificationStatus } from './src/services/notificationService';
+import { addTestPoints, resetUserPoints } from './src/services/database';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// NEW: Notification Button Component (ADD THIS ENTIRE COMPONENT)
+// Enhanced Notification Button Component
 function NotificationButton({ navigation, hasUnread = true }) {
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const glowAnim = React.useRef(new Animated.Value(0)).current;
@@ -154,7 +160,108 @@ function NotificationButton({ navigation, hasUnread = true }) {
     );
 }
 
-// Auth Stack - for unauthenticated users (YOUR EXISTING CODE - UNCHANGED)
+// Enhanced Admin Tools Button with useful functionality
+function AdminToolsButton({ navigation }) {
+    const { user, userProfile } = useAuth();
+    
+    const showDeveloperTools = () => {
+        const notificationStatus = getNotificationStatus();
+        
+        Alert.alert(
+            '🛠️ Developer Tools',
+            `Environment: ${notificationStatus.isDevelopment ? 'Development' : 'Production'}\nPlatform: ${notificationStatus.platform}\nDevice: ${notificationStatus.isDevice ? 'Physical Device' : 'Simulator/Emulator'}\nNotifications: ${notificationStatus.supportsFullNotifications ? 'Full Support' : 'Limited (Expo Go)'}`,
+            [
+                {
+                    text: '🔧 Test Notification',
+                    onPress: async () => {
+                        const result = await testNotification(user.uid);
+                        Alert.alert(
+                            result.success ? '✅ Test Sent' : '❌ Test Failed',
+                            result.success ? 'Check your notifications!' : result.error
+                        );
+                    }
+                },
+                {
+                    text: '🎯 Add 1000 Points',
+                    onPress: async () => {
+                        const result = await addTestPoints(user.uid, 1000);
+                        Alert.alert(
+                            result.success ? '✅ Points Added!' : '❌ Failed',
+                            result.success 
+                                ? `Added 1000 points!\nTotal: ${result.newPoints}\nLevel: ${result.newLevel}`
+                                : result.error
+                        );
+                    }
+                },
+                {
+                    text: '🔄 Reset Points',
+                    style: 'destructive',
+                    onPress: () => {
+                        Alert.alert(
+                            '⚠️ Reset Points',
+                            'Are you sure you want to reset all points to 0?',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Reset',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        const result = await resetUserPoints(user.uid);
+                                        Alert.alert(
+                                            result.success ? '✅ Reset Complete' : '❌ Failed',
+                                            result.success ? 'Points reset to 0' : result.error
+                                        );
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                },
+                {
+                    text: '📱 Staff Scanner',
+                    onPress: () => navigation.navigate('StaffScanner')
+                },
+                {
+                    text: '❌ Close',
+                    style: 'cancel'
+                }
+            ],
+            { cancelable: true }
+        );
+    };
+    
+    return (
+        <TouchableOpacity
+            style={{ marginRight: 16 }}
+            onPress={showDeveloperTools}
+            activeOpacity={0.7}
+        >
+            <LinearGradient
+                colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 3,
+                    elevation: 3,
+                }}
+            >
+                <Ionicons
+                    name="construct-outline"
+                    size={18}
+                    color="white"
+                />
+            </LinearGradient>
+        </TouchableOpacity>
+    );
+}
+
+// Auth Stack - for unauthenticated users
 function AuthStack() {
     return (
         <Stack.Navigator
@@ -169,11 +276,11 @@ function AuthStack() {
     );
 }
 
-// MODIFIED: Main Tab Navigator (ONLY ADDED headerRight and navigation parameter)
+// Main Tab Navigator for regular users
 function MainTabs() {
     return (
         <Tab.Navigator
-            screenOptions={({ route, navigation }) => ({ // ADDED navigation parameter
+            screenOptions={({ route, navigation }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
                     let iconColor = focused ? '#059669' : '#6b7280';
@@ -235,11 +342,8 @@ function MainTabs() {
                     fontWeight: '700',
                     fontSize: 18,
                 },
-                // NEW: ADD this headerRight property
                 headerRight: () => {
-                    // Don't show notification button on Scanner (has its own UI) or Profile (has settings menu)
                     if (route.name === 'Scanner' || route.name === 'Profile') return null;
-
                     return <NotificationButton navigation={navigation} hasUnread={true} />;
                 },
                 headerRightContainerStyle: {
@@ -281,40 +385,78 @@ function MainTabs() {
     );
 }
 
-// MODIFIED: Enhanced Main App Stack (ADDED new screens to your existing function)
+// FIXED: Enhanced Main App Stack with role-based routing
 function AppStack() {
+    const { userProfile } = useAuth();
+    
+    // Determine initial route based on user role
+    const getInitialRouteName = () => {
+        if (!userProfile || !userProfile.role) {
+            return 'MainTabs'; // Default to regular user dashboard
+        }
+        
+        switch (userProfile.role) {
+            case 'admin':
+                return 'AdminDashboard';
+            case 'staff':
+                return 'AdminDashboard'; // Staff also uses admin dashboard
+            default:
+                return 'MainTabs';
+        }
+    };
+
     return (
-        <Stack.Navigator>
+        <Stack.Navigator initialRouteName={getInitialRouteName()}>
+            {/* Admin/Staff Dashboard as primary screen for admin/staff users */}
+            <Stack.Screen
+                name="AdminDashboard"
+                component={AdminDashboardScreen}
+                options={({ navigation }) => ({
+                    title: userProfile?.role === 'admin' ? 'Admin Dashboard' : 'Staff Dashboard',
+                    headerStyle: { backgroundColor: '#059669' },
+                    headerTintColor: '#fff',
+                    headerRight: () => (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <AdminToolsButton navigation={navigation} />
+                            <NotificationButton navigation={navigation} hasUnread={false} />
+                        </View>
+                    ),
+                    headerRightContainerStyle: { paddingRight: 16 },
+                })}
+            />
+            
+            {/* Staff Scanner Screen */}
+            <Stack.Screen
+                name="StaffScanner"
+                component={StaffScannerScreen}
+                options={{
+                    title: 'Staff Scanner',
+                    headerStyle: { backgroundColor: '#059669' },
+                    headerTintColor: '#fff',
+                }}
+            />
+            
+            {/* Regular user tabs */}
             <Stack.Screen
                 name="MainTabs"
                 component={MainTabs}
                 options={{ headerShown: false }}
             />
+            
+            {/* Other screens accessible to all roles */}
             <Stack.Screen
                 name="RewardDetail"
                 component={RewardDetailScreen}
-                options={({ navigation }) => ({ // ADDED navigation parameter
+                options={({ navigation }) => ({
                     title: 'Reward Details',
                     headerStyle: { backgroundColor: '#059669' },
                     headerTintColor: '#fff',
-                    // NEW: ADD notification button to detail screens too
                     headerRight: () => <NotificationButton navigation={navigation} hasUnread={false} />,
                     headerRightContainerStyle: { paddingRight: 16 },
                 })}
             />
-            <Stack.Screen
-                name="AdminDashboard"
-                component={AdminDashboardScreen}
-                options={({ navigation }) => ({ // ADDED navigation parameter
-                    title: 'Admin Dashboard',
-                    headerStyle: { backgroundColor: '#059669' },
-                    headerTintColor: '#fff',
-                    // NEW: ADD notification button to admin screen too
-                    headerRight: () => <NotificationButton navigation={navigation} hasUnread={false} />,
-                    headerRightContainerStyle: { paddingRight: 16 },
-                })}
-            />
-            {/* NEW: ADD these three new screens */}
+            
+            {/* Settings and utility screens */}
             <Stack.Screen
                 name="Settings"
                 component={SettingsScreen}
@@ -339,15 +481,22 @@ function AppStack() {
     );
 }
 
-// Root Navigator - decides between Auth and App based on auth state (YOUR EXISTING CODE - UNCHANGED)
+// Root Navigator - decides between Auth and App based on auth state
 function RootNavigator() {
-    const { user, loading } = useAuth();
+    const { user, userProfile, loading } = useAuth();
     const [hasSeenWelcome, setHasSeenWelcome] = useState(null);
     const [checkingWelcome, setCheckingWelcome] = useState(true);
 
     useEffect(() => {
         checkWelcomeStatus();
     }, []);
+
+    // IMPORTANT: Re-render when userProfile changes (especially role)
+    useEffect(() => {
+        if (userProfile) {
+            console.log('User profile updated, role:', userProfile.role);
+        }
+    }, [userProfile]);
 
     const checkWelcomeStatus = async () => {
         try {
@@ -368,14 +517,21 @@ function RootNavigator() {
 
     // If user is logged in, show main app
     if (user) {
+        // Wait for userProfile to be loaded before showing app
+        if (!userProfile) {
+            console.log('User authenticated but profile not loaded yet...');
+            return <LoadingScreen />;
+        }
+        
+        console.log('Rendering app for user with role:', userProfile.role);
         return <AppStack />;
     }
 
-    // If user not logged in, show Auth stack (which includes Welcome screen)
+    // If user not logged in, show Auth stack
     return <AuthStack />;
 }
 
-// Main App Component (YOUR EXISTING CODE - UNCHANGED)
+// Main App Component
 export default function App() {
     return (
         <PaperProvider>
