@@ -17,8 +17,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
-import { updateUserProfile, uploadProfileImage } from '../services/database';
+import { updateUserProfile, uploadProfileImage, addTestPoints, resetUserPoints } from '../services/database';
 import { useOffline } from '../context/OfflineContext';
+import { testNotification, getNotificationStatus } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -43,10 +44,9 @@ export default function ProfileScreen({ navigation }) {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [showUniversityPicker, setShowUniversityPicker] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('online');
-    // ADD these state variables to your existing ones - don't remove anything
-    const [showDevTools, setShowDevTools] = useState(false);
-    const [devClickCount, setDevClickCount] = useState(0);
 
+    // NEW: Developer tools state (moved from AdminDashboard)
+    const [pointsToAdd, setPointsToAdd] = useState('1000');
 
     const [editData, setEditData] = useState({
         displayName: '',
@@ -66,6 +66,9 @@ export default function ProfileScreen({ navigation }) {
     const float1 = useRef(new Animated.Value(0)).current;
     const float2 = useRef(new Animated.Value(0)).current;
     const rotate = useRef(new Animated.Value(0)).current;
+
+    // Check if user is admin or staff
+    const isAdminOrStaff = userProfile?.role === 'admin' || userProfile?.role === 'staff';
 
     useEffect(() => {
         // Gentle entrance animations
@@ -158,6 +161,57 @@ export default function ProfileScreen({ navigation }) {
         );
         setFilteredUniversities(filtered);
     }, [universitySearch]);
+
+    // NEW: Developer tools functions (moved from AdminDashboard)
+    const handleAddPoints = async () => {
+        const points = parseInt(pointsToAdd);
+        if (isNaN(points) || points <= 0) {
+            Alert.alert('Error', 'Please enter a valid number of points');
+            return;
+        }
+
+        const result = await addTestPoints(user.uid, points);
+        if (result.success) {
+            Alert.alert(
+                'Success! 🎉',
+                `Added ${result.pointsAdded} points!\nTotal: ${result.newPoints}\nLevel: ${result.newLevel}`
+            );
+            await refreshUserProfile(); // Refresh to show updated points
+        } else {
+            Alert.alert('Error', result.error);
+        }
+    };
+
+    const handleResetPoints = async () => {
+        Alert.alert(
+            'Reset Points',
+            'Are you sure you want to reset all points to 0?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const result = await resetUserPoints(user.uid);
+                        if (result.success) {
+                            Alert.alert('Success', 'Points reset to 0');
+                            await refreshUserProfile(); // Refresh to show updated points
+                        } else {
+                            Alert.alert('Error', result.error);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleTestNotification = async () => {
+        const result = await testNotification(user.uid);
+        Alert.alert(
+            result.success ? '✅ Test Sent' : '❌ Test Failed',
+            result.success ? 'Check your notifications!' : result.error
+        );
+    };
 
     const handleImagePicker = () => {
         Alert.alert('Update Profile Photo', 'Choose how to update your profile photo', [
@@ -275,19 +329,23 @@ export default function ProfileScreen({ navigation }) {
     };
 
     const handleLogout = async () => {
-        Alert.alert('Logout', 'Are you sure you want to logout?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Logout',
-                style: 'destructive',
-                onPress: async () => {
-                    const result = await logout();
-                    if (!result.success) {
-                        Alert.alert('Error', 'Failed to logout');
-                    }
+        Alert.alert(
+            'Logout',
+            `Are you sure you want to logout?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Logout',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const result = await logout();
+                        if (!result.success) {
+                            Alert.alert('Error', 'Failed to logout');
+                        }
+                    },
                 },
-            },
-        ]);
+            ]
+        );
     };
 
     const selectUniversity = (university) => {
@@ -310,7 +368,7 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    // Navigation handlers for new screens
+    // Navigation handlers for settings screens
     const navigateToSettings = () => {
         navigation.navigate('Settings');
     };
@@ -397,12 +455,19 @@ export default function ProfileScreen({ navigation }) {
                             <Text style={styles.emailText}>{userProfile?.email || user?.email}</Text>
                             <Text style={styles.universityText}>{userProfile?.university || 'Add your university'}</Text>
 
+                            {/* Role Badge */}
                             <LinearGradient
-                                colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)']}
-                                style={styles.levelBadge}
+                                colors={userProfile?.role === 'admin' ? ['#8b5cf6', '#7c3aed'] : userProfile?.role === 'staff' ? ['#f59e0b', '#d97706'] : ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)']}
+                                style={styles.roleBadge}
                             >
-                                <Ionicons name="star" size={14} color="white" />
-                                <Text style={styles.levelBadgeText}>Level {userProfile?.level || 1}</Text>
+                                <Ionicons
+                                    name={userProfile?.role === 'admin' ? 'shield' : userProfile?.role === 'staff' ? 'people' : 'star'}
+                                    size={14}
+                                    color="white"
+                                />
+                                <Text style={styles.roleBadgeText}>
+                                    {userProfile?.role === 'admin' ? 'ADMINISTRATOR' : userProfile?.role === 'staff' ? 'STAFF MEMBER' : `Level ${userProfile?.level || 1}`}
+                                </Text>
                             </LinearGradient>
 
                             {!isEditing && (
@@ -632,7 +697,116 @@ export default function ProfileScreen({ navigation }) {
                         </LinearGradient>
                     </Animated.View>
 
-                    {/* NEW: Settings Menu Card */}
+                    {/* NEW: Admin/Staff Developer Tools Card */}
+                    {isAdminOrStaff && (
+                        <Animated.View
+                            style={[
+                                styles.adminToolsCard,
+                                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+                            ]}
+                        >
+                            <LinearGradient colors={['#ffffff', '#f9fafb']} style={styles.cardGradient}>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.cardTitle}>🛠️ Developer Tools</Text>
+                                    <Ionicons name="construct" size={20} color="#8b5cf6" />
+                                </View>
+
+                                <View style={styles.devToolsContent}>
+                                    {/* Test Notification */}
+                                    <TouchableOpacity
+                                        style={styles.devToolItem}
+                                        onPress={handleTestNotification}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.devToolIcon}>
+                                            <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.devToolIconGradient}>
+                                                <Ionicons name="notifications" size={20} color="white" />
+                                            </LinearGradient>
+                                        </View>
+                                        <View style={styles.devToolText}>
+                                            <Text style={styles.devToolTitle}>Test Notification</Text>
+                                            <Text style={styles.devToolDescription}>
+                                                Send test push notification
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color="#d1d5db" />
+                                    </TouchableOpacity>
+
+                                    {/* Add Points Tool */}
+                                    <View style={styles.devToolItem}>
+                                        <View style={styles.devToolIcon}>
+                                            <LinearGradient colors={['#10b981', '#059669']} style={styles.devToolIconGradient}>
+                                                <Ionicons name="add-circle" size={20} color="white" />
+                                            </LinearGradient>
+                                        </View>
+                                        <View style={styles.addPointsContainer}>
+                                            <View style={styles.devToolText}>
+                                                <Text style={styles.devToolTitle}>Add Test Points</Text>
+                                                <Text style={styles.devToolDescription}>
+                                                    Add points for testing purposes
+                                                </Text>
+                                            </View>
+                                            <View style={styles.pointsControls}>
+                                                <View style={styles.pointsInputWrapper}>
+                                                    <TextInput
+                                                        value={pointsToAdd}
+                                                        onChangeText={setPointsToAdd}
+                                                        keyboardType="numeric"
+                                                        style={styles.pointsInput}
+                                                        placeholder="Points"
+                                                    />
+                                                </View>
+                                                <TouchableOpacity
+                                                    onPress={handleAddPoints}
+                                                    style={styles.addPointsButton}
+                                                >
+                                                    <LinearGradient
+                                                        colors={['#10b981', '#059669']}
+                                                        style={styles.addPointsButtonGradient}
+                                                    >
+                                                        <Text style={styles.addPointsButtonText}>Add</Text>
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    {/* Reset Points Tool */}
+                                    <TouchableOpacity
+                                        style={styles.devToolItem}
+                                        onPress={handleResetPoints}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.devToolIcon}>
+                                            <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.devToolIconGradient}>
+                                                <Ionicons name="refresh" size={20} color="white" />
+                                            </LinearGradient>
+                                        </View>
+                                        <View style={styles.devToolText}>
+                                            <Text style={styles.devToolTitle}>Reset Points</Text>
+                                            <Text style={styles.devToolDescription}>
+                                                Reset all points to 0 (destructive)
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color="#d1d5db" />
+                                    </TouchableOpacity>
+
+                                    {/* System Info */}
+                                    <View style={styles.systemInfo}>
+                                        <Text style={styles.systemInfoTitle}>System Information:</Text>
+                                        <Text style={styles.systemInfoText}>
+                                            Environment: {getNotificationStatus().isDevelopment ? 'Development' : 'Production'}{'\n'}
+                                            Platform: {getNotificationStatus().platform}{'\n'}
+                                            Device: {getNotificationStatus().isDevice ? 'Physical Device' : 'Simulator'}{'\n'}
+                                            Notifications: {getNotificationStatus().supportsFullNotifications ? 'Full Support' : 'Limited (Expo Go)'}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </LinearGradient>
+                        </Animated.View>
+                    )}
+
+                    {/* Settings Menu Card */}
                     <Animated.View
                         style={[
                             styles.settingsCard,
@@ -742,16 +916,18 @@ export default function ProfileScreen({ navigation }) {
                         </LinearGradient>
                     </Animated.View>
 
-                    {/* Logout Button - with proper spacing to avoid navbar overlap */}
+                    {/* Logout Button - Enhanced for Admins */}
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
                         <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.logoutGradient}>
                             <Ionicons name="log-out" size={20} color="white" />
-                            <Text style={styles.logoutText}>Logout</Text>
+                            <Text style={styles.logoutText}>
+                                Logout {isAdminOrStaff ? `(${userProfile?.role?.toUpperCase()})` : ''}
+                            </Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </ScrollView>
 
-                {/* University Picker Modal */}
+                {/* University Picker Modal (unchanged) */}
                 <Portal>
                     <Modal
                         visible={showUniversityPicker}
@@ -921,7 +1097,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         textAlign: 'center',
     },
-    levelBadge: {
+    roleBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 12,
@@ -929,11 +1105,12 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         marginBottom: 16,
     },
-    levelBadgeText: {
+    roleBadgeText: {
         color: 'white',
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: '700',
         marginLeft: 4,
+        letterSpacing: 0.5,
     },
     quickEditButton: {
         borderRadius: 16,
@@ -1122,7 +1299,110 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         fontStyle: 'italic',
     },
-    // NEW: Settings Menu Styles
+    // NEW: Admin Tools Styles
+    adminToolsCard: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    devToolsContent: {
+        gap: 8,
+    },
+    devToolItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(139, 92, 246, 0.05)',
+    },
+    devToolIcon: {
+        marginRight: 16,
+    },
+    devToolIconGradient: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    devToolText: {
+        flex: 1,
+    },
+    devToolTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 2,
+    },
+    devToolDescription: {
+        fontSize: 13,
+        color: '#6b7280',
+        lineHeight: 18,
+    },
+    addPointsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    pointsControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginLeft: 12,
+    },
+    pointsInputWrapper: {
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        minWidth: 80,
+    },
+    pointsInput: {
+        fontSize: 14,
+        textAlign: 'center',
+        color: '#1f2937',
+    },
+    addPointsButton: {
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    addPointsButtonGradient: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
+    addPointsButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    systemInfo: {
+        backgroundColor: 'rgba(107, 114, 128, 0.1)',
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    systemInfoTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#4b5563',
+        marginBottom: 4,
+    },
+    systemInfoText: {
+        fontSize: 11,
+        color: '#6b7280',
+        lineHeight: 16,
+        fontFamily: 'monospace',
+    },
+    // Settings Menu Styles (unchanged)
     settingsCard: {
         marginHorizontal: 16,
         marginBottom: 16,
