@@ -1,20 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import {
+    View,
+    StyleSheet,
+    TouchableOpacity,
+    Animated,
+    Text,
+    Dimensions,
+    Platform,
+    Alert,
+    BackHandler
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import NetInfo from '@react-native-community/netinfo';
+
+// Screens
 import VouchersScreen from './src/screens/VouchersScreen';
 import LoadingScreen from './src/screens/LoadingScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { OfflineProvider } from './src/context/OfflineContext';
+import { OfflineProvider, useOffline } from './src/context/OfflineContext';
 
 // Auth Screens
 import LoginScreen from './src/screens/Auth/LoginScreen';
@@ -30,7 +44,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 
 // Admin/Staff Screens
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
-import StaffDashboardScreen from './src/screens/StaffDashboardScreen'; // NEW
+import StaffDashboardScreen from './src/screens/StaffDashboardScreen';
 import StaffScannerScreen from './src/screens/StaffScannerScreen';
 
 // Settings Screens
@@ -41,75 +55,233 @@ import AchievementsScreen from './src/screens/AchievementsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const { width, height } = Dimensions.get('window');
 
-// Notification Button Component (unchanged)
-function NotificationButton({ navigation, hasUnread = true }) {
-    const pulseAnim = React.useRef(new Animated.Value(1)).current;
-    const glowAnim = React.useRef(new Animated.Value(0)).current;
+// Enhanced Theme Configuration
+const THEME = {
+    colors: {
+        user: {
+            primary: '#059669',
+            secondary: '#10b981',
+            accent: '#34d399',
+            background: ['#ecfdf5', '#d1fae5', '#ffffff'],
+            tabBar: '#ffffff',
+            shadow: '#14532d'
+        },
+        admin: {
+            primary: '#8b5cf6',
+            secondary: '#a78bfa',
+            accent: '#c4b5fd',
+            background: ['#f3e8ff', '#e9d5ff', '#ffffff'],
+            tabBar: '#ffffff',
+            shadow: '#581c87'
+        },
+        staff: {
+            primary: '#f59e0b',
+            secondary: '#fbbf24',
+            accent: '#fcd34d',
+            background: ['#fef3c7', '#fde68a', '#ffffff'],
+            tabBar: '#ffffff',
+            shadow: '#92400e'
+        }
+    },
+    animations: {
+        duration: 300,
+        springConfig: {
+            tension: 100,
+            friction: 8
+        }
+    }
+};
 
-    React.useEffect(() => {
+// Enhanced Connection Status Component
+function ConnectionStatus() {
+    const { isOffline, queueSize } = useOffline();
+    const [connectionType, setConnectionType] = useState('unknown');
+    const slideAnim = useRef(new Animated.Value(-100)).current;
+    const opacityAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const unsubscribe = NetInfo.addEventListener(state => {
+            setConnectionType(state.type);
+
+            if (!state.isConnected && !isOffline) {
+                // Show offline banner
+                Animated.parallel([
+                    Animated.timing(slideAnim, {
+                        toValue: 0,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(opacityAnim, {
+                        toValue: 1,
+                        duration: 400,
+                        useNativeDriver: true,
+                    })
+                ]).start();
+            } else if (state.isConnected && isOffline) {
+                // Hide offline banner
+                Animated.parallel([
+                    Animated.timing(slideAnim, {
+                        toValue: -100,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(opacityAnim, {
+                        toValue: 0,
+                        duration: 400,
+                        useNativeDriver: true,
+                    })
+                ]).start();
+            }
+        });
+
+        return unsubscribe;
+    }, [isOffline]);
+
+    if (!isOffline) return null;
+
+    return (
+        <Animated.View
+            style={[
+                styles.connectionBanner,
+                {
+                    transform: [{ translateY: slideAnim }],
+                    opacity: opacityAnim
+                }
+            ]}
+        >
+            <LinearGradient
+                colors={['#ef4444', '#dc2626']}
+                style={styles.connectionGradient}
+            >
+                <View style={styles.connectionContent}>
+                    <Ionicons name="wifi-off" size={16} color="white" />
+                    <Text style={styles.connectionText}>
+                        Offline Mode
+                    </Text>
+                    {queueSize > 0 && (
+                        <>
+                            <View style={styles.connectionDivider} />
+                            <Ionicons name="cloud-upload-outline" size={14} color="white" />
+                            <Text style={styles.connectionQueue}>
+                                {queueSize} queued
+                            </Text>
+                        </>
+                    )}
+                    <Text style={styles.connectionType}>
+                        ({connectionType})
+                    </Text>
+                </View>
+            </LinearGradient>
+        </Animated.View>
+    );
+}
+
+// Enhanced Notification Button with Advanced Features
+function NotificationButton({ navigation, hasUnread = false, userRole = 'user' }) {
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const glowAnim = useRef(new Animated.Value(0)).current;
+    const bounceAnim = useRef(new Animated.Value(0)).current;
+    const [notificationCount, setNotificationCount] = useState(0);
+
+    const colors = THEME.colors[userRole] || THEME.colors.user;
+
+    useEffect(() => {
         if (hasUnread) {
+            // Pulse animation
             Animated.loop(
                 Animated.sequence([
                     Animated.timing(pulseAnim, {
-                        toValue: 1.15,
-                        duration: 1200,
+                        toValue: 1.2,
+                        duration: 1000,
                         useNativeDriver: true,
                     }),
                     Animated.timing(pulseAnim, {
                         toValue: 1,
-                        duration: 1200,
+                        duration: 1000,
                         useNativeDriver: true,
                     }),
                 ])
             ).start();
 
+            // Glow animation
             Animated.loop(
                 Animated.sequence([
                     Animated.timing(glowAnim, {
                         toValue: 1,
-                        duration: 1800,
+                        duration: 2000,
                         useNativeDriver: true,
                     }),
                     Animated.timing(glowAnim, {
                         toValue: 0,
-                        duration: 1800,
+                        duration: 2000,
                         useNativeDriver: true,
                     }),
                 ])
             ).start();
+
+            // Bounce animation for new notifications
+            Animated.sequence([
+                Animated.timing(bounceAnim, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(bounceAnim, {
+                    toValue: 0,
+                    tension: 100,
+                    friction: 5,
+                    useNativeDriver: true,
+                })
+            ]).start();
         }
     }, [hasUnread]);
 
+    const handlePress = async () => {
+        if (Platform.OS === 'ios') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        navigation.navigate('Notifications');
+    };
+
     const glowOpacity = glowAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, 0.5],
+        outputRange: [0, 0.6],
+    });
+
+    const bounceTranslate = bounceAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -8],
     });
 
     return (
         <TouchableOpacity
-            style={{ marginRight: 4 }}
-            onPress={() => navigation.navigate('Notifications')}
+            style={styles.notificationContainer}
+            onPress={handlePress}
             activeOpacity={0.7}
         >
             <Animated.View style={{
                 position: 'relative',
-                transform: [{ scale: hasUnread ? pulseAnim : 1 }]
+                transform: [
+                    { scale: hasUnread ? pulseAnim : 1 },
+                    { translateY: bounceTranslate }
+                ]
             }}>
+                {/* Glow Effect */}
+                {hasUnread && (
+                    <Animated.View style={[
+                        styles.notificationGlow,
+                        {
+                            backgroundColor: colors.accent,
+                            opacity: glowOpacity
+                        }
+                    ]} />
+                )}
+
                 <LinearGradient
-                    colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                    style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 4,
-                        elevation: 4,
-                    }}
+                    colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
+                    style={styles.notificationButton}
                 >
                     <Ionicons
                         name={hasUnread ? "notifications" : "notifications-outline"}
@@ -117,45 +289,152 @@ function NotificationButton({ navigation, hasUnread = true }) {
                         color="white"
                     />
 
-                    {hasUnread && (
-                        <Animated.View style={{
-                            position: 'absolute',
-                            top: 2,
-                            right: 2,
-                            width: 12,
-                            height: 12,
-                            borderRadius: 6,
-                            overflow: 'hidden',
-                            borderWidth: 2,
-                            borderColor: 'white',
-                            opacity: glowOpacity.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [1, 0.7],
-                            })
-                        }}>
+                    {/* Notification Badge */}
+                    {hasUnread && notificationCount > 0 && (
+                        <Animated.View style={styles.notificationBadge}>
                             <LinearGradient
                                 colors={['#ef4444', '#dc2626']}
-                                style={{ flex: 1 }}
+                                style={styles.notificationBadgeGradient}
+                            >
+                                <Text style={styles.notificationBadgeText}>
+                                    {notificationCount > 99 ? '99+' : notificationCount}
+                                </Text>
+                            </LinearGradient>
+                        </Animated.View>
+                    )}
+
+                    {/* Simple dot indicator when count is 0 */}
+                    {hasUnread && notificationCount === 0 && (
+                        <Animated.View style={styles.notificationDot}>
+                            <LinearGradient
+                                colors={['#ef4444', '#dc2626']}
+                                style={styles.notificationDotGradient}
                             />
                         </Animated.View>
                     )}
                 </LinearGradient>
-
-                {hasUnread && (
-                    <Animated.View style={{
-                        position: 'absolute',
-                        top: -2,
-                        left: -2,
-                        right: -2,
-                        bottom: -2,
-                        borderRadius: 22,
-                        backgroundColor: '#fbbf24',
-                        zIndex: -1,
-                        opacity: glowOpacity
-                    }} />
-                )}
             </Animated.View>
         </TouchableOpacity>
+    );
+}
+
+// Enhanced Tab Bar with Custom Animations
+function CustomTabBar({ state, descriptors, navigation, userRole = 'user' }) {
+    const colors = THEME.colors[userRole] || THEME.colors.user;
+    const animatedValues = useRef(
+        state.routes.map(() => new Animated.Value(0))
+    ).current;
+
+    useEffect(() => {
+        animatedValues.forEach((anim, index) => {
+            Animated.timing(anim, {
+                toValue: state.index === index ? 1 : 0,
+                duration: THEME.animations.duration,
+                useNativeDriver: false,
+            }).start();
+        });
+    }, [state.index]);
+
+    return (
+        <View style={[styles.tabBarContainer, { shadowColor: colors.shadow }]}>
+            <LinearGradient
+                colors={[colors.tabBar, 'rgba(255,255,255,0.95)']}
+                style={styles.tabBarGradient}
+            >
+                <View style={styles.tabBar}>
+                    {state.routes.map((route, index) => {
+                        const { options } = descriptors[route.key];
+                        const label = options.tabBarLabel !== undefined
+                            ? options.tabBarLabel
+                            : options.title !== undefined
+                                ? options.title
+                                : route.name;
+
+                        const isFocused = state.index === index;
+
+                        const onPress = () => {
+                            if (Platform.OS === 'ios') {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }
+
+                            const event = navigation.emit({
+                                type: 'tabPress',
+                                target: route.key,
+                                canPreventDefault: true,
+                            });
+
+                            if (!isFocused && !event.defaultPrevented) {
+                                navigation.navigate(route.name);
+                            }
+                        };
+
+                        const animatedColor = animatedValues[index].interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['#6b7280', colors.primary],
+                        });
+
+                        const animatedScale = animatedValues[index].interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.1],
+                        });
+
+                        const animatedOpacity = animatedValues[index].interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.7, 1],
+                        });
+
+                        return (
+                            <TouchableOpacity
+                                key={route.key}
+                                accessibilityRole="button"
+                                accessibilityState={isFocused ? { selected: true } : {}}
+                                accessibilityLabel={options.tabBarAccessibilityLabel}
+                                testID={options.tabBarTestID}
+                                onPress={onPress}
+                                style={styles.tabItem}
+                            >
+                                <Animated.View
+                                    style={[
+                                        styles.tabItemContent,
+                                        {
+                                            transform: [{ scale: animatedScale }],
+                                            opacity: animatedOpacity
+                                        }
+                                    ]}
+                                >
+                                    {/* Active Tab Background */}
+                                    {isFocused && (
+                                        <Animated.View style={styles.activeTabBackground}>
+                                            <LinearGradient
+                                                colors={[`${colors.primary}20`, `${colors.primary}10`]}
+                                                style={styles.activeTabGradient}
+                                            />
+                                        </Animated.View>
+                                    )}
+
+                                    <Animated.Text style={[styles.tabIcon, { color: animatedColor }]}>
+                                        {options.tabBarIcon && options.tabBarIcon({
+                                            focused: isFocused,
+                                            color: isFocused ? colors.primary : '#6b7280',
+                                            size: 24
+                                        })}
+                                    </Animated.Text>
+
+                                    <Animated.Text
+                                        style={[
+                                            styles.tabLabel,
+                                            { color: animatedColor }
+                                        ]}
+                                    >
+                                        {label}
+                                    </Animated.Text>
+                                </Animated.View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </LinearGradient>
+        </View>
     );
 }
 
@@ -165,6 +444,20 @@ function AuthStack() {
         <Stack.Navigator
             screenOptions={{
                 headerShown: false,
+                cardStyleInterpolator: ({ current, layouts }) => {
+                    return {
+                        cardStyle: {
+                            transform: [
+                                {
+                                    translateX: current.progress.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [layouts.screen.width, 0],
+                                    }),
+                                },
+                            ],
+                        },
+                    };
+                },
             }}
         >
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -181,7 +474,7 @@ function MainTabs() {
             screenOptions={({ route, navigation }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
-                    let iconColor = focused ? '#059669' : '#6b7280';
+                    let iconColor = focused ? THEME.colors.user.primary : '#6b7280';
 
                     switch (route.name) {
                         case 'Dashboard':
@@ -208,17 +501,14 @@ function MainTabs() {
 
                     return <Ionicons name={iconName} size={size} color={iconColor} />;
                 },
-                tabBarActiveTintColor: '#059669',
+                tabBarActiveTintColor: THEME.colors.user.primary,
                 tabBarInactiveTintColor: '#6b7280',
                 tabBarStyle: {
-                    backgroundColor: '#ffffff',
+                    backgroundColor: THEME.colors.user.tabBar,
                     borderTopWidth: 0,
                     elevation: 20,
-                    shadowColor: '#14532d',
-                    shadowOffset: {
-                        width: 0,
-                        height: -4,
-                    },
+                    shadowColor: THEME.colors.user.shadow,
+                    shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
                     shadowRadius: 12,
                     height: 70,
@@ -230,7 +520,7 @@ function MainTabs() {
                     fontWeight: '600',
                 },
                 headerStyle: {
-                    backgroundColor: '#059669',
+                    backgroundColor: THEME.colors.user.primary,
                     elevation: 0,
                     shadowOpacity: 0,
                     borderBottomWidth: 0,
@@ -241,9 +531,8 @@ function MainTabs() {
                     fontSize: 18,
                 },
                 headerRight: () => {
-                    // Don't show notification button on Scanner or Profile
                     if (route.name === 'Scanner' || route.name === 'Profile') return null;
-                    return <NotificationButton navigation={navigation} hasUnread={true} />;
+                    return <NotificationButton navigation={navigation} hasUnread={true} userRole="user" />;
                 },
                 headerRightContainerStyle: {
                     paddingRight: 16,
@@ -284,14 +573,14 @@ function MainTabs() {
     );
 }
 
-// NEW: Admin Tab Navigator (Admin only)
+// Admin Tab Navigator (Admin only)
 function AdminTabs() {
     return (
         <Tab.Navigator
             screenOptions={({ route, navigation }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
-                    let iconColor = focused ? '#8b5cf6' : '#6b7280';
+                    let iconColor = focused ? THEME.colors.admin.primary : '#6b7280';
 
                     switch (route.name) {
                         case 'AdminDashboard':
@@ -306,17 +595,14 @@ function AdminTabs() {
 
                     return <Ionicons name={iconName} size={size} color={iconColor} />;
                 },
-                tabBarActiveTintColor: '#8b5cf6',
+                tabBarActiveTintColor: THEME.colors.admin.primary,
                 tabBarInactiveTintColor: '#6b7280',
                 tabBarStyle: {
-                    backgroundColor: '#ffffff',
+                    backgroundColor: THEME.colors.admin.tabBar,
                     borderTopWidth: 0,
                     elevation: 20,
-                    shadowColor: '#8b5cf6',
-                    shadowOffset: {
-                        width: 0,
-                        height: -4,
-                    },
+                    shadowColor: THEME.colors.admin.shadow,
+                    shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
                     shadowRadius: 12,
                     height: 70,
@@ -328,7 +614,7 @@ function AdminTabs() {
                     fontWeight: '600',
                 },
                 headerStyle: {
-                    backgroundColor: '#8b5cf6',
+                    backgroundColor: THEME.colors.admin.primary,
                     elevation: 0,
                     shadowOpacity: 0,
                     borderBottomWidth: 0,
@@ -340,7 +626,7 @@ function AdminTabs() {
                 },
                 headerRight: () => {
                     if (route.name === 'Profile') return null;
-                    return <NotificationButton navigation={navigation} hasUnread={false} />;
+                    return <NotificationButton navigation={navigation} hasUnread={false} userRole="admin" />;
                 },
                 headerRightContainerStyle: {
                     paddingRight: 16,
@@ -361,14 +647,14 @@ function AdminTabs() {
     );
 }
 
-// NEW: Staff Tab Navigator (Staff only)
+// Staff Tab Navigator (Staff only)
 function StaffTabs() {
     return (
         <Tab.Navigator
             screenOptions={({ route, navigation }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
-                    let iconColor = focused ? '#f59e0b' : '#6b7280';
+                    let iconColor = focused ? THEME.colors.staff.primary : '#6b7280';
 
                     switch (route.name) {
                         case 'StaffDashboard':
@@ -386,17 +672,14 @@ function StaffTabs() {
 
                     return <Ionicons name={iconName} size={size} color={iconColor} />;
                 },
-                tabBarActiveTintColor: '#f59e0b',
+                tabBarActiveTintColor: THEME.colors.staff.primary,
                 tabBarInactiveTintColor: '#6b7280',
                 tabBarStyle: {
-                    backgroundColor: '#ffffff',
+                    backgroundColor: THEME.colors.staff.tabBar,
                     borderTopWidth: 0,
                     elevation: 20,
-                    shadowColor: '#f59e0b',
-                    shadowOffset: {
-                        width: 0,
-                        height: -4,
-                    },
+                    shadowColor: THEME.colors.staff.shadow,
+                    shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
                     shadowRadius: 12,
                     height: 70,
@@ -408,7 +691,7 @@ function StaffTabs() {
                     fontWeight: '600',
                 },
                 headerStyle: {
-                    backgroundColor: '#f59e0b',
+                    backgroundColor: THEME.colors.staff.primary,
                     elevation: 0,
                     shadowOpacity: 0,
                     borderBottomWidth: 0,
@@ -420,7 +703,7 @@ function StaffTabs() {
                 },
                 headerRight: () => {
                     if (route.name === 'Profile') return null;
-                    return <NotificationButton navigation={navigation} hasUnread={false} />;
+                    return <NotificationButton navigation={navigation} hasUnread={false} userRole="staff" />;
                 },
                 headerRightContainerStyle: {
                     paddingRight: 16,
@@ -446,139 +729,330 @@ function StaffTabs() {
     );
 }
 
-// UPDATED: Enhanced Main App Stack with proper role separation
-function AppStack() {
+// Enhanced Role-Based Access Control
+function useRoleBasedAccess() {
     const { userProfile } = useAuth();
+    const [permissions, setPermissions] = useState({
+        canAccessAdmin: false,
+        canAccessStaff: false,
+        canManageUsers: false,
+        canViewAnalytics: false,
+        canScanVouchers: false,
+    });
+
+    useEffect(() => {
+        if (userProfile?.role) {
+            const role = userProfile.role;
+            const newPermissions = {
+                canAccessAdmin: role === 'admin',
+                canAccessStaff: role === 'staff' || role === 'admin',
+                canManageUsers: role === 'admin',
+                canViewAnalytics: role === 'admin' || role === 'staff',
+                canScanVouchers: role === 'staff' || role === 'admin',
+            };
+            setPermissions(newPermissions);
+        }
+    }, [userProfile]);
+
+    return permissions;
+}
+
+// Enhanced Main App Stack with Security and Analytics
+function AppStack() {
+    const { userProfile, user } = useAuth();
+    const { isOffline } = useOffline();
+    const permissions = useRoleBasedAccess();
+    const [isReady, setIsReady] = useState(false);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    // App readiness check
+    useEffect(() => {
+        const prepareApp = async () => {
+            try {
+                // Simulate app preparation time
+                await new Promise(resolve => setTimeout(resolve, 500));
+                setIsReady(true);
+
+                // Fade in animation
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 600,
+                    useNativeDriver: true,
+                }).start();
+            } catch (error) {
+                console.error('App preparation error:', error);
+                setIsReady(true);
+            }
+        };
+
+        prepareApp();
+    }, []);
+
+    // Back button handler for Android
+    useEffect(() => {
+        const backAction = () => {
+            Alert.alert('Exit App', 'Are you sure you want to exit?', [
+                {
+                    text: 'Cancel',
+                    onPress: () => null,
+                    style: 'cancel',
+                },
+                { text: 'YES', onPress: () => BackHandler.exitApp() },
+            ]);
+            return true;
+        };
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+        return () => backHandler.remove();
+    }, []);
 
     // Determine initial route based on user role
     const getInitialRouteName = () => {
         if (!userProfile || !userProfile.role) {
-            return 'MainTabs'; // Default to regular user dashboard
+            return 'MainTabs';
         }
 
         switch (userProfile.role) {
             case 'admin':
-                return 'AdminTabs'; // Admin gets AdminTabs (AdminDashboard + Profile)
+                return permissions.canAccessAdmin ? 'AdminTabs' : 'MainTabs';
             case 'staff':
-                return 'StaffTabs'; // Staff gets StaffTabs (StaffDashboard + StaffScanner + Profile)
+                return permissions.canAccessStaff ? 'StaffTabs' : 'MainTabs';
             default:
-                return 'MainTabs'; // Regular users get MainTabs
+                return 'MainTabs';
         }
     };
 
+    if (!isReady) {
+        return <LoadingScreen />;
+    }
+
     return (
-        <Stack.Navigator initialRouteName={getInitialRouteName()}>
-            {/* Admin Tab Navigator (Admin only) */}
-            <Stack.Screen
-                name="AdminTabs"
-                component={AdminTabs}
-                options={{ headerShown: false }}
-            />
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <ConnectionStatus />
 
-            {/* Staff Tab Navigator (Staff only) */}
-            <Stack.Screen
-                name="StaffTabs"
-                component={StaffTabs}
-                options={{ headerShown: false }}
-            />
+            <Stack.Navigator
+                initialRouteName={getInitialRouteName()}
+                screenOptions={{
+                    cardStyleInterpolator: ({ current, layouts }) => {
+                        return {
+                            cardStyle: {
+                                transform: [
+                                    {
+                                        translateX: current.progress.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [layouts.screen.width, 0],
+                                        }),
+                                    },
+                                ],
+                            },
+                        };
+                    },
+                }}
+            >
+                {/* Admin Tab Navigator (Admin only) */}
+                {permissions.canAccessAdmin && (
+                    <Stack.Screen
+                        name="AdminTabs"
+                        component={AdminTabs}
+                        options={{ headerShown: false }}
+                    />
+                )}
 
-            {/* Regular user tabs */}
-            <Stack.Screen
-                name="MainTabs"
-                component={MainTabs}
-                options={{ headerShown: false }}
-            />
+                {/* Staff Tab Navigator (Staff only) */}
+                {permissions.canAccessStaff && (
+                    <Stack.Screen
+                        name="StaffTabs"
+                        component={StaffTabs}
+                        options={{ headerShown: false }}
+                    />
+                )}
 
-            {/* Shared screens accessible to all roles */}
-            <Stack.Screen
-                name="RewardDetail"
-                component={RewardDetailScreen}
-                options={({ navigation }) => ({
-                    title: 'Reward Details',
-                    headerStyle: { backgroundColor: '#059669' },
-                    headerTintColor: '#fff',
-                    headerRight: () => <NotificationButton navigation={navigation} hasUnread={false} />,
-                    headerRightContainerStyle: { paddingRight: 16 },
-                })}
-            />
+                {/* Regular user tabs */}
+                <Stack.Screen
+                    name="MainTabs"
+                    component={MainTabs}
+                    options={{ headerShown: false }}
+                />
 
-            {/* Settings and utility screens */}
-            <Stack.Screen
-                name="Settings"
-                component={SettingsScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="Privacy"
-                component={PrivacyScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="Notifications"
-                component={NotificationsScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="Achievements"
-                component={AchievementsScreen}
-                options={{ headerShown: false }}
-            />
-        </Stack.Navigator>
+                {/* Shared screens accessible to all roles */}
+                <Stack.Screen
+                    name="RewardDetail"
+                    component={RewardDetailScreen}
+                    options={({ navigation, route }) => {
+                        const userRole = userProfile?.role || 'user';
+                        const colors = THEME.colors[userRole] || THEME.colors.user;
+
+                        return {
+                            title: 'Reward Details',
+                            headerStyle: { backgroundColor: colors.primary },
+                            headerTintColor: '#fff',
+                            headerRight: () => <NotificationButton navigation={navigation} hasUnread={false} userRole={userRole} />,
+                            headerRightContainerStyle: { paddingRight: 16 },
+                        };
+                    }}
+                />
+
+                {/* Settings and utility screens */}
+                <Stack.Screen
+                    name="Settings"
+                    component={SettingsScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Privacy"
+                    component={PrivacyScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Achievements"
+                    component={AchievementsScreen}
+                    options={{ headerShown: false }}
+                />
+            </Stack.Navigator>
+        </Animated.View>
     );
 }
 
-// Root Navigator - decides between Auth and App based on auth state
-function RootNavigator() {
-    const { user, userProfile, loading } = useAuth();
-    const [hasSeenWelcome, setHasSeenWelcome] = useState(null);
-    const [checkingWelcome, setCheckingWelcome] = useState(true);
+// Enhanced Loading State Management
+function useAppInitialization() {
+    const [initState, setInitState] = useState({
+        isLoading: true,
+        hasSeenWelcome: null,
+        isCheckingWelcome: true,
+        error: null,
+    });
+
+    const checkWelcomeStatus = async () => {
+        try {
+            const welcomeSeen = await AsyncStorage.getItem('hasSeenWelcome');
+            setInitState(prev => ({
+                ...prev,
+                hasSeenWelcome: welcomeSeen === 'true',
+                isCheckingWelcome: false,
+            }));
+        } catch (error) {
+            console.error('Error checking welcome status:', error);
+            setInitState(prev => ({
+                ...prev,
+                hasSeenWelcome: false,
+                isCheckingWelcome: false,
+                error: error.message,
+            }));
+        }
+    };
 
     useEffect(() => {
         checkWelcomeStatus();
     }, []);
 
-    // IMPORTANT: Re-render when userProfile changes (especially role)
+    return initState;
+}
+
+// Root Navigator with Enhanced State Management
+function RootNavigator() {
+    const { user, userProfile, loading } = useAuth();
+    const initState = useAppInitialization();
+    const [appState, setAppState] = useState('active');
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+
+    // App state monitoring
+    useEffect(() => {
+        const handleAppStateChange = (nextAppState) => {
+            if (appState.match(/inactive|background/) && nextAppState === 'active') {
+                // App has come to the foreground
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }).start();
+            } else if (nextAppState.match(/inactive|background/)) {
+                // App is going to background
+                Animated.timing(fadeAnim, {
+                    toValue: 0.8,
+                    duration: 200,
+                    useNativeDriver: true,
+                }).start();
+            }
+            setAppState(nextAppState);
+        };
+
+        // Note: AppState is not available in this context, but you can add it if needed
+        return () => {}; // Cleanup function
+    }, [appState]);
+
+    // Profile change monitoring
     useEffect(() => {
         if (userProfile) {
-            console.log('User profile updated, role:', userProfile.role);
+            console.log('🔄 User profile updated:', {
+                role: userProfile.role,
+                displayName: userProfile.displayName,
+                level: userProfile.level,
+                points: userProfile.points
+            });
         }
     }, [userProfile]);
 
-    const checkWelcomeStatus = async () => {
-        try {
-            const welcomeSeen = await AsyncStorage.getItem('hasSeenWelcome');
-            setHasSeenWelcome(welcomeSeen === 'true');
-        } catch (error) {
-            console.log('Error checking welcome status:', error);
-            setHasSeenWelcome(false);
-        } finally {
-            setCheckingWelcome(false);
-        }
-    };
-
-    // Show LoadingScreen while checking both auth and welcome status
-    if (loading || checkingWelcome) {
-        return <LoadingScreen />;
+    // Show LoadingScreen while checking status
+    if (loading || initState.isCheckingWelcome) {
+        return (
+            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                <LoadingScreen />
+            </Animated.View>
+        );
     }
 
     // If user is logged in, show main app
     if (user) {
         // Wait for userProfile to be loaded before showing app
         if (!userProfile) {
-            console.log('User authenticated but profile not loaded yet...');
+            console.log('👤 User authenticated but profile not loaded yet...');
             return <LoadingScreen />;
         }
 
-        console.log('Rendering app for user with role:', userProfile.role);
-        return <AppStack />;
+        console.log('🚀 Rendering app for user with role:', userProfile.role);
+        return (
+            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                <AppStack />
+            </Animated.View>
+        );
     }
 
     // If user not logged in, show Auth stack
-    return <AuthStack />;
+    return (
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <AuthStack />
+        </Animated.View>
+    );
 }
 
-// Main App Component
+// Main App Component with Enhanced Provider Setup
 export default function App() {
+    const [appIsReady, setAppIsReady] = useState(false);
+
+    useEffect(() => {
+        async function prepare() {
+            try {
+                // Pre-load any resources here
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (e) {
+                console.warn(e);
+            } finally {
+                setAppIsReady(true);
+            }
+        }
+
+        prepare();
+    }, []);
+
+    if (!appIsReady) {
+        return <LoadingScreen />;
+    }
+
     return (
         <PaperProvider>
             <AuthProvider>
@@ -592,3 +1066,164 @@ export default function App() {
         </PaperProvider>
     );
 }
+
+// Enhanced Styles
+const styles = StyleSheet.create({
+    // Connection Status Styles
+    connectionBanner: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        elevation: 100,
+    },
+    connectionGradient: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    connectionContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    connectionText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 6,
+    },
+    connectionDivider: {
+        width: 1,
+        height: 12,
+        backgroundColor: 'rgba(255,255,255,0.3)',
+        marginHorizontal: 8,
+    },
+    connectionQueue: {
+        color: 'white',
+        fontSize: 11,
+        marginLeft: 4,
+    },
+    connectionType: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 10,
+        marginLeft: 8,
+        textTransform: 'uppercase',
+    },
+
+    // Notification Button Styles
+    notificationContainer: {
+        marginRight: 4,
+    },
+    notificationGlow: {
+        position: 'absolute',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        top: -5,
+        left: -5,
+        zIndex: -1,
+    },
+    notificationButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: 'white',
+    },
+    notificationBadgeGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    notificationBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    notificationDot: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: 'white',
+    },
+    notificationDotGradient: {
+        flex: 1,
+    },
+
+    // Custom Tab Bar Styles
+    tabBarContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        elevation: 20,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+    },
+    tabBarGradient: {
+        paddingBottom: Platform.OS === 'ios' ? 34 : 10, // Account for iPhone home indicator
+    },
+    tabBar: {
+        flexDirection: 'row',
+        height: 70,
+        alignItems: 'center',
+        paddingTop: 10,
+    },
+    tabItem: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tabItemContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+    activeTabBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    activeTabGradient: {
+        flex: 1,
+    },
+    tabIcon: {
+        marginBottom: 2,
+    },
+    tabLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+});
