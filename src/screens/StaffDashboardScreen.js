@@ -141,6 +141,20 @@ export default function StaffDashboardScreen({ navigation }) {
         }
     };
 
+    // ✅ FIXED: Enhanced status display with proper formatting
+    const getStatusDisplay = (status) => {
+        switch (status) {
+            case 'active':
+                return { text: 'Active', icon: 'checkmark-circle', color: '#22c55e' };
+            case 'redeemed':
+                return { text: 'Used', icon: 'checkmark-done', color: '#3b82f6' };
+            case 'expired':
+                return { text: 'Expired', icon: 'time', color: '#ef4444' };
+            default:
+                return { text: 'Unknown', icon: 'help', color: '#6b7280' };
+        }
+    };
+
     const getTimeAgo = (dateString) => {
         const date = new Date(dateString);
         const now = new Date();
@@ -153,59 +167,65 @@ export default function StaffDashboardScreen({ navigation }) {
         return date.toLocaleDateString();
     };
 
-    const renderVoucherItem = ({ item: voucher }) => (
-        <Animated.View
-            style={[
-                styles.voucherItemAnimated,
-                {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: slideUpAnim }, { scale: scaleAnim }],
-                },
-            ]}
-        >
-            <Card style={styles.voucherCard}>
-                <View style={styles.voucherItem}>
-                    <View style={styles.voucherInfo}>
-                        <View style={styles.voucherHeader}>
-                            <Text style={styles.voucherRewardName}>{voucher.rewardName}</Text>
-                            <Badge
-                                style={[
-                                    styles.statusBadge,
-                                    { backgroundColor: getVoucherStatusColor(voucher.status) }
-                                ]}
-                            >
-                                {voucher.status}
-                            </Badge>
-                        </View>
-                        <Text style={styles.voucherCode}>Code: {voucher.voucherCode}</Text>
-                        <Text style={styles.voucherMeta}>
-                            {voucher.pointsCost} pts • {getTimeAgo(voucher.createdAt)}
-                        </Text>
-                        {voucher.status === 'redeemed' && voucher.redeemedByName && (
-                            <Text style={styles.redeemedBy}>
-                                Redeemed by: {voucher.redeemedByName}
+    const renderVoucherItem = ({ item: voucher }) => {
+        const statusInfo = getStatusDisplay(voucher.status);
+        
+        return (
+            <Animated.View
+                style={[
+                    styles.voucherItemAnimated,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideUpAnim }, { scale: scaleAnim }],
+                    },
+                ]}
+            >
+                <Card style={styles.voucherCard}>
+                    <View style={styles.voucherItem}>
+                        <View style={styles.voucherInfo}>
+                            <View style={styles.voucherHeader}>
+                                <Text style={styles.voucherRewardName} numberOfLines={1}>{voucher.rewardName}</Text>
+                                {/* 🚨 FIXED: Enhanced status badge with proper sizing */}
+                                <View style={styles.statusContainer}>
+                                    <LinearGradient
+                                        colors={[statusInfo.color, statusInfo.color + '90']}
+                                        style={styles.statusBadgeGradient}
+                                    >
+                                        <Ionicons name={statusInfo.icon} size={12} color="white" style={styles.statusIcon} />
+                                        <Text style={styles.statusBadgeText}>{statusInfo.text}</Text>
+                                    </LinearGradient>
+                                </View>
+                            </View>
+                            <Text style={styles.voucherCode}>Code: {voucher.voucherCode}</Text>
+                            <Text style={styles.voucherMeta}>
+                                {voucher.pointsCost} pts • {getTimeAgo(voucher.createdAt)}
                             </Text>
-                        )}
-                    </View>
-                    <View style={styles.voucherActions}>
-                        {voucher.status === 'active' && (
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={() => navigation.navigate('StaffScanner')}
-                            >
-                                <LinearGradient
-                                    colors={gradients.primary}
-                                    style={styles.actionButtonGradient}
+                            {voucher.status === 'redeemed' && voucher.redeemedByName && (
+                                <Text style={styles.redeemedBy}>
+                                    Redeemed by: {voucher.redeemedByName}
+                                </Text>
+                            )}
+                        </View>
+                        <View style={styles.voucherActions}>
+                            {voucher.status === 'active' && (
+                                <TouchableOpacity
+                                    style={styles.actionButton}
+                                    onPress={() => navigation.navigate('StaffScanner')}
                                 >
-                                    <Ionicons name="qr-code" size={16} color="white" />
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        )}
+                                    <LinearGradient
+                                        colors={gradients.primary}
+                                        style={styles.actionButtonGradient}
+                                    >
+                                        <Ionicons name="qr-code" size={16} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
-                </View>
-            </Card>
-        </Animated.View>
-    );
+                </Card>
+            </Animated.View>
+        );
+    };
 
     const renderHistoryItem = ({ item: redemption }) => (
         <Animated.View
@@ -859,29 +879,51 @@ const styles = StyleSheet.create({
     },
     voucherItem: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start', // ✅ FIXED: Changed from 'center' to 'flex-start'
         padding: 16,
     },
     voucherInfo: {
         flex: 1,
+        marginRight: 12, // ✅ FIXED: Add margin to prevent overlap
     },
     voucherHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
+        alignItems: 'flex-start', // ✅ FIXED: Changed alignment
+        marginBottom: 8, // ✅ FIXED: Increased margin
+        justifyContent: 'space-between', // ✅ FIXED: Space between name and badge
     },
     voucherRewardName: {
         fontSize: 16,
         fontWeight: '600',
         color: '#1f2937',
-        marginRight: 8,
         flex: 1,
+        marginRight: 12, // ✅ FIXED: Add margin from badge
     },
-    statusBadge: {
-        fontSize: 10,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+    // 🚨 FIXED: Complete new status badge system
+    statusContainer: {
+        flexShrink: 0, // ✅ Prevents shrinking
+        minWidth: 70, // ✅ Ensures minimum width
+        alignItems: 'center',
     },
+    statusBadgeGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+        minWidth: 70, // ✅ Ensures text fits
+        justifyContent: 'center',
+    },
+    statusIcon: {
+        marginRight: 4,
+    },
+    statusBadgeText: {
+        color: 'white',
+        fontSize: 11,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    // ✅ FIXED: Remove old statusBadge style that was causing issues
     voucherCode: {
         fontSize: 14,
         color: '#374151',
@@ -904,7 +946,9 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     voucherActions: {
-        marginLeft: 12,
+        marginLeft: 8, // ✅ FIXED: Reduced margin
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     actionButton: {
         borderRadius: 8,
