@@ -3772,6 +3772,11 @@ expo-asset@~11.0.5:
     invariant "^2.2.4"
     md5-file "^3.2.3"
 
+expo-av@^16.0.7:
+  version "16.0.7"
+  resolved "https://registry.yarnpkg.com/expo-av/-/expo-av-16.0.7.tgz#51668b335e3a460ca712a281d7138341119ebe26"
+  integrity sha512-QReef6/RYuZ4GekTcZZw5zY26pcPOmHqK6LMgFlPhnsT0ga97HJrgMc63pvIiojDP+q4oIv24g+QPD8ljZu4XQ==
+
 expo-background-fetch@^14.0.7:
   version "14.0.7"
   resolved "https://registry.yarnpkg.com/expo-background-fetch/-/expo-background-fetch-14.0.7.tgz#20888ae997ce9d62896370b8a01a4f28d1dd625c"

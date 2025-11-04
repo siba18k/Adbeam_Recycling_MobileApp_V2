@@ -11,15 +11,18 @@ import {
     Dimensions,
     SafeAreaView,
     ScrollView,
+    Modal,
+    Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
 import { addToQueue } from '../services/offlineQueue';
-import { recordScan, MATERIAL_TYPES } from '../services/database';
+import { recordScanWithNotifications, MATERIAL_TYPES } from '../services/database';
 import { validateScanLocation } from '../services/locationService';
-import NetInfo from '@react-native-community/netinfo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,18 +32,36 @@ export default function ScannerScreen({ navigation }) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [flashOn, setFlashOn] = useState(false);
     const [selectedMaterial, setSelectedMaterial] = useState(null);
-    const { user, refreshUserProfile } = useAuth();
+    const [showMaterialSelector, setShowMaterialSelector] = useState(false);
+    const [scannedBarcode, setScannedBarcode] = useState(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [lastScanResult, setLastScanResult] = useState(null);
+    const [scanHistory, setScanHistory] = useState([]);
+    const [soundEnabled, setSoundEnabled] = useState(true);
 
-    // Animations
+    const { user, refreshUserProfile, userProfile } = useAuth();
+    const { isOffline, addToOfflineQueue } = useOffline();
+
+    // Animation refs
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const scanAnimation = useRef(new Animated.Value(0)).current;
-    const pulseAnim = useRef(new Animated.Value(1)).current;
     const float1 = useRef(new Animated.Value(0)).current;
     const float2 = useRef(new Animated.Value(0)).current;
     const rotate = useRef(new Animated.Value(0)).current;
+    const materialModalAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
+        startAnimations();
+    }, []);
+
+    useEffect(() => {
+        if (!scanned) {
+            startScanAnimation();
+        }
+    }, [scanned]);
+
+    const startAnimations = () => {
         // Entrance animations
         Animated.parallel([
             Animated.timing(fadeAnim, {
@@ -55,7 +76,7 @@ export default function ScannerScreen({ navigation }) {
             }),
         ]).start();
 
-        // Floating background
+        // Floating background elements
         Animated.loop(
             Animated.sequence([
                 Animated.timing(float1, {
@@ -93,13 +114,7 @@ export default function ScannerScreen({ navigation }) {
                 useNativeDriver: true,
             })
         ).start();
-    }, []);
-
-    useEffect(() => {
-        if (selectedMaterial && !scanned) {
-            startScanAnimation();
-        }
-    }, [selectedMaterial, scanned]);
+    };
 
     const startScanAnimation = () => {
         Animated.loop(
@@ -111,129 +126,228 @@ export default function ScannerScreen({ navigation }) {
                 }),
                 Animated.timing(scanAnimation, {
                     toValue: 0,
-                    duration: 2000,
+                    duration: 0,
                     useNativeDriver: true,
                 }),
             ])
         ).start();
     };
 
+    const playHapticFeedback = async (type = 'light') => {
+        try {
+            if (Platform.OS === 'ios') {
+                switch (type) {
+                    case 'success':
+                        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        break;
+                    case 'error':
+                        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                        break;
+                    case 'light':
+                    default:
+                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        break;
+                }
+            } else {
+                // Android vibration patterns
+                switch (type) {
+                    case 'success':
+                        Vibration.vibrate([0, 100, 50, 100]);
+                        break;
+                    case 'error':
+                        Vibration.vibrate([0, 300]);
+                        break;
+                    case 'light':
+                    default:
+                        Vibration.vibrate(50);
+                        break;
+                }
+            }
+        } catch (error) {
+            console.log('Haptic feedback error:', error);
+        }
+    };
+
+    // Handle barcode scan - ALWAYS show material selector
+    const handleBarCodeScanned = async ({ type, data }) => {
+        if (scanned || isProcessing) return;
+
+        console.log('📷 Barcode scanned:', { type, data });
+
+        // Store scanned barcode and show material selector
+        setScannedBarcode({
+            barcode: data,
+            barcodeType: type,
+            timestamp: new Date().toISOString()
+        });
+
+        setScanned(true);
+        await playHapticFeedback('light');
+
+        // Animate material selector modal
+        setShowMaterialSelector(true);
+        Animated.spring(materialModalAnim, {
+            toValue: 1,
+            tension: 100,
+            friction: 8,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    // Process scan after user selects material type
+    const processScanWithMaterial = async (materialType) => {
+        if (!scannedBarcode || !materialType) return;
+
+        setIsProcessing(true);
+        setShowMaterialSelector(false);
+
+        try {
+            const material = MATERIAL_TYPES[materialType];
+
+            // Prepare comprehensive scan data
+            const scanData = {
+                barcode: scannedBarcode.barcode,
+                barcodeType: scannedBarcode.barcodeType,
+                materialType: materialType,
+                itemName: `${material.name} Item`, // Generic name since user classified it
+                brand: 'User Classified', // Indicate user classification
+                points: material.points,
+                category: materialType,
+                location: null, // Will be filled by location service if needed
+                timestamp: scannedBarcode.timestamp,
+                scanMode: 'user_classified',
+                userSelected: true
+            };
+
+            // Location validation (if required)
+            const locationValidation = await validateScanLocation();
+            if (locationValidation.valid) {
+                scanData.location = locationValidation.location;
+            }
+
+            // Handle offline scanning
+            if (isOffline) {
+                await addToOfflineQueue(scanData);
+
+                setLastScanResult({
+                    success: true,
+                    offline: true,
+                    itemName: scanData.itemName,
+                    materialType: materialType,
+                    points: material.points,
+                    barcode: scannedBarcode.barcode
+                });
+
+                await playHapticFeedback('success');
+                setShowSuccessModal(true);
+                return;
+            }
+
+            // Process scan online
+            const result = await recordScanWithNotifications(user.uid, scanData);
+
+            if (result.success) {
+                // Update local scan history
+                const newScan = {
+                    id: Date.now().toString(),
+                    ...scanData,
+                    pointsEarned: result.points,
+                    newTotalPoints: result.newTotalPoints,
+                    newLevel: result.newLevel,
+                };
+
+                setScanHistory(prev => [newScan, ...prev.slice(0, 9)]); // Keep last 10
+
+                setLastScanResult({
+                    success: true,
+                    offline: false,
+                    itemName: `${material.name} Item`,
+                    materialType: materialType,
+                    points: result.points,
+                    newTotalPoints: result.newTotalPoints,
+                    newLevel: result.newLevel,
+                    newTotalScans: result.newTotalScans,
+                    newAchievements: result.newAchievements || [],
+                    barcode: scannedBarcode.barcode,
+                    userClassified: true
+                });
+
+                await refreshUserProfile();
+                await playHapticFeedback('success');
+                setShowSuccessModal(true);
+
+            } else if (result.duplicate) {
+                setLastScanResult({
+                    success: false,
+                    duplicate: true,
+                    itemName: `${material.name} Item`,
+                    barcode: scannedBarcode.barcode,
+                    materialType: materialType
+                });
+                await playHapticFeedback('error');
+                setShowSuccessModal(true);
+            } else {
+                throw new Error(result.error || 'Failed to process scan');
+            }
+
+        } catch (error) {
+            console.error('❌ Scan processing error:', error);
+
+            setLastScanResult({
+                success: false,
+                error: error.message,
+                itemName: 'Unknown Item',
+                barcode: scannedBarcode.barcode,
+                materialType: materialType
+            });
+
+            await playHapticFeedback('error');
+            setShowSuccessModal(true);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const resetScanner = () => {
+        setScanned(false);
+        setIsProcessing(false);
+        setShowSuccessModal(false);
+        setShowMaterialSelector(false);
+        setScannedBarcode(null);
+        setLastScanResult(null);
+
+        // Reset material modal animation
+        materialModalAnim.setValue(0);
+    };
+
+    const cancelScan = () => {
+        Animated.timing(materialModalAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+        }).start(() => {
+            setShowMaterialSelector(false);
+            resetScanner();
+        });
+    };
+
+    // Animation interpolations
     const spin = rotate.interpolate({
         inputRange: [0, 1],
         outputRange: ['0deg', '360deg'],
     });
 
-    // Material Selection Screen
-    if (!selectedMaterial) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <LinearGradient colors={['#27ae60', '#229954', '#1e8449']} style={styles.gradient}>
-                    {/* Floating circles */}
-                    <Animated.View
-                        style={[
-                            styles.floatingCircle,
-                            styles.circle1,
-                            { transform: [{ translateY: float1 }, { rotate: spin }] },
-                        ]}
-                    />
-                    <Animated.View
-                        style={[styles.floatingCircle, styles.circle2, { transform: [{ translateY: float2 }] }]}
-                    />
+    const scanLineTranslateY = scanAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [-140, 140],
+    });
 
-                    <ScrollView contentContainerStyle={styles.materialSelectionContainer}>
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{ translateY: slideAnim }],
-                            }}
-                        >
-                            <View style={styles.selectionHeader}>
-                                <View style={styles.headerIconContainer}>
-                                    <LinearGradient
-                                        colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
-                                        style={styles.headerIcon}
-                                    >
-                                        <Ionicons name="scan" size={50} color="white" />
-                                    </LinearGradient>
-                                </View>
-                                <Text style={styles.selectionTitle}>What are you recycling?</Text>
-                                <Text style={styles.selectionSubtitle}>
-                                    Select the type of material you want to scan
-                                </Text>
-                            </View>
-
-                            <View style={styles.materialGrid}>
-                                {Object.entries(MATERIAL_TYPES).map(([key, material], index) => (
-                                    <Animated.View
-                                        key={key}
-                                        style={{
-                                            opacity: fadeAnim,
-                                            transform: [
-                                                {
-                                                    translateX: fadeAnim.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: [index % 2 === 0 ? -50 : 50, 0],
-                                                    }),
-                                                },
-                                            ],
-                                        }}
-                                    >
-                                        <TouchableOpacity
-                                            style={styles.materialCard}
-                                            onPress={() => setSelectedMaterial(key)}
-                                            activeOpacity={0.9}
-                                        >
-                                            <LinearGradient
-                                                colors={[material.color, material.color + 'dd']}
-                                                style={styles.materialCardGradient}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 1 }}
-                                            >
-                                                <View style={styles.materialIconContainer}>
-                                                    <View style={styles.materialIconCircle}>
-                                                        <Ionicons
-                                                            name={material.icon || 'leaf'}
-                                                            size={28}
-                                                            color="white"
-                                                        />
-                                                    </View>
-                                                </View>
-                                                <View style={styles.materialInfo}>
-                                                    <Text style={styles.materialCardTitle}>{material.name}</Text>
-                                                    <View style={styles.pointsBadge}>
-                                                        <Ionicons name="star" size={12} color="#fbbf24" />
-                                                        <Text style={styles.pointsBadgeText}>
-                                                            +{material.points} points
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                                <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                ))}
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.backButton}
-                                onPress={() => navigation.goBack()}
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons name="arrow-back" size={20} color="rgba(255,255,255,0.9)" />
-                                <Text style={styles.backButtonText}>Back to Dashboard</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    </ScrollView>
-                </LinearGradient>
-            </SafeAreaView>
-        );
-    }
-
-    // Camera permission check
+    // Camera permission handling
     if (!permission) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#27ae60" />
+                <ActivityIndicator size="large" color="#22c55e" />
+                <Text style={styles.loadingText}>Initializing camera...</Text>
             </View>
         );
     }
@@ -241,7 +355,7 @@ export default function ScannerScreen({ navigation }) {
     if (!permission.granted) {
         return (
             <SafeAreaView style={styles.permissionContainer}>
-                <LinearGradient colors={['#27ae60', '#229954']} style={styles.permissionGradient}>
+                <LinearGradient colors={['#22c55e', '#16a34a']} style={styles.permissionGradient}>
                     <Animated.View
                         style={[
                             styles.permissionContent,
@@ -258,7 +372,7 @@ export default function ScannerScreen({ navigation }) {
                         </View>
                         <Text style={styles.permissionTitle}>Camera Access Required</Text>
                         <Text style={styles.permissionText}>
-                            We need camera permissions to scan barcodes for recycling items
+                            AdBeam needs camera permission to scan barcodes on any recyclable items. You'll choose what type of material it is after scanning.
                         </Text>
                         <TouchableOpacity
                             style={styles.permissionButton}
@@ -269,8 +383,8 @@ export default function ScannerScreen({ navigation }) {
                                 colors={['#fff', '#f0fdf4']}
                                 style={styles.permissionButtonGradient}
                             >
-                                <Text style={styles.permissionButtonText}>Grant Permission</Text>
-                                <Ionicons name="camera" size={20} color="#27ae60" />
+                                <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+                                <Ionicons name="camera" size={20} color="#22c55e" />
                             </LinearGradient>
                         </TouchableOpacity>
                     </Animated.View>
@@ -279,143 +393,31 @@ export default function ScannerScreen({ navigation }) {
         );
     }
 
-    const handleBarCodeScanned = async ({ type, data }) => {
-        if (scanned || isProcessing) return;
-
-        setScanned(true);
-        setIsProcessing(true);
-        Vibration.vibrate(100);
-
-        try {
-            const locationValidation = await validateScanLocation();
-
-            if (!locationValidation.valid) {
-                Alert.alert('Location Required', locationValidation.error || 'You must be on campus to scan items', [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            setScanned(false);
-                            setIsProcessing(false);
-                        },
-                    },
-                ]);
-                return;
-            }
-
-            const material = MATERIAL_TYPES[selectedMaterial];
-
-            const scanData = {
-                barcode: data,
-                materialType: material.name,
-                points: material.points,
-                location: locationValidation.location || { latitude: 0, longitude: 0 },
-            };
-
-            const netInfo = await NetInfo.fetch();
-
-            if (!netInfo.isConnected) {
-                await addToQueue(scanData);
-                Alert.alert(
-                    'Scan Queued ⏳',
-                    `You're offline! This ${material.name} scan will be processed when you reconnect.`,
-                    [
-                        {
-                            text: 'Scan Another',
-                            onPress: () => {
-                                setScanned(false);
-                                setIsProcessing(false);
-                            },
-                        },
-                        {
-                            text: 'View Dashboard',
-                            onPress: () => navigation.navigate('Dashboard'),
-                        },
-                    ]
-                );
-                return;
-            }
-
-            const result = await recordScan(user.uid, scanData);
-
-            if (result.success) {
-                await refreshUserProfile();
-                Vibration.vibrate([0, 200, 100, 200]);
-
-                Alert.alert(
-                    '🎉 Recycling Success!',
-                    `Great job! You've earned points!\n\n` +
-                    `Material: ${material.name}\n` +
-                    `Points: +${material.points}\n\n` +
-                    `Total Points: ${result.newTotalPoints}\n` +
-                    `Level: ${result.newLevel}\n` +
-                    `Items Recycled: ${result.newTotalScans}`,
-                    [
-                        {
-                            text: 'Scan Another',
-                            onPress: () => {
-                                setScanned(false);
-                                setIsProcessing(false);
-                            },
-                        },
-                        {
-                            text: 'Change Material',
-                            onPress: () => {
-                                setSelectedMaterial(null);
-                                setScanned(false);
-                                setIsProcessing(false);
-                            },
-                        },
-                        {
-                            text: 'View Dashboard',
-                            onPress: () => navigation.navigate('Dashboard'),
-                        },
-                    ]
-                );
-            } else if (result.duplicate) {
-                Alert.alert(
-                    'Already Recycled ♻️',
-                    `This item has already been scanned.\n\nBarcode: ${data}`,
-                    [
-                        {
-                            text: 'Try Another',
-                            onPress: () => {
-                                setScanned(false);
-                                setIsProcessing(false);
-                            },
-                        },
-                    ]
-                );
-            } else {
-                throw new Error(result.error || 'Failed to record scan');
-            }
-        } catch (error) {
-            console.error('Scan error:', error);
-            Alert.alert('Scan Error', `Failed to process scan.\n\nError: ${error.message}`, [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        setScanned(false);
-                        setIsProcessing(false);
-                    },
-                },
-            ]);
-        }
-    };
-
-    const material = MATERIAL_TYPES[selectedMaterial];
-    const scanLineTranslateY = scanAnimation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-120, 120],
-    });
-
+    // Main Camera Scanner Interface
     return (
         <SafeAreaView style={styles.cameraContainer}>
+            {/* Floating background elements */}
+            <Animated.View
+                style={[
+                    styles.floatingCircle,
+                    styles.circle1,
+                    { transform: [{ translateY: float1 }, { rotate: spin }] },
+                ]}
+            />
+            <Animated.View
+                style={[styles.floatingCircle, styles.circle2, { transform: [{ translateY: float2 }] }]}
+            />
+
             <CameraView
                 style={styles.camera}
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
-                    barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code39', 'code128', 'qr', 'pdf417'],
+                    barcodeTypes: [
+                        'ean13', 'ean8', 'upc_a', 'upc_e',
+                        'code39', 'code128', 'qr', 'pdf417',
+                        'codabar', 'itf14', 'aztec', 'datamatrix'
+                    ],
                 }}
                 enableTorch={flashOn}
             >
@@ -423,131 +425,583 @@ export default function ScannerScreen({ navigation }) {
                     colors={['rgba(0,0,0,0.7)', 'transparent', 'transparent', 'rgba(0,0,0,0.7)']}
                     style={styles.overlay}
                 >
-                    {/* Top Section */}
-                    <View style={styles.topSection}>
-                        <LinearGradient
-                            colors={[material.color + 'ee', material.color + 'dd']}
-                            style={styles.selectedMaterialCard}
-                        >
-                            <TouchableOpacity
-                                style={styles.changeButton}
-                                onPress={() => setSelectedMaterial(null)}
-                                activeOpacity={0.7}
+                    {/* Top Section - App Info */}
+                    <Animated.View
+                        style={[
+                            styles.topSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }],
+                            }
+                        ]}
+                    >
+                        <View style={styles.appHeader}>
+                            <LinearGradient
+                                colors={['rgba(34, 197, 94, 0.95)', 'rgba(22, 163, 74, 0.95)']}
+                                style={styles.appHeaderGradient}
                             >
-                                <Ionicons name="chevron-back" size={20} color="white" />
-                                <Text style={styles.changeButtonText}>Change</Text>
-                            </TouchableOpacity>
+                                <View style={styles.appHeaderContent}>
+                                    <View style={styles.appIcon}>
+                                        <Ionicons name="leaf" size={24} color="white" />
+                                    </View>
+                                    <View style={styles.appInfo}>
+                                        <Text style={styles.appTitle}>AdBeam Scanner</Text>
+                                        <Text style={styles.appSubtitle}>Scan any recyclable item</Text>
+                                    </View>
+                                    <View style={styles.userPoints}>
+                                        <Ionicons name="star" size={16} color="#fbbf24" />
+                                        <Text style={styles.userPointsText}>
+                                            {userProfile?.points || 0}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </LinearGradient>
+                        </View>
 
-                            <View style={styles.selectedMaterialInfo}>
-                                <View style={styles.selectedIconCircle}>
-                                    <Ionicons name={material.icon || 'leaf'} size={22} color="white" />
-                                </View>
-                                <Text style={styles.selectedMaterialName}>{material.name}</Text>
-                                <View style={styles.selectedPointsBadge}>
-                                    <Ionicons name="star" size={14} color="#fbbf24" />
-                                    <Text style={styles.selectedMaterialPoints}>+{material.points}</Text>
-                                </View>
+                        {/* Connection Status */}
+                        {isOffline && (
+                            <View style={styles.offlineIndicator}>
+                                <LinearGradient
+                                    colors={['#ef4444dd', '#dc2626dd']}
+                                    style={styles.offlineGradient}
+                                >
+                                    <Ionicons name="cloud-offline" size={16} color="white" />
+                                    <Text style={styles.offlineText}>Offline - Scans will sync later</Text>
+                                </LinearGradient>
                             </View>
-                        </LinearGradient>
-                    </View>
+                        )}
+                    </Animated.View>
 
                     {/* Center Section - Scanning Frame */}
                     <View style={styles.centerSection}>
-                        <Text style={styles.instructionText}>
-                            {isProcessing ? 'Processing...' : 'Point at barcode or QR code'}
-                        </Text>
-
-                        <View style={styles.scanFrame}>
-                            {/* Corner indicators */}
-                            <View style={[styles.corner, styles.topLeft]} />
-                            <View style={[styles.corner, styles.topRight]} />
-                            <View style={[styles.corner, styles.bottomLeft]} />
-                            <View style={[styles.corner, styles.bottomRight]} />
-
-                            {/* Animated scan line */}
-                            {!scanned && !isProcessing && (
-                                <Animated.View
-                                    style={[styles.scanLine, { transform: [{ translateY: scanLineTranslateY }] }]}
-                                >
-                                    <LinearGradient
-                                        colors={['transparent', '#27ae60', 'transparent']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.scanLineGradient}
-                                    />
-                                </Animated.View>
-                            )}
-
-                            {/* Processing indicator */}
-                            {isProcessing && (
-                                <View style={styles.processingContainer}>
-                                    <ActivityIndicator size="large" color="#27ae60" />
-                                    <Text style={styles.processingText}>Processing {material.name}...</Text>
-                                </View>
-                            )}
-                        </View>
-
-                        <Text style={styles.tipText}>
-                            💡 Works with any barcode or QR code
-                        </Text>
-                    </View>
-
-                    {/* Bottom Section */}
-                    <View style={styles.bottomSection}>
-                        <TouchableOpacity
-                            style={styles.flashButton}
-                            onPress={() => setFlashOn(!flashOn)}
-                            activeOpacity={0.7}
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ scale: fadeAnim }],
+                            }}
                         >
-                            <LinearGradient
-                                colors={
-                                    flashOn
-                                        ? ['#fbbf24', '#f59e0b']
-                                        : ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']
+                            <Text style={styles.instructionText}>
+                                {isProcessing
+                                    ? '🔄 Processing your scan...'
+                                    : '📱 Point camera at any barcode or QR code'
                                 }
-                                style={styles.flashButtonGradient}
-                            >
-                                <Ionicons name={flashOn ? 'flash' : 'flash-off'} size={24} color="white" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-
-                        <View style={styles.infoCard}>
-                            <Text style={styles.infoText}>
-                                Scanning: <Text style={styles.infoMaterial}>{material.name}</Text>
                             </Text>
-                        </View>
+
+                            <View style={styles.scanFrame}>
+                                {/* Enhanced corner indicators with gradient */}
+                                <LinearGradient
+                                    colors={['#22c55e', '#16a34a']}
+                                    style={[styles.corner, styles.topLeft]}
+                                />
+                                <LinearGradient
+                                    colors={['#22c55e', '#16a34a']}
+                                    style={[styles.corner, styles.topRight]}
+                                />
+                                <LinearGradient
+                                    colors={['#22c55e', '#16a34a']}
+                                    style={[styles.corner, styles.bottomLeft]}
+                                />
+                                <LinearGradient
+                                    colors={['#22c55e', '#16a34a']}
+                                    style={[styles.corner, styles.bottomRight]}
+                                />
+
+                                {/* Animated scan line */}
+                                {!scanned && !isProcessing && (
+                                    <Animated.View
+                                        style={[styles.scanLine, { transform: [{ translateY: scanLineTranslateY }] }]}
+                                    >
+                                        <LinearGradient
+                                            colors={['transparent', '#22c55e', '#22c55eff', '#22c55e', 'transparent']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.scanLineGradient}
+                                        />
+                                    </Animated.View>
+                                )}
+
+                                {/* Processing indicator */}
+                                {isProcessing && (
+                                    <View style={styles.processingContainer}>
+                                        <ActivityIndicator size="large" color="#22c55e" />
+                                        <Text style={styles.processingText}>Processing scan...</Text>
+                                    </View>
+                                )}
+
+                                {/* Center target guide */}
+                                <View style={styles.targetGuide}>
+                                    <View style={styles.targetDot} />
+                                    <Text style={styles.targetText}>Aim here</Text>
+                                </View>
+                            </View>
+
+                            <Text style={styles.tipText}>
+                                💡 After scanning, you'll choose what type of material it is
+                            </Text>
+
+                            {/* Scan Process Steps */}
+                            <View style={styles.stepsContainer}>
+                                <View style={styles.step}>
+                                    <View style={[styles.stepIcon, { backgroundColor: '#22c55e' }]}>
+                                        <Text style={styles.stepNumber}>1</Text>
+                                    </View>
+                                    <Text style={styles.stepText}>Scan barcode</Text>
+                                </View>
+                                <View style={styles.stepArrow}>
+                                    <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
+                                </View>
+                                <View style={styles.step}>
+                                    <View style={[styles.stepIcon, scanned ? { backgroundColor: '#22c55e' } : styles.stepIconInactive]}>
+                                        <Text style={styles.stepNumber}>2</Text>
+                                    </View>
+                                    <Text style={styles.stepText}>Choose material</Text>
+                                </View>
+                                <View style={styles.stepArrow}>
+                                    <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
+                                </View>
+                                <View style={styles.step}>
+                                    <View style={[styles.stepIcon, styles.stepIconInactive]}>
+                                        <Text style={styles.stepNumber}>3</Text>
+                                    </View>
+                                    <Text style={styles.stepText}>Earn points!</Text>
+                                </View>
+                            </View>
+                        </Animated.View>
+
+                        {/* Recent Scans Preview */}
+                        {scanHistory.length > 0 && (
+                            <Animated.View
+                                style={[
+                                    styles.recentScansContainer,
+                                    { opacity: fadeAnim }
+                                ]}
+                            >
+                                <Text style={styles.recentScansTitle}>Recent Scans:</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {scanHistory.slice(0, 3).map((scan, index) => (
+                                        <View key={scan.id} style={styles.recentScanChip}>
+                                            <Ionicons
+                                                name={MATERIAL_TYPES[scan.materialType]?.icon || 'leaf'}
+                                                size={12}
+                                                color="white"
+                                            />
+                                            <Text style={styles.recentScanText}>
+                                                +{scan.pointsEarned}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </Animated.View>
+                        )}
                     </View>
+
+                    {/* Bottom Section - Controls */}
+                    <Animated.View
+                        style={[
+                            styles.bottomSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }],
+                            }
+                        ]}
+                    >
+                        <View style={styles.controlsRow}>
+                            {/* Flash Toggle */}
+                            <TouchableOpacity
+                                style={styles.controlButton}
+                                onPress={() => {
+                                    setFlashOn(!flashOn);
+                                    playHapticFeedback('light');
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                <LinearGradient
+                                    colors={
+                                        flashOn
+                                            ? ['#fbbf24', '#f59e0b']
+                                            : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']
+                                    }
+                                    style={styles.controlButtonGradient}
+                                >
+                                    <Ionicons name={flashOn ? 'flash' : 'flash-off'} size={24} color="white" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            {/* Sound Toggle */}
+                            <TouchableOpacity
+                                style={styles.controlButton}
+                                onPress={() => {
+                                    setSoundEnabled(!soundEnabled);
+                                    playHapticFeedback('light');
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                <LinearGradient
+                                    colors={
+                                        soundEnabled
+                                            ? ['#22c55e', '#16a34a']
+                                            : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']
+                                    }
+                                    style={styles.controlButtonGradient}
+                                >
+                                    <Ionicons
+                                        name={soundEnabled ? 'volume-high' : 'volume-mute'}
+                                        size={20}
+                                        color="white"
+                                    />
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            {/* Back Button */}
+                            <TouchableOpacity
+                                style={styles.backButton}
+                                onPress={() => navigation.goBack()}
+                                activeOpacity={0.7}
+                            >
+                                <LinearGradient
+                                    colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                                    style={styles.backButtonGradient}
+                                >
+                                    <Ionicons name="arrow-back" size={20} color="white" />
+                                    <Text style={styles.backButtonText}>Back</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
                 </LinearGradient>
             </CameraView>
+
+            {/* Material Selection Modal */}
+            <Modal
+                visible={showMaterialSelector}
+                transparent={true}
+                animationType="none"
+                onRequestClose={cancelScan}
+            >
+                <View style={styles.materialModalOverlay}>
+                    <Animated.View
+                        style={[
+                            styles.materialModal,
+                            {
+                                opacity: materialModalAnim,
+                                transform: [
+                                    {
+                                        scale: materialModalAnim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [0.8, 1],
+                                        })
+                                    },
+                                    {
+                                        translateY: materialModalAnim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [50, 0],
+                                        })
+                                    }
+                                ]
+                            }
+                        ]}
+                    >
+                        <LinearGradient
+                            colors={['#22c55e', '#16a34a']}
+                            style={styles.materialModalGradient}
+                        >
+                            {/* Modal Header */}
+                            <View style={styles.materialModalHeader}>
+                                <View style={styles.modalHeaderIcon}>
+                                    <Ionicons name="checkmark-circle" size={32} color="white" />
+                                </View>
+                                <Text style={styles.materialModalTitle}>Barcode Scanned! 📷</Text>
+                                <Text style={styles.materialModalSubtitle}>
+                                    What type of material is this item?
+                                </Text>
+                                {scannedBarcode && (
+                                    <View style={styles.barcodeInfo}>
+                                        <Text style={styles.barcodeText}>
+                                            Barcode: {scannedBarcode.barcode.substring(0, 15)}
+                                            {scannedBarcode.barcode.length > 15 ? '...' : ''}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Material Options */}
+                            <View style={styles.materialOptions}>
+                                {Object.entries(MATERIAL_TYPES).map(([key, material], index) => (
+                                    <Animated.View
+                                        key={key}
+                                        style={{
+                                            opacity: materialModalAnim,
+                                            transform: [{
+                                                translateX: materialModalAnim.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: [index % 2 === 0 ? -100 : 100, 0],
+                                                })
+                                            }]
+                                        }}
+                                    >
+                                        <TouchableOpacity
+                                            style={styles.materialOptionCard}
+                                            onPress={() => processScanWithMaterial(key)}
+                                            activeOpacity={0.8}
+                                            disabled={isProcessing}
+                                        >
+                                            <LinearGradient
+                                                colors={[material.color, material.color + 'dd']}
+                                                style={styles.materialOptionGradient}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                            >
+                                                <View style={styles.materialOptionIcon}>
+                                                    <Ionicons
+                                                        name={material.icon}
+                                                        size={28}
+                                                        color="white"
+                                                    />
+                                                </View>
+                                                <View style={styles.materialOptionInfo}>
+                                                    <Text style={styles.materialOptionName}>
+                                                        {material.name}
+                                                    </Text>
+                                                    <Text style={styles.materialOptionDescription}>
+                                                        {material.description}
+                                                    </Text>
+                                                    <View style={styles.materialOptionPoints}>
+                                                        <Ionicons name="star" size={14} color="#fbbf24" />
+                                                        <Text style={styles.materialOptionPointsText}>
+                                                            +{material.points} points
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={styles.materialOptionArrow}>
+                                                    {isProcessing ? (
+                                                        <ActivityIndicator size="small" color="white" />
+                                                    ) : (
+                                                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+                                                    )}
+                                                </View>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                ))}
+                            </View>
+
+                            {/* Modal Actions */}
+                            <View style={styles.materialModalActions}>
+                                <TouchableOpacity
+                                    style={styles.modalActionButton}
+                                    onPress={cancelScan}
+                                    activeOpacity={0.8}
+                                    disabled={isProcessing}
+                                >
+                                    <LinearGradient
+                                        colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)']}
+                                        style={styles.modalActionGradient}
+                                    >
+                                        <Ionicons name="close" size={18} color="white" />
+                                        <Text style={styles.modalActionText}>Cancel & Scan Again</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </Animated.View>
+                </View>
+            </Modal>
+
+            {/* Success/Error Result Modal */}
+            <Modal
+                visible={showSuccessModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowSuccessModal(false)}
+            >
+                <View style={styles.resultModalOverlay}>
+                    <Animated.View style={styles.resultModal}>
+                        {lastScanResult && (
+                            <LinearGradient
+                                colors={
+                                    lastScanResult.success
+                                        ? ['#22c55e', '#16a34a']
+                                        : ['#ef4444', '#dc2626']
+                                }
+                                style={styles.resultModalGradient}
+                            >
+                                <View style={styles.resultContent}>
+                                    {/* Result Icon */}
+                                    <View style={styles.resultIcon}>
+                                        <Ionicons
+                                            name={
+                                                lastScanResult.success
+                                                    ? lastScanResult.offline
+                                                        ? 'cloud-upload-outline'
+                                                        : 'checkmark-circle'
+                                                    : lastScanResult.duplicate
+                                                        ? 'duplicate-outline'
+                                                        : 'close-circle'
+                                            }
+                                            size={64}
+                                            color="white"
+                                        />
+                                    </View>
+
+                                    {/* Result Title */}
+                                    <Text style={styles.resultTitle}>
+                                        {lastScanResult.success
+                                            ? lastScanResult.offline
+                                                ? '📡 Scan Queued!'
+                                                : '🎉 Great Job!'
+                                            : lastScanResult.duplicate
+                                                ? '♻️ Already Recycled'
+                                                : '❌ Scan Failed'
+                                        }
+                                    </Text>
+
+                                    {/* Result Details */}
+                                    <View style={styles.resultDetails}>
+                                        <Text style={styles.resultItemName}>
+                                            {MATERIAL_TYPES[lastScanResult.materialType]?.name || 'Unknown'} Item
+                                        </Text>
+
+                                        {lastScanResult.userClassified && (
+                                            <Text style={styles.resultClassification}>
+                                                ✅ You classified this as {lastScanResult.materialType}
+                                            </Text>
+                                        )}
+
+                                        {lastScanResult.success && (
+                                            <View style={styles.resultStats}>
+                                                <View style={styles.resultStat}>
+                                                    <Ionicons name="star" size={18} color="rgba(255,255,255,0.9)" />
+                                                    <Text style={styles.resultStatText}>
+                                                        +{lastScanResult.points} points earned
+                                                    </Text>
+                                                </View>
+
+                                                {!lastScanResult.offline && (
+                                                    <>
+                                                        <View style={styles.resultStat}>
+                                                            <Ionicons name="trending-up" size={18} color="rgba(255,255,255,0.9)" />
+                                                            <Text style={styles.resultStatText}>
+                                                                Total: {lastScanResult.newTotalPoints} points
+                                                            </Text>
+                                                        </View>
+
+                                                        <View style={styles.resultStat}>
+                                                            <Ionicons name="trophy" size={18} color="rgba(255,255,255,0.9)" />
+                                                            <Text style={styles.resultStatText}>
+                                                                Level {lastScanResult.newLevel}
+                                                            </Text>
+                                                        </View>
+                                                    </>
+                                                )}
+                                            </View>
+                                        )}
+
+                                        {lastScanResult.duplicate && (
+                                            <Text style={styles.resultMessage}>
+                                                This barcode was already scanned recently. Try a different item!
+                                            </Text>
+                                        )}
+
+                                        {lastScanResult.error && (
+                                            <Text style={styles.resultMessage}>
+                                                {lastScanResult.error}
+                                            </Text>
+                                        )}
+
+                                        {/* New Achievements */}
+                                        {lastScanResult.newAchievements && lastScanResult.newAchievements.length > 0 && (
+                                            <View style={styles.achievementsContainer}>
+                                                <Text style={styles.achievementsTitle}>🏆 New Achievement!</Text>
+                                                {lastScanResult.newAchievements.slice(0, 2).map((achievement, index) => (
+                                                    <View key={index} style={styles.achievementChip}>
+                                                        <Ionicons name={achievement.icon} size={16} color="white" />
+                                                        <Text style={styles.achievementName}>
+                                                            {achievement.name}
+                                                        </Text>
+                                                        <Text style={styles.achievementPoints}>
+                                                            +{achievement.points}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Result Actions */}
+                                    <View style={styles.resultActions}>
+                                        <TouchableOpacity
+                                            style={styles.resultButton}
+                                            onPress={() => {
+                                                setShowSuccessModal(false);
+                                                resetScanner();
+                                            }}
+                                            activeOpacity={0.8}
+                                        >
+                                            <LinearGradient
+                                                colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)']}
+                                                style={styles.resultButtonGradient}
+                                            >
+                                                <Ionicons name="scan" size={18} color="white" />
+                                                <Text style={styles.resultButtonText}>Scan Another</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={styles.resultButton}
+                                            onPress={() => {
+                                                setShowSuccessModal(false);
+                                                navigation.navigate('Dashboard');
+                                            }}
+                                            activeOpacity={0.8}
+                                        >
+                                            <LinearGradient
+                                                colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                                                style={styles.resultButtonGradient}
+                                            >
+                                                <Ionicons name="home" size={18} color="white" />
+                                                <Text style={styles.resultButtonText}>Dashboard</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </LinearGradient>
+                        )}
+                    </Animated.View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    cameraContainer: {
         flex: 1,
-        backgroundColor: '#27ae60',
+        backgroundColor: '#000',
     },
-    gradient: {
+    camera: {
+        flex: 1,
+    },
+    overlay: {
         flex: 1,
     },
     floatingCircle: {
         position: 'absolute',
         borderRadius: 200,
-        opacity: 0.15,
-        backgroundColor: '#fff',
+        opacity: 0.08,
+        backgroundColor: '#22c55e',
+        zIndex: -1,
     },
     circle1: {
-        width: 150,
-        height: 150,
-        top: 50,
-        right: -50,
+        width: 200,
+        height: 200,
+        top: 100,
+        right: -80,
     },
     circle2: {
-        width: 120,
-        height: 120,
-        bottom: 100,
-        left: -40,
+        width: 160,
+        height: 160,
+        bottom: 150,
+        left: -60,
     },
     loadingContainer: {
         flex: 1,
@@ -555,112 +1009,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#f0fdf4',
     },
-    materialSelectionContainer: {
-        flexGrow: 1,
-        padding: 20,
-        paddingTop: 40,
-    },
-    selectionHeader: {
-        alignItems: 'center',
-        marginBottom: 40,
-    },
-    headerIconContainer: {
-        marginBottom: 20,
-    },
-    headerIcon: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    selectionTitle: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: 'white',
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    selectionSubtitle: {
+    loadingText: {
         fontSize: 16,
-        color: 'rgba(255,255,255,0.9)',
-        textAlign: 'center',
-        lineHeight: 24,
-    },
-    materialGrid: {
-        gap: 16,
-    },
-    materialCard: {
-        borderRadius: 20,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    materialCardGradient: {
-        padding: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    materialIconContainer: {
-        marginRight: 16,
-    },
-    materialIconCircle: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    materialInfo: {
-        flex: 1,
-    },
-    materialCardTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: 'white',
-        marginBottom: 6,
-    },
-    pointsBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        alignSelf: 'flex-start',
-    },
-    pointsBadgeText: {
-        color: 'white',
-        fontSize: 13,
-        fontWeight: '700',
-        marginLeft: 4,
-    },
-    backButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 40,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 20,
-        alignSelf: 'center',
-    },
-    backButtonText: {
-        color: 'rgba(255,255,255,0.95)',
-        fontSize: 16,
+        color: '#22c55e',
         fontWeight: '600',
-        marginLeft: 8,
+        marginTop: 12,
     },
+
+    // Permission Screen Styles
     permissionContainer: {
         flex: 1,
     },
@@ -672,6 +1028,7 @@ const styles = StyleSheet.create({
     permissionContent: {
         alignItems: 'center',
         padding: 40,
+        maxWidth: width * 0.8,
     },
     permissionIconContainer: {
         marginBottom: 24,
@@ -696,7 +1053,6 @@ const styles = StyleSheet.create({
         marginBottom: 32,
         color: 'rgba(255,255,255,0.9)',
         lineHeight: 24,
-        paddingHorizontal: 20,
     },
     permissionButton: {
         borderRadius: 20,
@@ -715,56 +1071,35 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     permissionButtonText: {
-        color: '#27ae60',
+        color: '#22c55e',
         fontSize: 18,
         fontWeight: '700',
     },
-    cameraContainer: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    camera: {
-        flex: 1,
-    },
-    overlay: {
-        flex: 1,
-    },
+
+    // Top Section Styles
     topSection: {
-        flex: 1,
-        justifyContent: 'center',
-        padding: 20,
-        paddingTop: 40,
+        paddingTop: 50,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
     },
-    selectedMaterialCard: {
-        borderRadius: 20,
-        padding: 20,
+    appHeader: {
+        borderRadius: 16,
+        overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 8,
+        marginBottom: 12,
     },
-    changeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        alignSelf: 'flex-start',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        marginBottom: 16,
+    appHeaderGradient: {
+        padding: 16,
     },
-    changeButtonText: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 4,
-    },
-    selectedMaterialInfo: {
+    appHeaderContent: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    selectedIconCircle: {
+    appIcon: {
         width: 44,
         height: 44,
         borderRadius: 22,
@@ -773,13 +1108,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: 12,
     },
-    selectedMaterialName: {
+    appInfo: {
         flex: 1,
-        color: 'white',
+    },
+    appTitle: {
         fontSize: 18,
         fontWeight: '700',
+        color: 'white',
+        marginBottom: 2,
     },
-    selectedPointsBadge: {
+    appSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+    },
+    userPoints: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.2)',
@@ -788,15 +1130,34 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         gap: 4,
     },
-    selectedMaterialPoints: {
+    userPointsText: {
         color: 'white',
         fontSize: 14,
         fontWeight: '700',
     },
+    offlineIndicator: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    offlineGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        gap: 6,
+    },
+    offlineText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+
+    // Center Section - Scanning Area
     centerSection: {
-        flex: 2.5,
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 20,
     },
     instructionText: {
         color: 'white',
@@ -804,10 +1165,15 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
         marginBottom: 30,
-        backgroundColor: 'rgba(39, 174, 96, 0.9)',
+        backgroundColor: 'rgba(34, 197, 94, 0.9)',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
     },
     scanFrame: {
         width: 280,
@@ -815,48 +1181,40 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        marginBottom: 20,
     },
     corner: {
         position: 'absolute',
         width: 40,
         height: 40,
-        borderColor: '#27ae60',
-        borderWidth: 4,
     },
     topLeft: {
         top: 0,
         left: 0,
-        borderBottomWidth: 0,
-        borderRightWidth: 0,
         borderTopLeftRadius: 8,
     },
     topRight: {
         top: 0,
         right: 0,
-        borderBottomWidth: 0,
-        borderLeftWidth: 0,
         borderTopRightRadius: 8,
     },
     bottomLeft: {
         bottom: 0,
         left: 0,
-        borderTopWidth: 0,
-        borderRightWidth: 0,
         borderBottomLeftRadius: 8,
     },
     bottomRight: {
         bottom: 0,
         right: 0,
-        borderTopWidth: 0,
-        borderLeftWidth: 0,
         borderBottomRightRadius: 8,
     },
     scanLine: {
-        width: '100%',
+        width: '90%',
         height: 3,
     },
     scanLineGradient: {
         flex: 1,
+        borderRadius: 2,
     },
     processingContainer: {
         justifyContent: 'center',
@@ -867,23 +1225,120 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginTop: 16,
         fontWeight: '600',
+        textAlign: 'center',
+    },
+    targetGuide: {
+        position: 'absolute',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    targetDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#22c55e',
+        marginBottom: 8,
+        shadowColor: '#22c55e',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+        elevation: 6,
+    },
+    targetText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 10,
+        fontWeight: '600',
     },
     tipText: {
         color: 'rgba(255,255,255,0.9)',
         fontSize: 13,
-        marginTop: 24,
         textAlign: 'center',
         fontWeight: '500',
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 16,
+        marginBottom: 20,
     },
+
+    // Process Steps
+    stepsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        marginBottom: 20,
+    },
+    step: {
+        alignItems: 'center',
+        gap: 4,
+    },
+    stepIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stepIconInactive: {
+        backgroundColor: 'rgba(255,255,255,0.3)',
+    },
+    stepNumber: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    stepText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    stepArrow: {
+        marginHorizontal: 8,
+    },
+
+    // Recent Scans
+    recentScansContainer: {
+        alignItems: 'center',
+    },
+    recentScansTitle: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 12,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    recentScanChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        marginHorizontal: 4,
+        gap: 4,
+    },
+    recentScanText: {
+        color: 'white',
+        fontSize: 11,
+        fontWeight: '600',
+    },
+
+    // Bottom Controls
     bottomSection: {
-        flex: 1,
+        paddingHorizontal: 20,
+        paddingBottom: 40,
+        paddingTop: 20,
+    },
+    controlsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 20,
-        paddingBottom: 30,
+        gap: 12,
     },
-    flashButton: {
+    controlButton: {
         borderRadius: 28,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -891,28 +1346,323 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 5,
     },
-    flashButtonGradient: {
+    controlButtonGradient: {
         width: 56,
         height: 56,
         borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    infoCard: {
+    backButton: {
         flex: 1,
-        marginLeft: 16,
-        backgroundColor: 'rgba(39, 174, 96, 0.9)',
         borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    backButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    backButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
+    // Material Selection Modal
+    materialModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    materialModal: {
+        width: width * 0.95,
+        maxWidth: 420,
+        maxHeight: height * 0.8,
+        borderRadius: 24,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    materialModalGradient: {
+        paddingBottom: 0,
+    },
+    materialModalHeader: {
+        alignItems: 'center',
+        paddingTop: 24,
+        paddingHorizontal: 24,
+        paddingBottom: 20,
+    },
+    modalHeaderIcon: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 25,
+        padding: 8,
+        marginBottom: 16,
+    },
+    materialModalTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: 'white',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    materialModalSubtitle: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 22,
+    },
+    barcodeInfo: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    barcodeText: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 12,
+        fontFamily: 'monospace',
+        fontWeight: '600',
+    },
+
+    // Material Options
+    materialOptions: {
+        paddingHorizontal: 16,
+        gap: 12,
+        maxHeight: 320,
+    },
+    materialOptionCard: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+        marginBottom: 4,
+    },
+    materialOptionGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
         padding: 16,
     },
-    infoText: {
+    materialOptionIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    materialOptionInfo: {
+        flex: 1,
+    },
+    materialOptionName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: 'white',
+        marginBottom: 4,
+    },
+    materialOptionDescription: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.8)',
+        marginBottom: 8,
+    },
+    materialOptionPoints: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+        gap: 4,
+    },
+    materialOptionPointsText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    materialOptionArrow: {
+        marginLeft: 12,
+    },
+
+    // Material Modal Actions
+    materialModalActions: {
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+    },
+    modalActionButton: {
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    modalActionGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    modalActionText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
+    // Result Modal Styles
+    resultModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    resultModal: {
+        width: width * 0.9,
+        maxWidth: 400,
+        borderRadius: 24,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    resultModalGradient: {
+        padding: 0,
+    },
+    resultContent: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    resultIcon: {
+        marginBottom: 16,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 40,
+        padding: 12,
+    },
+    resultTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: 'white',
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    resultDetails: {
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    resultItemName: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: 'white',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    resultClassification: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+        marginBottom: 16,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    resultStats: {
+        gap: 8,
+        alignItems: 'center',
+    },
+    resultStat: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    resultStatText: {
+        color: 'white',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    resultMessage: {
         color: 'rgba(255,255,255,0.9)',
         fontSize: 14,
         textAlign: 'center',
-        fontWeight: '500',
+        lineHeight: 20,
+        marginTop: 8,
     },
-    infoMaterial: {
-        fontWeight: '700',
+
+    // Achievements in Result
+    achievementsContainer: {
+        marginTop: 16,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 12,
+        alignItems: 'center',
+    },
+    achievementsTitle: {
         color: 'white',
+        fontSize: 14,
+        fontWeight: '700',
+        marginBottom: 8,
+    },
+    achievementChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        marginBottom: 4,
+        gap: 6,
+    },
+    achievementName: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '600',
+        flex: 1,
+    },
+    achievementPoints: {
+        color: '#fbbf24',
+        fontSize: 11,
+        fontWeight: '700',
+    },
+
+    // Result Actions
+    resultActions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    resultButton: {
+        flex: 1,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    resultButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        gap: 6,
+    },
+    resultButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
