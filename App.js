@@ -318,126 +318,6 @@ function NotificationButton({ navigation, hasUnread = false, userRole = 'user' }
     );
 }
 
-// Enhanced Tab Bar with Custom Animations
-function CustomTabBar({ state, descriptors, navigation, userRole = 'user' }) {
-    const colors = THEME.colors[userRole] || THEME.colors.user;
-    const animatedValues = useRef(
-        state.routes.map(() => new Animated.Value(0))
-    ).current;
-
-    useEffect(() => {
-        animatedValues.forEach((anim, index) => {
-            Animated.timing(anim, {
-                toValue: state.index === index ? 1 : 0,
-                duration: THEME.animations.duration,
-                useNativeDriver: false,
-            }).start();
-        });
-    }, [state.index]);
-
-    return (
-        <View style={[styles.tabBarContainer, { shadowColor: colors.shadow }]}>
-            <LinearGradient
-                colors={[colors.tabBar, 'rgba(255,255,255,0.95)']}
-                style={styles.tabBarGradient}
-            >
-                <View style={styles.tabBar}>
-                    {state.routes.map((route, index) => {
-                        const { options } = descriptors[route.key];
-                        const label = options.tabBarLabel !== undefined
-                            ? options.tabBarLabel
-                            : options.title !== undefined
-                                ? options.title
-                                : route.name;
-
-                        const isFocused = state.index === index;
-
-                        const onPress = () => {
-                            if (Platform.OS === 'ios') {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            }
-
-                            const event = navigation.emit({
-                                type: 'tabPress',
-                                target: route.key,
-                                canPreventDefault: true,
-                            });
-
-                            if (!isFocused && !event.defaultPrevented) {
-                                navigation.navigate(route.name);
-                            }
-                        };
-
-                        const animatedColor = animatedValues[index].interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['#6b7280', colors.primary],
-                        });
-
-                        const animatedScale = animatedValues[index].interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [1, 1.1],
-                        });
-
-                        const animatedOpacity = animatedValues[index].interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.7, 1],
-                        });
-
-                        return (
-                            <TouchableOpacity
-                                key={route.key}
-                                accessibilityRole="button"
-                                accessibilityState={isFocused ? { selected: true } : {}}
-                                accessibilityLabel={options.tabBarAccessibilityLabel}
-                                testID={options.tabBarTestID}
-                                onPress={onPress}
-                                style={styles.tabItem}
-                            >
-                                <Animated.View
-                                    style={[
-                                        styles.tabItemContent,
-                                        {
-                                            transform: [{ scale: animatedScale }],
-                                            opacity: animatedOpacity
-                                        }
-                                    ]}
-                                >
-                                    {/* Active Tab Background */}
-                                    {isFocused && (
-                                        <Animated.View style={styles.activeTabBackground}>
-                                            <LinearGradient
-                                                colors={[`${colors.primary}20`, `${colors.primary}10`]}
-                                                style={styles.activeTabGradient}
-                                            />
-                                        </Animated.View>
-                                    )}
-
-                                    <Animated.Text style={[styles.tabIcon, { color: animatedColor }]}>
-                                        {options.tabBarIcon && options.tabBarIcon({
-                                            focused: isFocused,
-                                            color: isFocused ? colors.primary : '#6b7280',
-                                            size: 24
-                                        })}
-                                    </Animated.Text>
-
-                                    <Animated.Text
-                                        style={[
-                                            styles.tabLabel,
-                                            { color: animatedColor }
-                                        ]}
-                                    >
-                                        {label}
-                                    </Animated.Text>
-                                </Animated.View>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            </LinearGradient>
-        </View>
-    );
-}
-
 // Auth Stack - for unauthenticated users
 function AuthStack() {
     return (
@@ -573,7 +453,7 @@ function MainTabs() {
     );
 }
 
-// Admin Tab Navigator (Admin only)
+// 🚨 FIXED: Admin Tab Navigator with StaffScanner Access
 function AdminTabs() {
     return (
         <Tab.Navigator
@@ -585,6 +465,9 @@ function AdminTabs() {
                     switch (route.name) {
                         case 'AdminDashboard':
                             iconName = focused ? 'shield' : 'shield-outline';
+                            break;
+                        case 'StaffScanner':  // ✅ ADDED TO ADMIN TABS
+                            iconName = focused ? 'qr-code' : 'qr-code-outline';
                             break;
                         case 'Profile':
                             iconName = focused ? 'person' : 'person-outline';
@@ -637,6 +520,12 @@ function AdminTabs() {
                 name="AdminDashboard"
                 component={AdminDashboardScreen}
                 options={{ title: 'Admin Dashboard' }}
+            />
+            {/* 🚨 FIXED: Added StaffScanner to AdminTabs so admins can access it */}
+            <Tab.Screen
+                name="StaffScanner"
+                component={StaffScannerScreen}
+                options={{ title: 'Voucher Scanner' }}
             />
             <Tab.Screen
                 name="Profile"
@@ -757,7 +646,7 @@ function useRoleBasedAccess() {
     return permissions;
 }
 
-// Enhanced Main App Stack with Security and Analytics
+// 🚨 FIXED: Enhanced Main App Stack with SHARED SCREENS
 function AppStack() {
     const { userProfile, user } = useAuth();
     const { isOffline } = useOffline();
@@ -874,7 +763,7 @@ function AppStack() {
                     options={{ headerShown: false }}
                 />
 
-                {/* Shared screens accessible to all roles */}
+                {/* 🚨 FIXED: SHARED SCREENS - Available to ALL navigators */}
                 <Stack.Screen
                     name="RewardDetail"
                     component={RewardDetailScreen}
@@ -892,7 +781,55 @@ function AppStack() {
                     }}
                 />
 
-                {/* Settings and utility screens */}
+                {/* 🚨 FIXED: Add StaffScanner as SHARED screen for cross-navigator access */}
+                <Stack.Screen
+                    name="SharedStaffScanner"
+                    component={StaffScannerScreen}
+                    options={({ navigation }) => {
+                        const userRole = userProfile?.role || 'user';
+                        const colors = THEME.colors[userRole] || THEME.colors.user;
+
+                        return {
+                            title: 'Staff Voucher Scanner',
+                            headerStyle: { backgroundColor: colors.primary },
+                            headerTintColor: '#fff',
+                            headerLeft: () => (
+                                <TouchableOpacity
+                                    style={{ marginLeft: 16 }}
+                                    onPress={() => navigation.goBack()}
+                                >
+                                    <Ionicons name="arrow-back" size={24} color="white" />
+                                </TouchableOpacity>
+                            ),
+                        };
+                    }}
+                />
+
+                {/* 🚨 FIXED: Add StaffDashboard as SHARED screen for cross-navigator access */}
+                <Stack.Screen
+                    name="SharedStaffDashboard"
+                    component={StaffDashboardScreen}
+                    options={({ navigation }) => {
+                        const userRole = userProfile?.role || 'user';
+                        const colors = THEME.colors[userRole] || THEME.colors.user;
+
+                        return {
+                            title: 'Staff Dashboard',
+                            headerStyle: { backgroundColor: colors.primary },
+                            headerTintColor: '#fff',
+                            headerLeft: () => (
+                                <TouchableOpacity
+                                    style={{ marginLeft: 16 }}
+                                    onPress={() => navigation.goBack()}
+                                >
+                                    <Ionicons name="arrow-back" size={24} color="white" />
+                                </TouchableOpacity>
+                            ),
+                        };
+                    }}
+                />
+
+                {/* Settings and utility screens - Available to all */}
                 <Stack.Screen
                     name="Settings"
                     component={SettingsScreen}
@@ -1172,58 +1109,5 @@ const styles = StyleSheet.create({
     },
     notificationDotGradient: {
         flex: 1,
-    },
-
-    // Custom Tab Bar Styles
-    tabBarContainer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        elevation: 20,
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-    },
-    tabBarGradient: {
-        paddingBottom: Platform.OS === 'ios' ? 34 : 10, // Account for iPhone home indicator
-    },
-    tabBar: {
-        flexDirection: 'row',
-        height: 70,
-        alignItems: 'center',
-        paddingTop: 10,
-    },
-    tabItem: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    tabItemContent: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-    },
-    activeTabBackground: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    activeTabGradient: {
-        flex: 1,
-    },
-    tabIcon: {
-        marginBottom: 2,
-    },
-    tabLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        textAlign: 'center',
     },
 });

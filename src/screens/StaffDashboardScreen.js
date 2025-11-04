@@ -191,7 +191,7 @@ export default function StaffDashboardScreen({ navigation }) {
                         {voucher.status === 'active' && (
                             <TouchableOpacity
                                 style={styles.actionButton}
-                                onPress={() => navigation.navigate('StaffScanner')}
+                                onPress={() => navigation.navigate('SharedStaffScanner')}
                             >
                                 <LinearGradient
                                     colors={gradients.primary}
@@ -277,7 +277,7 @@ export default function StaffDashboardScreen({ navigation }) {
                         </View>
                         <View style={styles.headerRight}>
                             <TouchableOpacity
-                                onPress={() => navigation.navigate('StaffScanner')}
+                                onPress={() => navigation.navigate('SharedStaffScanner')}
                                 style={styles.scannerButton}
                             >
                                 <Ionicons name="qr-code-outline" size={24} color="white" />
@@ -549,7 +549,7 @@ export default function StaffDashboardScreen({ navigation }) {
                                     </Text>
                                     <TouchableOpacity
                                         style={styles.scanButton}
-                                        onPress={() => navigation.navigate('StaffScanner')}
+                                        onPress={() => navigation.navigate('SharedStaffScanner')}
                                     >
                                         <LinearGradient
                                             colors={['#f59e0b', '#d97706']}

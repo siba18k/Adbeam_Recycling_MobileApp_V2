@@ -555,7 +555,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         </View>
                         <View style={styles.headerRight}>
                             <TouchableOpacity
-                                onPress={() => navigation.navigate('StaffScanner')}
+                                onPress={() => navigation.navigate('SharedStaffScanner')}
                                 style={styles.scannerButton}
                             >
                                 <Ionicons name="qr-code-outline" size={24} color="white" />
