@@ -1737,8 +1737,18 @@ export const redeemRewardWithVoucher = async (userId, rewardId, pointsCost) => {
     try {
         console.log('🎫 Creating voucher for user:', userId, 'Reward:', rewardId);
 
+        // First, verify user authentication
+        if (!userId) {
+            return { success: false, error: "User not authenticated" };
+        }
+
         const userRef = ref(database, `users/${userId}`);
         const userSnapshot = await get(userRef);
+
+        if (!userSnapshot.exists()) {
+            return { success: false, error: "User profile not found" };
+        }
+
         const userData = userSnapshot.val();
 
         if (!userData || (userData.points || 0) < pointsCost) {
@@ -1750,6 +1760,11 @@ export const redeemRewardWithVoucher = async (userId, rewardId, pointsCost) => {
 
         const rewardRef = ref(database, `rewards/${rewardId}`);
         const rewardSnapshot = await get(rewardRef);
+
+        if (!rewardSnapshot.exists()) {
+            return { success: false, error: "Reward not found" };
+        }
+
         const rewardData = rewardSnapshot.val();
 
         if (!rewardData || !rewardData.available) {
@@ -1783,10 +1798,10 @@ export const redeemRewardWithVoucher = async (userId, rewardId, pointsCost) => {
             oneDayNotificationSent: false
         };
 
-        await set(voucherRef, voucherData);
-
-        const userVoucherRef = ref(database, `userVouchers/${userId}/${voucherId}`);
-        await set(userVoucherRef, {
+        // 🚨 FIXED: Use atomic update to prevent permission issues
+        const updates = {};
+        updates[`vouchers/${voucherId}`] = voucherData;
+        updates[`userVouchers/${userId}/${voucherId}`] = {
             voucherId: voucherId,
             voucherCode: voucherCode,
             rewardName: rewardData.name,
@@ -1796,31 +1811,39 @@ export const redeemRewardWithVoucher = async (userId, rewardId, pointsCost) => {
             category: rewardData.category || 'general',
             createdAt: serverTimestamp(),
             expiresAt: voucherData.expiresAt
-        });
+        };
+        updates[`users/${userId}/points`] = userData.points - pointsCost;
+        updates[`users/${userId}/totalVouchersCreated`] = (userData.totalVouchersCreated || 0) + 1;
+        updates[`users/${userId}/updatedAt`] = serverTimestamp();
+        updates[`rewards/${rewardId}/popularity`] = (rewardData.popularity || 0) + 1;
+        updates[`rewards/${rewardId}/lastRedeemedAt`] = serverTimestamp();
 
-        const newPoints = userData.points - pointsCost;
-        await update(userRef, {
-            points: newPoints,
-            totalVouchersCreated: (userData.totalVouchersCreated || 0) + 1,
-            updatedAt: serverTimestamp()
-        });
-
-        await update(rewardRef, {
-            popularity: (rewardData.popularity || 0) + 1,
-            lastRedeemedAt: serverTimestamp()
-        });
+        // Execute all updates atomically
+        await update(ref(database), updates);
 
         console.log('✅ Reward redeemed with voucher successfully');
         return {
             success: true,
-            newPoints: newPoints,
+            newPoints: userData.points - pointsCost,
             voucherCode: voucherCode,
             voucherId: voucherId,
             voucherData: voucherData
         };
+
     } catch (error) {
         console.error("❌ Error redeeming reward with voucher:", error);
-        return { success: false, error: error.message };
+
+        // Enhanced error handling
+        if (error.code === 'PERMISSION_DENIED') {
+            return {
+                success: false,
+                error: "Database permission denied. Please check Firebase rules or contact admin.",
+                technical: true,
+                code: 'PERMISSION_DENIED'
+            };
+        }
+
+        return { success: false, error: error.message || 'Failed to create voucher' };
     }
 };
 
