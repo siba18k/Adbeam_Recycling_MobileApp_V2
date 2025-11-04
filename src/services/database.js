@@ -211,28 +211,6 @@ export const recordScan = async (userId, scanData) => {
         const scansRef = ref(database, 'scans');
         const existingScansSnapshot = await get(scansRef);
 
-        if (existingScansSnapshot.exists()) {
-            let isDuplicate = false;
-            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-            existingScansSnapshot.forEach((childSnapshot) => {
-                const existingScan = childSnapshot.val();
-                if (existingScan.barcode === barcode &&
-                    existingScan.userId === userId &&
-                    new Date(existingScan.timestamp) > oneDayAgo) {
-                    isDuplicate = true;
-                }
-            });
-
-            if (isDuplicate) {
-                return {
-                    success: false,
-                    error: "This item was already recycled within the last 24 hours!",
-                    duplicate: true
-                };
-            }
-        }
-
         // Record the scan with unique ID (compliant with Firebase rules)
         const scanRef = ref(database, `scans/${scanId}`);
         const scanRecord = {
@@ -301,113 +279,6 @@ export const recordScan = async (userId, scanData) => {
     }
 };
 
-// Enhanced scan recording with comprehensive validation and notifications
-export const recordScanWithNotifications = async (userId, scanData) => {
-    try {
-        console.log('🔄 Processing scan with full validation...');
-
-        // First validate the item
-        const validation = await validateRecyclableItem(scanData.barcode, scanData.barcodeType);
-
-        if (!validation.valid) {
-            return {
-                success: false,
-                error: validation.reason || 'Item is not recyclable',
-                invalid: true
-            };
-        }
-
-        // Use validated item data if available
-        let enhancedScanData = { ...scanData };
-        if (validation.item) {
-            enhancedScanData = {
-                ...scanData,
-                itemName: validation.item.name,
-                brand: validation.item.brand,
-                materialType: validation.item.type,
-                points: validation.item.points,
-                category: validation.item.category,
-                confidence: validation.confidence
-            };
-        }
-
-        // Record the scan
-        const result = await recordScan(userId, enhancedScanData);
-
-        if (result.success) {
-            console.log('✅ Scan recorded, checking achievements...');
-
-            // Check for new achievements
-            const newAchievements = await checkAndAwardAchievements(userId, {
-                totalScans: result.newTotalScans,
-                points: result.newTotalPoints,
-                level: result.newLevel
-            });
-
-            // Send achievement notifications
-            for (const achievement of newAchievements) {
-                setTimeout(() => {
-                    sendAchievementNotification(
-                        userId,
-                        achievement.name,
-                        achievement.points
-                    );
-                }, 1000);
-            }
-
-            // Check for level up
-            const previousLevel = Math.floor((result.newTotalPoints - result.points) / 100) + 1;
-            if (result.newLevel > previousLevel) {
-                const pointsToNext = ((result.newLevel + 1) * 100) - result.newTotalPoints;
-                setTimeout(() => {
-                    sendLevelUpNotification(userId, result.newLevel, pointsToNext);
-                }, 2000);
-            }
-
-            // Milestone notifications
-            const milestones = [5, 10, 25, 50, 100, 250, 500, 1000];
-            if (milestones.includes(result.newTotalScans)) {
-                setTimeout(() => {
-                    sendMilestoneNotification(
-                        userId,
-                        `${result.newTotalScans} Items Recycled!`,
-                        result.newTotalScans >= 100 ? 'You\'re an Eco-Warrior! 🌟' : 'Keep up the great work! 💚'
-                    );
-                }, 3000);
-            }
-
-            // Points milestones
-            const pointsMilestones = [100, 500, 1000, 2500, 5000, 10000];
-            if (pointsMilestones.includes(result.newTotalPoints)) {
-                setTimeout(() => {
-                    sendMilestoneNotification(
-                        userId,
-                        `${result.newTotalPoints} Points Milestone!`,
-                        'Amazing progress! 🏆'
-                    );
-                }, 4000);
-            }
-
-            // Update and check streak
-            const newStreak = await checkAndUpdateStreak(userId);
-
-            return {
-                ...result,
-                newAchievements: newAchievements,
-                itemName: enhancedScanData.itemName,
-                brand: enhancedScanData.brand,
-                materialType: enhancedScanData.materialType,
-                currentStreak: newStreak,
-                confidence: validation.confidence
-            };
-        }
-
-        return result;
-    } catch (error) {
-        console.error("❌ Error recording scan with notifications:", error);
-        return { success: false, error: error.message };
-    }
-};
 
 // =====================================
 // USER PROFILE OPERATIONS
@@ -726,72 +597,6 @@ const ACHIEVEMENTS = {
     }
 };
 
-export const checkAndAwardAchievements = async (userId, stats) => {
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-        const currentAchievements = userData?.achievements || [];
-
-        const newAchievements = [];
-
-        // Get material breakdown for material-specific achievements
-        const userStats = await getUserStats(userId);
-        const materialBreakdown = userStats.success ? userStats.data.materialBreakdown : {};
-
-        Object.values(ACHIEVEMENTS).forEach(achievement => {
-            // Skip if already earned
-            if (currentAchievements.includes(achievement.id)) return;
-
-            let earned = false;
-
-            switch (achievement.type) {
-                case 'scans':
-                    earned = stats.totalScans >= achievement.requirement;
-                    break;
-                case 'points':
-                    earned = stats.points >= achievement.requirement;
-                    break;
-                case 'level':
-                    earned = stats.level >= achievement.requirement;
-                    break;
-                case 'streak':
-                    earned = (userData?.longestStreak || 0) >= achievement.requirement;
-                    break;
-                case 'material_plastic':
-                    earned = (materialBreakdown.plastic || 0) >= achievement.requirement;
-                    break;
-                case 'material_aluminum':
-                    earned = (materialBreakdown.aluminum || 0) >= achievement.requirement;
-                    break;
-                case 'material_glass':
-                    earned = (materialBreakdown.glass || 0) >= achievement.requirement;
-                    break;
-            }
-
-            if (earned) {
-                newAchievements.push(achievement.id);
-            }
-        });
-
-        if (newAchievements.length > 0) {
-            await update(userRef, {
-                achievements: [...currentAchievements, ...newAchievements],
-                updatedAt: serverTimestamp()
-            });
-
-            console.log(`🏆 New achievements earned: ${newAchievements.join(', ')}`);
-        }
-
-        return newAchievements.map(id =>
-            Object.values(ACHIEVEMENTS).find(a => a.id === id)
-        );
-    } catch (error) {
-        console.error("❌ Error checking achievements:", error);
-        return [];
-    }
-};
-
 export const getUserAchievements = (achievementIds = []) => {
     return achievementIds.map(id =>
         Object.values(ACHIEVEMENTS).find(a => a.id === id)
@@ -805,59 +610,6 @@ export const getAllAchievements = () => {
 // =====================================
 // STREAK TRACKING SYSTEM
 // =====================================
-
-export const checkAndUpdateStreak = async (userId) => {
-    try {
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        const today = new Date().toDateString();
-        const lastScanDate = userData?.lastScanDate ? new Date(userData.lastScanDate).toDateString() : null;
-        const currentStreak = userData?.streak || 0;
-        const longestStreak = userData?.longestStreak || 0;
-
-        if (lastScanDate !== today) {
-            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-
-            let newStreak;
-            if (lastScanDate === yesterday) {
-                // Consecutive day - continue streak
-                newStreak = currentStreak + 1;
-            } else if (!lastScanDate) {
-                // First ever scan
-                newStreak = 1;
-            } else {
-                // Streak broken - restart
-                newStreak = 1;
-            }
-
-            // Update longest streak if necessary
-            const newLongestStreak = Math.max(longestStreak, newStreak);
-
-            await update(userRef, {
-                streak: newStreak,
-                longestStreak: newLongestStreak,
-                lastScanDate: new Date().toISOString(),
-                updatedAt: serverTimestamp()
-            });
-
-            // Send streak notifications for significant milestones
-            if ([3, 7, 14, 21, 30, 60, 100].includes(newStreak)) {
-                setTimeout(() => {
-                    sendStreakNotification(userId, newStreak);
-                }, 5000);
-            }
-
-            return newStreak;
-        }
-
-        return currentStreak;
-    } catch (error) {
-        console.error('❌ Error checking streak:', error);
-        return 0;
-    }
-};
 
 // =====================================
 // USER STATISTICS & ANALYTICS
@@ -1991,45 +1743,6 @@ export const recordScanWithUserClassification = async (userId, scanData) => {
     try {
         console.log('🔄 Recording user-classified scan:', scanData);
 
-        const { barcode, barcodeType, materialType, location } = scanData;
-        const material = MATERIAL_TYPES[materialType];
-
-        if (!material) {
-            return {
-                success: false,
-                error: "Invalid material type selected"
-            };
-        }
-
-        // Generate unique scan ID (Firebase rules compliant)
-        const scanId = `${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-        // Check for recent duplicate barcode scans (24-hour window)
-        const scansRef = ref(database, 'scans');
-        const existingScansSnapshot = await get(scansRef);
-
-        if (existingScansSnapshot.exists()) {
-            let isDuplicate = false;
-            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-            existingScansSnapshot.forEach((childSnapshot) => {
-                const existingScan = childSnapshot.val();
-                if (existingScan.barcode === barcode &&
-                    existingScan.userId === userId &&
-                    new Date(existingScan.timestamp) > oneDayAgo) {
-                    isDuplicate = true;
-                }
-            });
-
-            if (isDuplicate) {
-                return {
-                    success: false,
-                    error: "You've already scanned this item in the last 24 hours!",
-                    duplicate: true
-                };
-            }
-        }
-
         // Create comprehensive scan record
         const scanRecord = {
             id: scanId,
@@ -2048,31 +1761,6 @@ export const recordScanWithUserClassification = async (userId, scanData) => {
             validated: true,
             processed: true
         };
-
-        // Save scan record (compliant with Firebase rules)
-        const scanRef = ref(database, `scans/${scanId}`);
-        await set(scanRef, scanRecord);
-
-        // Save to user's personal scan history
-        const userScanRef = ref(database, `userScans/${userId}/${scanId}`);
-        await set(userScanRef, {
-            scanId: scanId,
-            barcode: barcode,
-            itemName: scanRecord.itemName,
-            materialType: materialType,
-            points: material.points,
-            timestamp: serverTimestamp(),
-            userClassified: true
-        });
-
-        // Update user statistics
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val() || {};
-
-        const newPoints = (userData.points || 0) + material.points;
-        const newLevel = Math.floor(newPoints / 100) + 1;
-        const newTotalScans = (userData.totalScans || 0) + 1;
 
         // Update user profile
         await update(userRef, {
@@ -2167,5 +1855,391 @@ export const getMaterialAnalytics = async () => {
     } catch (error) {
         console.error("❌ Error getting material analytics:", error);
         return { success: false, error: error.message };
+    }
+};
+
+
+// PRODUCTION-READY: Enhanced scan recording with comprehensive feedback
+export const recordScanWithNotifications = async (userId, scanData) => {
+    try {
+        console.log('🔄 Processing production scan with full notifications...');
+
+        const { barcode, barcodeType, materialType, points } = scanData;
+        const material = MATERIAL_TYPES[materialType];
+
+        if (!material) {
+            return {
+                success: false,
+                error: "Invalid material type selected"
+            };
+        }
+
+        // Generate unique scan ID (Firebase rules compliant)
+        const scanId = `${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+        // Check for recent duplicate scans (24-hour window)
+        const scansRef = ref(database, 'scans');
+        const existingScansSnapshot = await get(scansRef);
+
+        if (existingScansSnapshot.exists()) {
+            let isDuplicate = false;
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+            existingScansSnapshot.forEach((childSnapshot) => {
+                const existingScan = childSnapshot.val();
+                if (existingScan.barcode === barcode &&
+                    existingScan.userId === userId &&
+                    new Date(existingScan.timestamp) > oneDayAgo) {
+                    isDuplicate = true;
+                }
+            });
+
+            if (isDuplicate) {
+                return {
+                    success: false,
+                    error: "This item was already scanned within the last 24 hours",
+                    duplicate: true
+                };
+            }
+        }
+
+        // Create comprehensive scan record
+        const scanRecord = {
+            id: scanId,
+            userId: userId,
+            barcode: barcode,
+            barcodeType: barcodeType || 'unknown',
+            itemName: `${material.name} Item`,
+            brand: 'User Classified',
+            materialType: materialType,
+            category: materialType,
+            points: material.points,
+            location: scanData.location || null,
+            timestamp: serverTimestamp(),
+            scanMode: 'user_classified',
+            userSelected: true,
+            validated: true,
+            processed: true
+        };
+
+        // Save main scan record
+        const scanRef = ref(database, `scans/${scanId}`);
+        await set(scanRef, scanRecord);
+
+        // Save to user's scan history
+        const userScanRef = ref(database, `userScans/${userId}/${scanId}`);
+        await set(userScanRef, {
+            scanId: scanId,
+            barcode: barcode,
+            itemName: scanRecord.itemName,
+            materialType: materialType,
+            points: material.points,
+            timestamp: serverTimestamp(),
+            userClassified: true
+        });
+
+        // Update user statistics
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val() || {};
+
+        const newPoints = (userData.points || 0) + material.points;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+        const newTotalScans = (userData.totalScans || 0) + 1;
+        const previousLevel = userData.level || 1;
+
+        // Update user profile
+        await update(userRef, {
+            points: newPoints,
+            level: newLevel,
+            totalScans: newTotalScans,
+            lastScanDate: new Date().toISOString(),
+            updatedAt: serverTimestamp()
+        });
+
+        // Check for achievements
+        const newAchievements = await checkAndAwardAchievements(userId, {
+            totalScans: newTotalScans,
+            points: newPoints,
+            level: newLevel
+        });
+
+        // Send notifications for achievements
+        if (newAchievements.length > 0) {
+            console.log('🏆 New achievements earned:', newAchievements.map(a => a.name));
+
+            // Send achievement notifications
+            newAchievements.forEach((achievement, index) => {
+                setTimeout(() => {
+                    sendAchievementNotification(
+                        userId,
+                        achievement.name,
+                        achievement.points
+                    );
+                }, (index + 1) * 1500);
+            });
+        }
+
+        // Level up notification
+        if (newLevel > previousLevel) {
+            const pointsToNext = ((newLevel + 1) * 100) - newPoints;
+            console.log('📈 Level up!', previousLevel, '→', newLevel);
+
+            setTimeout(() => {
+                sendLevelUpNotification(userId, newLevel, pointsToNext);
+            }, 2500);
+        }
+
+        // Milestone notifications
+        const milestones = [5, 10, 25, 50, 100, 250, 500];
+        if (milestones.includes(newTotalScans)) {
+            console.log('🎯 Milestone reached:', newTotalScans, 'scans');
+
+            setTimeout(() => {
+                sendMilestoneNotification(
+                    userId,
+                    `${newTotalScans} Items Recycled!`,
+                    newTotalScans >= 100 ? 'You\'re an Eco-Champion! 🌟' : 'Amazing progress! 💚'
+                );
+            }, 4000);
+        }
+
+        // Points milestones
+        const pointsMilestones = [100, 500, 1000, 2500, 5000];
+        if (pointsMilestones.includes(newPoints)) {
+            console.log('💰 Points milestone reached:', newPoints);
+
+            setTimeout(() => {
+                sendMilestoneNotification(
+                    userId,
+                    `${newPoints} Points Earned!`,
+                    'Your environmental impact is growing! 🌱'
+                );
+            }, 5500);
+        }
+
+        // Update streak
+        const newStreak = await checkAndUpdateStreak(userId);
+
+        console.log('✅ Production scan recorded successfully with notifications');
+        return {
+            success: true,
+            points: material.points,
+            newTotalPoints: newPoints,
+            newLevel: newLevel,
+            newTotalScans: newTotalScans,
+            newAchievements: newAchievements,
+            scanId: scanId,
+            itemName: scanRecord.itemName,
+            materialType: materialType,
+            userClassified: true,
+            leveledUp: newLevel > previousLevel,
+            currentStreak: newStreak
+        };
+
+    } catch (error) {
+        console.error("❌ Error recording production scan:", error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+};
+
+// Enhanced streak system with notifications
+export const checkAndUpdateStreak = async (userId) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        const today = new Date().toDateString();
+        const lastScanDate = userData?.lastScanDate ? new Date(userData.lastScanDate).toDateString() : null;
+        const currentStreak = userData?.streak || 0;
+        const longestStreak = userData?.longestStreak || 0;
+
+        if (lastScanDate !== today) {
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+
+            let newStreak;
+            if (lastScanDate === yesterday) {
+                // Consecutive day - continue streak
+                newStreak = currentStreak + 1;
+            } else {
+                // First scan or streak broken
+                newStreak = 1;
+            }
+
+            // Update longest streak record
+            const newLongestStreak = Math.max(longestStreak, newStreak);
+
+            await update(userRef, {
+                streak: newStreak,
+                longestStreak: newLongestStreak,
+                lastScanDate: new Date().toISOString(),
+                updatedAt: serverTimestamp()
+            });
+
+            // Send streak notifications for milestones
+            const streakMilestones = [3, 7, 14, 30, 60, 100];
+            if (streakMilestones.includes(newStreak)) {
+                console.log('🔥 Streak milestone:', newStreak, 'days');
+
+                setTimeout(() => {
+                    sendStreakNotification(userId, newStreak);
+                }, 3000);
+            }
+
+            return newStreak;
+        }
+
+        return currentStreak;
+    } catch (error) {
+        console.error('❌ Error checking streak:', error);
+        return 0;
+    }
+};
+
+// Production-ready achievement system
+export const checkAndAwardAchievements = async (userId, stats) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+        const currentAchievements = userData?.achievements || [];
+
+        const newAchievements = [];
+
+        // Enhanced achievements list
+        const PRODUCTION_ACHIEVEMENTS = {
+            FIRST_SCAN: {
+                id: 'first_scan',
+                name: 'First Step',
+                description: 'Complete your first recycling scan',
+                requirement: 1,
+                type: 'scans',
+                icon: 'leaf',
+                points: 50
+            },
+            FIVE_SCANS: {
+                id: 'five_scans',
+                name: 'Getting Started',
+                description: 'Recycle 5 items',
+                requirement: 5,
+                type: 'scans',
+                icon: 'trending-up',
+                points: 100
+            },
+            TEN_SCANS: {
+                id: 'ten_scans',
+                name: 'Eco Rookie',
+                description: 'Recycle 10 items',
+                requirement: 10,
+                type: 'scans',
+                icon: 'checkmark-circle',
+                points: 150
+            },
+            TWENTY_FIVE_SCANS: {
+                id: 'twenty_five_scans',
+                name: 'Green Explorer',
+                description: 'Recycle 25 items',
+                requirement: 25,
+                type: 'scans',
+                icon: 'compass',
+                points: 250
+            },
+            FIFTY_SCANS: {
+                id: 'fifty_scans',
+                name: 'Eco Warrior',
+                description: 'Recycle 50 items',
+                requirement: 50,
+                type: 'scans',
+                icon: 'shield',
+                points: 400
+            },
+            HUNDRED_SCANS: {
+                id: 'hundred_scans',
+                name: 'Century Club',
+                description: 'Recycle 100 items',
+                requirement: 100,
+                type: 'scans',
+                icon: 'trophy',
+                points: 750
+            },
+            LEVEL_FIVE: {
+                id: 'level_five',
+                name: 'Rising Star',
+                description: 'Reach Level 5',
+                requirement: 5,
+                type: 'level',
+                icon: 'rocket',
+                points: 200
+            },
+            LEVEL_TEN: {
+                id: 'level_ten',
+                name: 'Eco Champion',
+                description: 'Reach Level 10',
+                requirement: 10,
+                type: 'level',
+                icon: 'flame',
+                points: 500
+            },
+            FIVE_HUNDRED_POINTS: {
+                id: 'five_hundred_points',
+                name: 'Point Collector',
+                description: 'Earn 500 points',
+                requirement: 500,
+                type: 'points',
+                icon: 'diamond',
+                points: 150
+            },
+            THOUSAND_POINTS: {
+                id: 'thousand_points',
+                name: 'Point Master',
+                description: 'Earn 1000 points',
+                requirement: 1000,
+                type: 'points',
+                icon: 'star',
+                points: 300
+            }
+        };
+
+        // Check each achievement
+        Object.values(PRODUCTION_ACHIEVEMENTS).forEach(achievement => {
+            if (currentAchievements.includes(achievement.id)) return;
+
+            let earned = false;
+
+            switch (achievement.type) {
+                case 'scans':
+                    earned = stats.totalScans >= achievement.requirement;
+                    break;
+                case 'points':
+                    earned = stats.points >= achievement.requirement;
+                    break;
+                case 'level':
+                    earned = stats.level >= achievement.requirement;
+                    break;
+            }
+
+            if (earned) {
+                newAchievements.push(achievement);
+            }
+        });
+
+        // Award new achievements
+        if (newAchievements.length > 0) {
+            await update(userRef, {
+                achievements: [...currentAchievements, ...newAchievements.map(a => a.id)],
+                updatedAt: serverTimestamp()
+            });
+
+            console.log(`🏆 New achievements unlocked: ${newAchievements.map(a => a.name).join(', ')}`);
+        }
+
+        return newAchievements;
+    } catch (error) {
+        console.error("❌ Error checking achievements:", error);
+        return [];
     }
 };
