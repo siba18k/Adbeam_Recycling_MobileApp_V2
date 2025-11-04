@@ -1176,3 +1176,182 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
+const processScanWithMaterial = async (materialType) => {
+    if (!scannedBarcode || !materialType || isProcessing) return;
+
+    setIsProcessing(true);
+
+    Animated.timing(materialModalAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+    }).start(() => {
+        setShowMaterialSelector(false);
+    });
+
+    try {
+        const material = MATERIAL_TYPES[materialType];
+
+        const scanData = {
+            barcode: scannedBarcode.barcode,
+            barcodeType: scannedBarcode.barcodeType,
+            materialType: materialType,
+            itemName: `${material.name} Item`,
+            brand: 'User Classified',
+            points: material.points,
+            category: materialType,
+            location: null,
+            timestamp: scannedBarcode.timestamp,
+            scanMode: 'user_classified',
+            userSelected: true
+        };
+
+        try {
+            const locationValidation = await validateScanLocation();
+            if (locationValidation.valid) {
+                scanData.location = locationValidation.location;
+            }
+        } catch (locationError) {
+            console.log('Location validation skipped:', locationError.message);
+        }
+
+        const netInfo = await NetInfo.fetch();
+
+        if (!netInfo.isConnected) {
+            await addToQueue(scanData);
+
+            Alert.alert(
+                '📡 Scan Queued!',
+                `You're offline! Your ${material.name.toLowerCase()} scan (+${material.points} points) is saved and will be processed when you reconnect.\n\n✅ Session scans: ${scanCount + 1}`,
+                [
+                    {
+                        text: 'Scan Another',
+                        onPress: prepareForNextScan,
+                        style: 'default'
+                    },
+                    {
+                        text: 'View Dashboard',
+                        onPress: () => navigation.navigate('Dashboard'),
+                        style: 'cancel'
+                    }
+                ]
+            );
+
+            setScanCount(prev => prev + 1);
+            return;
+        }
+
+        const result = await recordScanWithNotifications(user.uid, scanData);
+
+        if (result.success) {
+            setScanCount(prev => prev + 1);
+            await refreshUserProfile();
+            await playHapticFeedback('success');
+
+            const alertTitle = '🎉 Recycling Success!';
+            const achievementBonus = result.newAchievements && result.newAchievements.length > 0 ?
+                `\n\n🏆 Achievement Unlocked: "${result.newAchievements[0].name}"!\n🌟 Bonus: +${result.newAchievements[0].points} points` : '';
+
+            const alertMessage =
+                `Great job recycling! Here's your impact:\n\n` +
+                `📦 Material: ${material.name}\n` +
+                `⭐ Points Earned: +${result.points}\n` +
+                `💰 Total Points: ${result.newTotalPoints}\n` +
+                `📈 Current Level: ${result.newLevel}${result.leveledUp ? ' (LEVEL UP! 🚀)' : ''}\n` +
+                `♻️ Items Recycled: ${result.newTotalScans}` +
+                (result.currentStreak > 1 ? `\n🔥 Daily Streak: ${result.currentStreak} days` : '') +
+                achievementBonus +
+                `\n\n🌍 This item is now permanently marked as recycled!`;
+
+            Alert.alert(
+                alertTitle,
+                alertMessage,
+                [
+                    {
+                        text: 'Scan Another Item',
+                        onPress: prepareForNextScan,
+                        style: 'default'
+                    },
+                    {
+                        text: 'Done - View Dashboard',
+                        onPress: () => navigation.navigate('Dashboard'),
+                        style: 'cancel'
+                    }
+                ]
+            );
+
+        } else if (result.duplicate) {
+            await playHapticFeedback('error');
+
+            // ENHANCED: Show detailed duplicate information
+            const duplicateInfo = result.duplicateInfo;
+            const scannedDate = duplicateInfo?.firstScannedAt ?
+                new Date(duplicateInfo.firstScannedAt).toLocaleDateString('en-ZA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) : 'Unknown date';
+
+            const isScannedByCurrentUser = duplicateInfo?.firstScannedBy === user.uid;
+
+            Alert.alert(
+                '♻️ Item Already Recycled',
+                `This item has already been recycled and is permanently in our system.\n\n` +
+                `📋 Barcode: ${cleanBarcode}\n` +
+                `📦 Material: ${material.name}\n` +
+                `📅 First Scanned: ${scannedDate}\n` +
+                `👤 Scanned By: ${isScannedByCurrentUser ? 'You' : 'Another user'}\n` +
+                `🔢 Duplicate Attempts: ${duplicateInfo?.scanCount || 1}\n\n` +
+                `💡 Each item can only be recycled once to ensure fair point distribution.\n\n` +
+                `🌱 Try scanning a different recyclable item to continue earning points!`,
+                [
+                    {
+                        text: 'Scan Different Item',
+                        onPress: prepareForNextScan,
+                        style: 'default'
+                    },
+                    {
+                        text: 'Back to Dashboard',
+                        onPress: () => navigation.navigate('Dashboard'),
+                        style: 'cancel'
+                    }
+                ]
+            );
+
+            // Record this duplicate attempt for analytics
+            try {
+                await recordDuplicateAttempt(cleanBarcode, user.uid);
+            } catch (error) {
+                console.log('Failed to record duplicate attempt:', error);
+            }
+
+        } else {
+            throw new Error(result.error || 'Failed to process scan');
+        }
+
+    } catch (error) {
+        console.error('❌ Scan processing error:', error);
+        await playHapticFeedback('error');
+
+        Alert.alert(
+            '❌ Scan Error',
+            `Failed to process your ${MATERIAL_TYPES[materialType]?.name || 'item'} scan.\n\nError: ${error.message}\n\nPlease try scanning again or contact support if the problem persists.`,
+            [
+                {
+                    text: 'Try Again',
+                    onPress: prepareForNextScan,
+                    style: 'default'
+                },
+                {
+                    text: 'Back to Dashboard',
+                    onPress: () => navigation.navigate('Dashboard'),
+                    style: 'cancel'
+                }
+            ]
+        );
+    } finally {
+        setIsProcessing(false);
+    }
+};
