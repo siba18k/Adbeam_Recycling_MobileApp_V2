@@ -442,80 +442,113 @@ export default function AdminDashboardScreen({ navigation }) {
         });
     };
 
-    const renderUserItem = ({ item: user }) => (
-        <Animated.View
-            style={[
-                styles.userItemAnimated,
-                {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: slideUpAnim }, { scale: scaleAnim }],
-                },
-            ]}
-        >
-            <Card style={styles.userCard}>
-                <View style={styles.userItem}>
-                    <View style={styles.userInfo}>
-                        <View style={styles.userHeader}>
-                            <Text style={styles.userName}>{user.displayName || 'User'}</Text>
-                            <Badge
-                                style={[
-                                    styles.roleBadge,
-                                    { backgroundColor: user.role === 'admin' ? '#8b5cf6' : user.role === 'staff' ? '#f59e0b' : colors.primary.main }
-                                ]}
-                            >
-                                {user.role || 'user'}
-                            </Badge>
+    // ✅ FIXED: Enhanced status display with proper formatting
+    const getUserRoleDisplay = (role) => {
+        switch (role) {
+            case 'admin':
+                return { text: 'Admin', color: '#8b5cf6', icon: 'shield' };
+            case 'staff':
+                return { text: 'Staff', color: '#f59e0b', icon: 'people' };
+            case 'user':
+            default:
+                return { text: 'User', color: '#22c55e', icon: 'person' };
+        }
+    };
+
+    // ✅ FIXED: Enhanced voucher status display
+    const getVoucherStatusDisplay = (status) => {
+        switch (status) {
+            case 'active':
+                return { text: 'Active', color: '#22c55e', icon: 'checkmark-circle' };
+            case 'redeemed':
+                return { text: 'Used', color: '#3b82f6', icon: 'checkmark-done' };
+            case 'expired':
+                return { text: 'Expired', color: '#ef4444', icon: 'time' };
+            default:
+                return { text: 'Unknown', color: '#6b7280', icon: 'help' };
+        }
+    };
+
+    const renderUserItem = ({ item: user }) => {
+        const roleInfo = getUserRoleDisplay(user.role);
+        
+        return (
+            <Animated.View
+                style={[
+                    styles.userItemAnimated,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideUpAnim }, { scale: scaleAnim }],
+                    },
+                ]}
+            >
+                <Card style={styles.userCard}>
+                    <View style={styles.userItem}>
+                        <View style={styles.userInfo}>
+                            <View style={styles.userHeader}>
+                                <Text style={styles.userName} numberOfLines={1}>{user.displayName || 'User'}</Text>
+                                {/* 🚨 FIXED: Enhanced role badge with proper sizing */}
+                                <View style={styles.roleContainer}>
+                                    <LinearGradient
+                                        colors={[roleInfo.color, roleInfo.color + '90']}
+                                        style={styles.roleBadgeGradient}
+                                    >
+                                        <Ionicons name={roleInfo.icon} size={10} color="white" style={styles.roleIcon} />
+                                        <Text style={styles.roleBadgeText}>{roleInfo.text}</Text>
+                                    </LinearGradient>
+                                </View>
+                            </View>
+                            <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
+                            <Text style={styles.userStats}>
+                                {user.points || 0} pts • Level {user.level || 1} • {user.totalScans || 0} scans
+                            </Text>
                         </View>
-                        <Text style={styles.userEmail}>{user.email}</Text>
-                        <Text style={styles.userStats}>
-                            {user.points || 0} pts • Level {user.level || 1} • {user.totalScans || 0} scans
-                        </Text>
-                    </View>
-                    <View style={styles.userActions}>
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => handleEditUser(user)}
-                        >
-                            <LinearGradient
-                                colors={gradients.primary}
-                                style={styles.actionButtonGradient}
-                            >
-                                <Ionicons name="pencil" size={14} color="white" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-
-                        {user.role === 'user' && (
+                        <View style={styles.userActions}>
                             <TouchableOpacity
                                 style={styles.actionButton}
-                                onPress={() => handlePromoteToStaff(user)}
+                                onPress={() => handleEditUser(user)}
                             >
                                 <LinearGradient
-                                    colors={gradients.accent}
+                                    colors={gradients.primary}
                                     style={styles.actionButtonGradient}
                                 >
-                                    <Ionicons name="arrow-up" size={14} color="white" />
+                                    <Ionicons name="pencil" size={14} color="white" />
                                 </LinearGradient>
                             </TouchableOpacity>
-                        )}
 
-                        {user.role !== 'admin' && (
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={() => handleDeleteUser(user)}
-                            >
-                                <LinearGradient
-                                    colors={['#ef4444', '#dc2626']}
-                                    style={styles.actionButtonGradient}
+                            {user.role === 'user' && (
+                                <TouchableOpacity
+                                    style={styles.actionButton}
+                                    onPress={() => handlePromoteToStaff(user)}
                                 >
-                                    <Ionicons name="trash" size={14} color="white" />
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        )}
+                                    <LinearGradient
+                                        colors={gradients.accent}
+                                        style={styles.actionButtonGradient}
+                                    >
+                                        <Ionicons name="arrow-up" size={14} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            )}
+
+                            {user.role !== 'admin' && (
+                                <TouchableOpacity
+                                    style={styles.actionButton}
+                                    onPress={() => handleDeleteUser(user)}
+                                >
+                                    <LinearGradient
+                                        colors={['#ef4444', '#dc2626']}
+                                        style={styles.actionButtonGradient}
+                                    >
+                                        <Ionicons name="trash" size={14} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
-                </View>
-            </Card>
-        </Animated.View>
-    );
+                </Card>
+            </Animated.View>
+        );
+    };
 
     if (isLoading) {
         return (
@@ -555,7 +588,13 @@ export default function AdminDashboardScreen({ navigation }) {
                         </View>
                         <View style={styles.headerRight}>
                             <TouchableOpacity
-                                onPress={() => navigation.navigate('StaffScanner')}
+                                onPress={() => setShowDevTools(!showDevTools)}
+                                style={styles.devToolsButton}
+                            >
+                                <Ionicons name="build-outline" size={20} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('SharedStaffScanner')}
                                 style={styles.scannerButton}
                             >
                                 <Ionicons name="qr-code-outline" size={24} color="white" />
@@ -654,8 +693,8 @@ export default function AdminDashboardScreen({ navigation }) {
                 </Animated.View>
 
                 {/* Main Content Area */}
-                {activeTab !== 'users' ? (
-                    // For all tabs except users, use ScrollView
+                {activeTab !== 'users' && activeTab !== 'vouchers' ? (
+                    // For overview and rewards tabs, use ScrollView
                     <ScrollView
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
@@ -850,69 +889,134 @@ export default function AdminDashboardScreen({ navigation }) {
                                 ))}
                             </Animated.View>
                         )}
+                    </ScrollView>
+                ) : (
+                    // ✅ FIXED: For users and vouchers tabs, use proper container structure
+                    <View style={styles.tabContentContainer}>
+                        {activeTab === 'users' && (
+                            <>
+                                {/* Search Bar */}
+                                <Card style={styles.searchCard}>
+                                    <Searchbar
+                                        placeholder="Search users by name, email, or role..."
+                                        onChangeText={setSearchQuery}
+                                        value={searchQuery}
+                                        style={styles.searchBar}
+                                        iconColor="#27ae60"
+                                        inputStyle={styles.searchInput}
+                                    />
+                                    <Text style={styles.searchResults}>
+                                        {filteredUsers.length} of {users.length} users
+                                    </Text>
+                                </Card>
 
-                        {/* Enhanced Vouchers Tab */}
+                                {/* Users List - Direct FlatList without ScrollView */}
+                                <FlatList
+                                    data={filteredUsers}
+                                    renderItem={renderUserItem}
+                                    keyExtractor={(item) => item.id}
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={styles.usersList}
+                                    refreshControl={
+                                        <RefreshControl 
+                                            refreshing={isRefreshing} 
+                                            onRefresh={handleRefresh}
+                                            colors={['#27ae60']}
+                                            tintColor={'#27ae60'}
+                                        />
+                                    }
+                                    style={styles.usersListContainer}
+                                />
+                            </>
+                        )}
+
+                        {/* ✅ FIXED: Enhanced Vouchers Tab with FlatList */}
                         {activeTab === 'vouchers' && (
-                            <Animated.View
-                                style={{
-                                    opacity: fadeAnim,
-                                    transform: [{ translateY: slideUpAnim }],
-                                }}
-                            >
-                                <Text style={styles.sectionTitle}>🎫 Voucher Management</Text>
-
-                                <View style={styles.voucherStats}>
-                                    <Card style={styles.voucherStatCard}>
-                                        <LinearGradient colors={['#27ae60', '#58d68d']} style={styles.voucherStatGradient}>
-                                            <Ionicons name="checkmark-circle" size={24} color="white" />
-                                            <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'active').length}</Text>
-                                            <Text style={styles.voucherStatLabel}>Active</Text>
-                                        </LinearGradient>
-                                    </Card>
-                                    <Card style={styles.voucherStatCard}>
-                                        <LinearGradient colors={['#f39c12', '#f7dc6f']} style={styles.voucherStatGradient}>
-                                            <Ionicons name="gift" size={24} color="white" />
-                                            <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'redeemed').length}</Text>
-                                            <Text style={styles.voucherStatLabel}>Redeemed</Text>
-                                        </LinearGradient>
-                                    </Card>
-                                </View>
-
-                                {vouchers
-                                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                                    .map((voucher) => (
-                                        <Card key={voucher.id} style={styles.voucherItem}>
-                                            <View style={styles.voucherContent}>
-                                                <View style={styles.voucherInfo}>
-                                                    <Text style={styles.voucherRewardName}>{voucher.rewardName}</Text>
-                                                    <Text style={styles.voucherCode}>{voucher.voucherCode}</Text>
-                                                    <Text style={styles.voucherUser}>
-                                                        User ID: {voucher.userId?.substring(0, 8)}...
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.voucherStatus}>
-                                                    <Badge
-                                                        style={[
-                                                            styles.statusBadge,
-                                                            { backgroundColor: voucher.status === 'active' ? '#27ae60' : '#95a5a6' }
-                                                        ]}
-                                                    >
-                                                        {voucher.status}
-                                                    </Badge>
-                                                    <Text style={styles.voucherDate}>
-                                                        {new Date(voucher.createdAt).toLocaleDateString()}
-                                                    </Text>
-                                                </View>
-                                            </View>
+                            <>
+                                <Card style={styles.vouchersHeaderCard}>
+                                    <Text style={styles.sectionTitle}>🎫 Voucher Management</Text>
+                                    
+                                    <View style={styles.voucherStats}>
+                                        <Card style={styles.voucherStatCard}>
+                                            <LinearGradient colors={['#27ae60', '#58d68d']} style={styles.voucherStatGradient}>
+                                                <Ionicons name="checkmark-circle" size={24} color="white" />
+                                                <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'active').length}</Text>
+                                                <Text style={styles.voucherStatLabel}>Active</Text>
+                                            </LinearGradient>
                                         </Card>
-                                    ))}
-                            </Animated.View>
+                                        <Card style={styles.voucherStatCard}>
+                                            <LinearGradient colors={['#f39c12', '#f7dc6f']} style={styles.voucherStatGradient}>
+                                                <Ionicons name="gift" size={24} color="white" />
+                                                <Text style={styles.voucherStatValue}>{vouchers.filter(v => v.status === 'redeemed').length}</Text>
+                                                <Text style={styles.voucherStatLabel}>Redeemed</Text>
+                                            </LinearGradient>
+                                        </Card>
+                                    </View>
+                                </Card>
+
+                                {/* ✅ FIXED: Direct FlatList for vouchers */}
+                                <FlatList
+                                    data={vouchers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))}
+                                    renderItem={({ item: voucher }) => {
+                                        const statusInfo = getVoucherStatusDisplay(voucher.status);
+                                        
+                                        return (
+                                            <Card style={styles.voucherItem}>
+                                                <View style={styles.voucherContent}>
+                                                    <View style={styles.voucherInfo}>
+                                                        <View style={styles.voucherHeader}>
+                                                            <Text style={styles.voucherRewardName} numberOfLines={1}>{voucher.rewardName}</Text>
+                                                            {/* 🚨 FIXED: Enhanced status badge with proper sizing */}
+                                                            <View style={styles.voucherStatusContainer}>
+                                                                <LinearGradient
+                                                                    colors={[statusInfo.color, statusInfo.color + '90']}
+                                                                    style={styles.voucherStatusBadgeGradient}
+                                                                >
+                                                                    <Ionicons name={statusInfo.icon} size={10} color="white" style={styles.voucherStatusIcon} />
+                                                                    <Text style={styles.voucherStatusBadgeText}>{statusInfo.text}</Text>
+                                                                </LinearGradient>
+                                                            </View>
+                                                        </View>
+                                                        <Text style={styles.voucherCode}>{voucher.voucherCode}</Text>
+                                                        <Text style={styles.voucherUser}>
+                                                            User ID: {voucher.userId?.substring(0, 8)}...
+                                                        </Text>
+                                                        <Text style={styles.voucherDate}>
+                                                            {new Date(voucher.createdAt).toLocaleDateString()}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </Card>
+                                        );
+                                    }}
+                                    keyExtractor={(item) => item.id}
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={styles.vouchersList}
+                                    refreshControl={
+                                        <RefreshControl 
+                                            refreshing={isRefreshing} 
+                                            onRefresh={handleRefresh}
+                                            colors={['#27ae60']}
+                                            tintColor={'#27ae60'}
+                                        />
+                                    }
+                                    style={styles.vouchersListContainer}
+                                    ListEmptyComponent={
+                                        <View style={styles.emptyContainer}>
+                                            <Ionicons name="qr-code-outline" size={64} color="#d1d5db" />
+                                            <Text style={styles.emptyTitle}>No vouchers found</Text>
+                                            <Text style={styles.emptyText}>
+                                                Vouchers will appear here when students redeem rewards
+                                            </Text>
+                                        </View>
+                                    }
+                                />
+                            </>
                         )}
                     </ScrollView>
                 ) : (
-                    // FIXED: For users tab, use FlatList directly without ScrollView
-                    <View style={styles.usersTabContainer}>
-                        {/* Search Bar */}
+                    // ✅ FIXED: For users tab, use proper container structure
+                    <View style={styles.tabContentContainer}>
                         <Card style={styles.searchCard}>
                             <Searchbar
                                 placeholder="Search users by name, email, or role..."
@@ -943,6 +1047,15 @@ export default function AdminDashboardScreen({ navigation }) {
                                 />
                             }
                             style={styles.usersListContainer}
+                            ListEmptyComponent={
+                                <View style={styles.emptyContainer}>
+                                    <Ionicons name="people-outline" size={64} color="#d1d5db" />
+                                    <Text style={styles.emptyTitle}>No users found</Text>
+                                    <Text style={styles.emptyText}>
+                                        {searchQuery ? 'Try adjusting your search terms' : 'Users will appear here when they register'}
+                                    </Text>
+                                </View>
+                            }
                         />
                     </View>
                 )}
@@ -1470,13 +1583,17 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
+        paddingBottom: 100,
     },
-    // FIXED: New styles for users tab container
-    usersTabContainer: {
+    // ✅ FIXED: New container styles for tabs with FlatList
+    tabContentContainer: {
         flex: 1,
         padding: 16,
     },
     usersListContainer: {
+        flex: 1,
+    },
+    vouchersListContainer: {
         flex: 1,
     },
     statsGrid: {
@@ -1595,30 +1712,54 @@ const styles = StyleSheet.create({
     },
     userItem: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start', // ✅ FIXED: Changed alignment
         padding: 16,
     },
     userInfo: {
         flex: 1,
+        marginRight: 12, // ✅ FIXED: Add margin to prevent overlap
     },
     userHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
+        alignItems: 'flex-start', // ✅ FIXED: Better alignment
+        marginBottom: 8, // ✅ FIXED: Increased margin
+        justifyContent: 'space-between', // ✅ FIXED: Proper spacing
     },
     userName: {
         fontSize: 18,
         fontWeight: '600',
         color: '#2c3e50',
-        marginRight: 8,
+        flex: 1,
+        marginRight: 12, // ✅ FIXED: Add margin from badge
     },
-    roleBadge: {
+    // 🚨 FIXED: Complete new role badge system
+    roleContainer: {
+        flexShrink: 0, // ✅ Prevents shrinking
+        minWidth: 60, // ✅ Ensures minimum width
+        alignItems: 'center',
+    },
+    roleBadgeGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        minWidth: 60, // ✅ Ensures text fits
+        justifyContent: 'center',
+    },
+    roleIcon: {
+        marginRight: 3,
+    },
+    roleBadgeText: {
+        color: 'white',
         fontSize: 10,
+        fontWeight: '700',
+        textAlign: 'center',
     },
     userEmail: {
         fontSize: 14,
         color: '#7f8c8d',
-        marginBottom: 2,
+        marginBottom: 4,
     },
     userStats: {
         fontSize: 14,
@@ -1627,7 +1768,7 @@ const styles = StyleSheet.create({
     userActions: {
         flexDirection: 'row',
         gap: 6,
-        marginLeft: 12,
+        marginLeft: 8, // ✅ FIXED: Reduced margin
         minWidth: 100,
         justifyContent: 'flex-end',
     },
@@ -1739,10 +1880,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 8,
     },
+    // ✅ FIXED: Enhanced voucher styles
+    vouchersHeaderCard: {
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        elevation: 2,
+    },
     voucherStats: {
         flexDirection: 'row',
         gap: 12,
-        marginBottom: 16,
+        marginTop: 16,
     },
     voucherStatCard: {
         flex: 1,
@@ -1751,21 +1899,24 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     voucherStatGradient: {
-        padding: 20,
+        padding: 16,
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'center',
         gap: 8,
     },
     voucherStatValue: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '700',
         color: 'white',
     },
     voucherStatLabel: {
-        fontSize: 14,
+        fontSize: 12,
         color: 'rgba(255,255,255,0.9)',
         fontWeight: '600',
+    },
+    vouchersList: {
+        paddingBottom: 80,
     },
     voucherItem: {
         borderRadius: 16,
@@ -1774,16 +1925,47 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     voucherContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: 'column',
     },
     voucherInfo: {
         flex: 1,
+    },
+    voucherHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start', // ✅ FIXED: Better alignment
+        marginBottom: 8,
+        justifyContent: 'space-between', // ✅ FIXED: Proper spacing
     },
     voucherRewardName: {
         fontSize: 16,
         fontWeight: '600',
         color: '#2c3e50',
+        flex: 1,
+        marginRight: 12, // ✅ FIXED: Add margin from badge
+    },
+    // 🚨 FIXED: Complete new voucher status badge system
+    voucherStatusContainer: {
+        flexShrink: 0, // ✅ Prevents shrinking
+        minWidth: 65, // ✅ Ensures minimum width
+        alignItems: 'center',
+    },
+    voucherStatusBadgeGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        minWidth: 65, // ✅ Ensures text fits
+        justifyContent: 'center',
+    },
+    voucherStatusIcon: {
+        marginRight: 3,
+    },
+    voucherStatusBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '700',
+        textAlign: 'center',
     },
     voucherCode: {
         fontSize: 14,
@@ -1791,24 +1973,21 @@ const styles = StyleSheet.create({
         fontFamily: 'monospace',
         marginTop: 4,
         backgroundColor: '#f8f9fa',
-        padding: 4,
-        borderRadius: 4,
+        padding: 6,
+        borderRadius: 6,
+        alignSelf: 'flex-start',
     },
     voucherUser: {
         fontSize: 12,
         color: '#95a5a6',
         marginTop: 4,
     },
-    voucherStatus: {
-        alignItems: 'flex-end',
-    },
-    statusBadge: {
-        marginBottom: 4,
-    },
     voucherDate: {
         fontSize: 12,
         color: '#95a5a6',
+        marginTop: 2,
     },
+    // Removed old statusBadge style that was causing issues
     modalContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -1908,5 +2087,24 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         backgroundColor: '#27ae60',
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        paddingVertical: 60,
+        paddingHorizontal: 40,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#374151',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: '#6b7280',
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 24,
     },
 });
