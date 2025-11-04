@@ -102,6 +102,203 @@ export const MATERIAL_TYPES = {
 };
 
 // =====================================
+// 🚨 MAIN SCAN FUNCTION - PERMANENT BARCODE TRACKING
+// =====================================
+
+export const recordScanWithNotifications = async (userId, scanData) => {
+    try {
+        console.log('🔄 PERMANENT TRACKING: Processing scan for user:', userId);
+        console.log('📊 Scan data:', scanData);
+
+        const { barcode, barcodeType, materialType } = scanData;
+        const material = MATERIAL_TYPES[materialType];
+
+        if (!material) {
+            throw new Error("Invalid material type selected");
+        }
+
+        if (!barcode || barcode.trim().length < 3) {
+            throw new Error("Invalid barcode format");
+        }
+
+        const cleanBarcode = barcode.trim();
+
+        // 🚨 CRITICAL: Check if this EXACT barcode has EVER been scanned by ANYONE
+        console.log('🔍 Checking global barcode registry for:', cleanBarcode);
+        const barcodeRef = ref(database, `scannedBarcodes/${cleanBarcode}`);
+        const barcodeSnapshot = await get(barcodeRef);
+
+        if (barcodeSnapshot.exists()) {
+            const existingBarcodeData = barcodeSnapshot.val();
+            console.log('❌ DUPLICATE DETECTED - Barcode already exists:', existingBarcodeData);
+
+            // Record this duplicate attempt
+            try {
+                await update(barcodeRef, {
+                    scanCount: (existingBarcodeData.scanCount || 1) + 1,
+                    lastAttemptedBy: userId,
+                    lastAttemptedAt: serverTimestamp(),
+                    duplicateAttempts: (existingBarcodeData.duplicateAttempts || 0) + 1
+                });
+            } catch (updateError) {
+                console.log('Failed to update duplicate attempt:', updateError);
+            }
+
+            // Return detailed duplicate information
+            return {
+                success: false,
+                duplicate: true,
+                error: "This item has already been recycled and cannot be scanned again",
+                duplicateInfo: {
+                    barcode: cleanBarcode,
+                    firstScannedBy: existingBarcodeData.firstScannedBy || existingBarcodeData.userId,
+                    firstScannedAt: existingBarcodeData.timestamp,
+                    materialType: existingBarcodeData.materialType,
+                    itemName: existingBarcodeData.itemName,
+                    scanCount: (existingBarcodeData.scanCount || 1) + 1,
+                    totalAttempts: existingBarcodeData.duplicateAttempts + 1
+                }
+            };
+        }
+
+        // Generate unique scan ID
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substring(2, 8);
+        const scanId = `${userId}_${timestamp}_${randomSuffix}`;
+
+        console.log('✅ New barcode detected - proceeding with scan recording');
+
+        // Create comprehensive scan record
+        const scanRecord = {
+            id: scanId,
+            userId: userId,
+            barcode: cleanBarcode,
+            barcodeType: barcodeType || 'unknown',
+            itemName: `${material.name} Item`,
+            brand: 'User Classified',
+            materialType: materialType,
+            category: materialType,
+            points: material.points,
+            location: scanData.location || null,
+            timestamp: serverTimestamp(),
+            scanMode: 'user_classified',
+            userSelected: true,
+            validated: true,
+            processed: true,
+            sessionId: `session_${timestamp}`,
+            appVersion: '2.0.0',
+            platform: Platform.OS
+        };
+
+        // 🚨 ATOMIC OPERATIONS: All database writes happen together
+        const updates = {};
+
+        // Main scan record
+        updates[`scans/${scanId}`] = scanRecord;
+
+        // 🚨 CRITICAL: Mark this barcode as PERMANENTLY SCANNED
+        updates[`scannedBarcodes/${cleanBarcode}`] = {
+            barcode: cleanBarcode,
+            userId: userId,
+            scanId: scanId,
+            materialType: materialType,
+            itemName: scanRecord.itemName,
+            brand: scanRecord.brand,
+            points: material.points,
+            timestamp: serverTimestamp(),
+            scanMode: 'user_classified',
+            permanentlyScanned: true,
+            scanCount: 1,
+            firstScannedBy: userId,
+            duplicateAttempts: 0,
+            createdAt: serverTimestamp()
+        };
+
+        // User scan history
+        updates[`userScans/${userId}/${scanId}`] = {
+            scanId: scanId,
+            barcode: cleanBarcode,
+            itemName: scanRecord.itemName,
+            materialType: materialType,
+            points: material.points,
+            timestamp: serverTimestamp(),
+            userClassified: true
+        };
+
+        // Get current user data
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val() || {};
+
+        const currentPoints = userData.points || 0;
+        const currentLevel = userData.level || 1;
+        const currentScans = userData.totalScans || 0;
+
+        const newPoints = currentPoints + material.points;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+        const newTotalScans = currentScans + 1;
+
+        // User stats update
+        updates[`users/${userId}/points`] = newPoints;
+        updates[`users/${userId}/level`] = newLevel;
+        updates[`users/${userId}/totalScans`] = newTotalScans;
+        updates[`users/${userId}/lastScanDate`] = new Date().toISOString();
+        updates[`users/${userId}/updatedAt`] = serverTimestamp();
+
+        // 🚨 EXECUTE ALL UPDATES ATOMICALLY
+        console.log('💾 Executing atomic database updates...');
+        await update(ref(database), updates);
+
+        console.log('✅ PERMANENT TRACKING: Scan recorded successfully');
+        console.log('🔒 Barcode permanently locked:', cleanBarcode);
+
+        // Check achievements after successful recording
+        const newAchievements = await checkAndAwardAchievements(userId, {
+            totalScans: newTotalScans,
+            points: newPoints,
+            level: newLevel
+        });
+
+        // Streak tracking
+        const newStreak = await checkAndUpdateStreak(userId);
+
+        // Send notifications (non-blocking)
+        Promise.all([
+            sendAchievementNotifications(userId, newAchievements),
+            handleLevelUpNotifications(userId, currentLevel, newLevel),
+            sendMilestoneNotifications(userId, newTotalScans, newPoints)
+        ]).catch(error => {
+            console.log('⚠️ Notification sending failed (non-critical):', error);
+        });
+
+        return {
+            success: true,
+            points: material.points,
+            newTotalPoints: newPoints,
+            newLevel: newLevel,
+            newTotalScans: newTotalScans,
+            newAchievements: newAchievements,
+            scanId: scanId,
+            itemName: scanRecord.itemName,
+            materialType: materialType,
+            userClassified: true,
+            leveledUp: newLevel > currentLevel,
+            currentStreak: newStreak,
+            firstTimeScanned: true,
+            permanentlyLocked: true
+        };
+
+    } catch (error) {
+        console.error("❌ PERMANENT TRACKING ERROR:", error);
+        return {
+            success: false,
+            error: error.message || 'Unknown error occurred',
+            technical: true
+        };
+    }
+};
+
+// =====================================
 // ENHANCED BARCODE VALIDATION SYSTEM
 // =====================================
 
@@ -194,11 +391,6 @@ const isValidBarcodeFormat = (barcode, type) => {
 };
 
 // =====================================
-// ENHANCED SCAN RECORDING SYSTEM
-// =====================================
-
-
-// =====================================
 // NOTIFICATION HELPER FUNCTIONS
 // =====================================
 
@@ -274,10 +466,94 @@ const sendMilestoneNotifications = async (userId, totalScans, totalPoints) => {
 };
 
 // =====================================
+// DUPLICATE TRACKING HELPERS
+// =====================================
+
+// Enhanced duplicate attempt recording
+export const recordDuplicateAttempt = async (barcode, userId) => {
+    try {
+        const barcodeRef = ref(database, `scannedBarcodes/${barcode.trim()}`);
+        const snapshot = await get(barcodeRef);
+
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            await update(barcodeRef, {
+                scanCount: (data.scanCount || 1) + 1,
+                lastAttemptedBy: userId,
+                lastAttemptedAt: serverTimestamp(),
+                duplicateAttempts: (data.duplicateAttempts || 0) + 1
+            });
+
+            console.log('📊 Duplicate scan attempt recorded');
+        }
+    } catch (error) {
+        console.log('⚠️ Error recording duplicate attempt:', error);
+    }
+};
+
+// Get barcode history for debugging
+export const getBarcodeHistory = async (barcode) => {
+    try {
+        const cleanBarcode = barcode.trim();
+        const barcodeRef = ref(database, `scannedBarcodes/${cleanBarcode}`);
+        const snapshot = await get(barcodeRef);
+
+        if (snapshot.exists()) {
+            return { success: true, data: snapshot.val() };
+        }
+
+        return { success: false, error: 'Barcode not found in scan history' };
+    } catch (error) {
+        console.error('❌ Error getting barcode history:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Admin tool: Reset a barcode (emergency use only)
+export const resetBarcodeForAdmin = async (barcode, adminUserId) => {
+    try {
+        if (!__DEV__) {
+            return { success: false, error: 'Development/Admin mode only' };
+        }
+
+        const cleanBarcode = barcode.trim();
+        const barcodeRef = ref(database, `scannedBarcodes/${cleanBarcode}`);
+
+        // Record the reset action for audit trail
+        const resetHistoryRef = ref(database, `adminActions/barcodeResets`);
+        const newResetRef = push(resetHistoryRef);
+        await set(newResetRef, {
+            barcode: cleanBarcode,
+            resetBy: adminUserId,
+            resetAt: serverTimestamp(),
+            resetReason: 'Admin override'
+        });
+
+        // Remove the barcode so it can be scanned again
+        await remove(barcodeRef);
+
+        console.log('🔧 Admin reset barcode:', cleanBarcode);
+        return { success: true, message: 'Barcode reset - can be scanned again' };
+    } catch (error) {
+        console.error('❌ Error resetting barcode:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// =====================================
+// LEGACY COMPATIBILITY - Keep Original Functions
+// =====================================
+
+export const recordScan = async (userId, scanData) => {
+    // Redirect to the new enhanced function
+    console.log('🔄 Legacy recordScan called - redirecting to enhanced version');
+    return await recordScanWithNotifications(userId, scanData);
+};
+
+// =====================================
 // ACHIEVEMENT SYSTEM
 // =====================================
 
-// Comprehensive achievement checking
 export const checkAndAwardAchievements = async (userId, stats) => {
     try {
         const userRef = ref(database, `users/${userId}`);
@@ -533,7 +809,6 @@ export const addToQueue = async (scanData) => {
             maxRetries: 3
         };
 
-        // Store in your offline queue system
         return { success: true, queueId: queueItem.id };
     } catch (error) {
         console.error('❌ Error adding to offline queue:', error);
@@ -542,82 +817,7 @@ export const addToQueue = async (scanData) => {
 };
 
 // =====================================
-// ORIGINAL SCAN FUNCTION - KEEP FOR COMPATIBILITY
-// =====================================
-
-export const recordScan = async (userId, scanData) => {
-    try {
-        console.log('🔄 Recording scan for user:', userId);
-
-        const { barcode, materialType, points, location, itemName, brand, barcodeType } = scanData;
-        const scanId = `${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-        const scanRef = ref(database, `scans/${scanId}`);
-        const scanRecord = {
-            id: scanId,
-            userId: userId,
-            barcode: barcode,
-            barcodeType: barcodeType || 'unknown',
-            itemName: itemName || 'Unknown Item',
-            brand: brand || 'Unknown Brand',
-            materialType: materialType,
-            points: points,
-            location: location || null,
-            timestamp: serverTimestamp(),
-            validated: true,
-            processed: true
-        };
-
-        await set(scanRef, scanRecord);
-
-        const userScanRef = ref(database, `userScans/${userId}/${scanId}`);
-        await set(userScanRef, {
-            scanId: scanId,
-            barcode: barcode,
-            itemName: itemName || 'Unknown Item',
-            brand: brand || 'Unknown Brand',
-            materialType: materialType,
-            points: points,
-            timestamp: serverTimestamp(),
-            validated: true
-        });
-
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val() || {};
-
-        const newPoints = (userData.points || 0) + points;
-        const newLevel = Math.floor(newPoints / 100) + 1;
-        const newTotalScans = (userData.totalScans || 0) + 1;
-
-        await update(userRef, {
-            points: newPoints,
-            level: newLevel,
-            totalScans: newTotalScans,
-            lastScanDate: new Date().toISOString(),
-            updatedAt: serverTimestamp()
-        });
-
-        console.log('✅ Scan recorded successfully');
-        return {
-            success: true,
-            points: points,
-            newTotalPoints: newPoints,
-            newLevel: newLevel,
-            newTotalScans: newTotalScans,
-            scanId: scanId,
-            itemName: itemName || 'Unknown Item',
-            materialType: materialType
-        };
-
-    } catch (error) {
-        console.error("❌ Error recording scan:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-// =====================================
-// USER PROFILE OPERATIONS - KEEP ALL EXISTING
+// USER PROFILE OPERATIONS
 // =====================================
 
 export const createUserProfile = async (userId, userData) => {
@@ -806,7 +1006,7 @@ export const getUserScans = async (userId, limit = 10) => {
 };
 
 // =====================================
-// LEADERBOARD & REWARDS - KEEP ALL EXISTING
+// ALL YOUR EXISTING FUNCTIONS - UNCHANGED
 // =====================================
 
 export const getLeaderboard = async (limit = 50) => {
@@ -963,7 +1163,7 @@ export const initializeRewards = async () => {
 };
 
 // =====================================
-// VOUCHER SYSTEM - KEEP ALL EXISTING
+// VOUCHER SYSTEM
 // =====================================
 
 export const generateVoucherCode = () => {
@@ -1096,7 +1296,7 @@ export const getUserVouchers = async (userId) => {
 };
 
 // =====================================
-// STAFF FUNCTIONS - KEEP ALL EXISTING
+// STAFF FUNCTIONS
 // =====================================
 
 export const redeemVoucherByStaff = async (voucherCode, staffId, staffName) => {
@@ -1302,7 +1502,7 @@ export const getStaffRedemptionHistory = async (staffId, limit = 50) => {
 };
 
 // =====================================
-// ADMIN FUNCTIONS - KEEP ALL EXISTING
+// ADMIN FUNCTIONS
 // =====================================
 
 export const getAllUsers = async () => {
@@ -1408,7 +1608,7 @@ export const changeUserRole = async (userId, newRole) => {
 };
 
 // =====================================
-// UTILITY FUNCTIONS - KEEP ALL EXISTING
+// UTILITY AND HELPER FUNCTIONS
 // =====================================
 
 const getTimeAgo = (dateString) => {
@@ -1590,248 +1790,3 @@ export const uploadProfileImage = async (userId, imageUri) => {
         return { success: false, error: error.message };
     }
 };
-
-
-// ENHANCED: Record scan with PERMANENT barcode tracking
-export const recordScanWithNotifications = async (userId, scanData) => {
-    try {
-        console.log('🔄 Processing scan with permanent barcode tracking...');
-
-        const { barcode, barcodeType, materialType } = scanData;
-        const material = MATERIAL_TYPES[materialType];
-
-        if (!material) {
-            throw new Error("Invalid material type selected");
-        }
-
-        if (!barcode || barcode.trim().length < 3) {
-            throw new Error("Invalid barcode format");
-        }
-
-        const cleanBarcode = barcode.trim();
-
-        // ENHANCED: Check if this EXACT barcode has EVER been scanned by ANYONE
-        console.log('🔍 Checking barcode history for permanent tracking...');
-        const scannedBarcodesRef = ref(database, 'scannedBarcodes');
-        const barcodeSnapshot = await get(ref(database, `scannedBarcodes/${cleanBarcode}`));
-
-        if (barcodeSnapshot.exists()) {
-            const existingBarcodeData = barcodeSnapshot.val();
-            console.log('❌ Barcode already scanned permanently:', existingBarcodeData);
-
-            // This barcode has been scanned before - return detailed duplicate info
-            return {
-                success: false,
-                duplicate: true,
-                error: "This item has already been recycled and cannot be scanned again",
-                duplicateInfo: {
-                    barcode: cleanBarcode,
-                    firstScannedBy: existingBarcodeData.userId,
-                    firstScannedAt: existingBarcodeData.timestamp,
-                    materialType: existingBarcodeData.materialType,
-                    itemName: existingBarcodeData.itemName,
-                    scanCount: existingBarcodeData.scanCount || 1
-                }
-            };
-        }
-
-        // Generate unique scan ID
-        const timestamp = Date.now();
-        const randomSuffix = Math.random().toString(36).substring(2, 8);
-        const scanId = `${userId}_${timestamp}_${randomSuffix}`;
-
-        // Create comprehensive scan record
-        const scanRecord = {
-            id: scanId,
-            userId: userId,
-            barcode: cleanBarcode,
-            barcodeType: barcodeType || 'unknown',
-            itemName: `${material.name} Item`,
-            brand: 'User Classified',
-            materialType: materialType,
-            category: materialType,
-            points: material.points,
-            location: scanData.location || null,
-            timestamp: serverTimestamp(),
-            scanMode: 'user_classified',
-            userSelected: true,
-            validated: true,
-            processed: true,
-            sessionId: `session_${timestamp}`,
-            appVersion: '2.0.0',
-            platform: Platform.OS
-        };
-
-        // ENHANCED: Atomic operations with permanent barcode tracking
-        const updates = {};
-
-        // Main scan record
-        updates[`scans/${scanId}`] = scanRecord;
-
-        // CRITICAL: Record this barcode as permanently scanned
-        updates[`scannedBarcodes/${cleanBarcode}`] = {
-            barcode: cleanBarcode,
-            userId: userId,
-            scanId: scanId,
-            materialType: materialType,
-            itemName: scanRecord.itemName,
-            brand: scanRecord.brand,
-            points: material.points,
-            timestamp: serverTimestamp(),
-            scanMode: 'user_classified',
-            permanentlyScanned: true,
-            scanCount: 1, // Track how many times this was attempted
-            firstScannedBy: userId
-        };
-
-        // User scan history
-        updates[`userScans/${userId}/${scanId}`] = {
-            scanId: scanId,
-            barcode: cleanBarcode,
-            itemName: scanRecord.itemName,
-            materialType: materialType,
-            points: material.points,
-            timestamp: serverTimestamp(),
-            userClassified: true
-        };
-
-        // Get current user data
-        const userRef = ref(database, `users/${userId}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val() || {};
-
-        const currentPoints = userData.points || 0;
-        const currentLevel = userData.level || 1;
-        const currentScans = userData.totalScans || 0;
-
-        const newPoints = currentPoints + material.points;
-        const newLevel = Math.floor(newPoints / 100) + 1;
-        const newTotalScans = currentScans + 1;
-
-        // User stats update
-        updates[`users/${userId}/points`] = newPoints;
-        updates[`users/${userId}/level`] = newLevel;
-        updates[`users/${userId}/totalScans`] = newTotalScans;
-        updates[`users/${userId}/lastScanDate`] = new Date().toISOString();
-        updates[`users/${userId}/updatedAt`] = serverTimestamp();
-
-        // Apply all updates atomically
-        await update(ref(database), updates);
-
-        console.log('✅ Scan recorded with permanent barcode tracking');
-
-        // Check achievements after successful recording
-        const newAchievements = await checkAndAwardAchievements(userId, {
-            totalScans: newTotalScans,
-            points: newPoints,
-            level: newLevel
-        });
-
-        // Streak tracking
-        const newStreak = await checkAndUpdateStreak(userId);
-
-        // Send notifications (non-blocking)
-        Promise.all([
-            sendAchievementNotifications(userId, newAchievements),
-            handleLevelUpNotifications(userId, currentLevel, newLevel),
-            sendMilestoneNotifications(userId, newTotalScans, newPoints)
-        ]).catch(error => {
-            console.log('⚠️ Notification sending failed (non-critical):', error);
-        });
-
-        return {
-            success: true,
-            points: material.points,
-            newTotalPoints: newPoints,
-            newLevel: newLevel,
-            newTotalScans: newTotalScans,
-            newAchievements: newAchievements,
-            scanId: scanId,
-            itemName: scanRecord.itemName,
-            materialType: materialType,
-            userClassified: true,
-            leveledUp: newLevel > currentLevel,
-            currentStreak: newStreak,
-            firstTimeScanned: true
-        };
-
-    } catch (error) {
-        console.error("❌ Error in scan recording with permanent tracking:", error);
-        return {
-            success: false,
-            error: error.message || 'Unknown error occurred',
-            technical: true
-        };
-    }
-};
-
-// ENHANCED: Handle attempted duplicate scans (increment attempt counter)
-export const recordDuplicateAttempt = async (barcode, userId) => {
-    try {
-        const barcodeRef = ref(database, `scannedBarcodes/${barcode.trim()}`);
-        const snapshot = await get(barcodeRef);
-
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            await update(barcodeRef, {
-                scanCount: (data.scanCount || 1) + 1,
-                lastAttemptedBy: userId,
-                lastAttemptedAt: serverTimestamp(),
-                duplicateAttempts: (data.duplicateAttempts || 0) + 1
-            });
-
-            console.log('📊 Duplicate scan attempt recorded');
-        }
-    } catch (error) {
-        console.log('⚠️ Error recording duplicate attempt:', error);
-    }
-};
-
-// ENHANCED: Get barcode scan history for debugging/admin
-export const getBarcodeHistory = async (barcode) => {
-    try {
-        const cleanBarcode = barcode.trim();
-        const barcodeRef = ref(database, `scannedBarcodes/${cleanBarcode}`);
-        const snapshot = await get(barcodeRef);
-
-        if (snapshot.exists()) {
-            return { success: true, data: snapshot.val() };
-        }
-
-        return { success: false, error: 'Barcode not found in scan history' };
-    } catch (error) {
-        console.error('❌ Error getting barcode history:', error);
-        return { success: false, error: error.message };
-    }
-};
-
-// ADMIN TOOL: Reset a barcode (emergency use only)
-export const resetBarcodeForAdmin = async (barcode, adminUserId) => {
-    try {
-        if (!__DEV__) {
-            return { success: false, error: 'Development/Admin mode only' };
-        }
-
-        const cleanBarcode = barcode.trim();
-        const barcodeRef = ref(database, `scannedBarcodes/${cleanBarcode}`);
-
-        // Record the reset action for audit trail
-        await update(barcodeRef, {
-            resetBy: adminUserId,
-            resetAt: serverTimestamp(),
-            resetCount: 1,
-            status: 'reset_available'
-        });
-
-        // Actually remove it so it can be scanned again
-        await remove(barcodeRef);
-
-        console.log('🔧 Barcode reset by admin:', cleanBarcode);
-        return { success: true, message: 'Barcode reset - can be scanned again' };
-    } catch (error) {
-        console.error('❌ Error resetting barcode:', error);
-        return { success: false, error: error.message };
-    }
-};
-
-
