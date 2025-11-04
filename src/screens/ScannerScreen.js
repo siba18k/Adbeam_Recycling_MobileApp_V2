@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View,
     StyleSheet,
@@ -13,11 +13,13 @@ import {
     ScrollView,
     Modal,
     Platform,
+    AppState,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { addToQueue } from '../services/offlineQueue';
 import { recordScanWithNotifications, MATERIAL_TYPES } from '../services/database';
@@ -28,6 +30,8 @@ const { width, height } = Dimensions.get('window');
 
 export default function ScannerScreen({ navigation }) {
     const [permission, requestPermission] = useCameraPermissions();
+
+    // Core scanner states
     const [scanned, setScanned] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [flashOn, setFlashOn] = useState(false);
@@ -36,40 +40,207 @@ export default function ScannerScreen({ navigation }) {
     const [scanCount, setScanCount] = useState(0);
     const [soundEnabled, setSoundEnabled] = useState(true);
 
+    // Camera lifecycle management
+    const [isCameraActive, setIsCameraActive] = useState(true);
+    const [cameraKey, setCameraKey] = useState(0);
+    const [isScreenFocused, setIsScreenFocused] = useState(true);
+    const [appState, setAppState] = useState(AppState.currentState);
+    const [scannerReady, setScannerReady] = useState(false);
+
     const { user, refreshUserProfile, userProfile } = useAuth();
 
-    // Animation refs
+    // Animation and timer refs
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scanAnimation = useRef(new Animated.Value(0)).current;
     const materialModalAnim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
+    const resetTimeoutRef = useRef(null);
+    const animationCleanupRef = useRef([]);
 
+    // BULLETPROOF: Multiple reset mechanisms
+    useFocusEffect(
+        useCallback(() => {
+            console.log('📱 Scanner screen focused - initiating full reset');
+            setIsScreenFocused(true);
+
+            // Force camera reset with new key
+            setCameraKey(prev => prev + 1);
+
+            // Complete state reset
+            hardResetScanner();
+
+            // Initialize scanner after short delay
+            const initTimeout = setTimeout(() => {
+                initializeScanner();
+            }, 500);
+
+            return () => {
+                console.log('📱 Scanner screen unfocused - cleaning up');
+                setIsScreenFocused(false);
+                setScannerReady(false);
+                cleanupAnimations();
+
+                if (initTimeout) {
+                    clearTimeout(initTimeout);
+                }
+            };
+        }, [])
+    );
+
+    // App state change handler
     useEffect(() => {
-        startAnimations();
-        return () => {
-            // Cleanup animations on unmount
-            scanAnimation.stopAnimation();
-            pulseAnim.stopAnimation();
+        const handleAppStateChange = (nextAppState) => {
+            console.log('📱 App state changed:', appState, '→', nextAppState);
+            setAppState(nextAppState);
+
+            if (nextAppState === 'active' && isScreenFocused) {
+                // App became active - reset camera
+                setTimeout(() => {
+                    forceResetCamera();
+                }, 300);
+            } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+                // App went to background - pause scanner
+                setScannerReady(false);
+                cleanupAnimations();
+            }
         };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+        return () => subscription?.remove();
+    }, [isScreenFocused, appState]);
+
+    // Camera activation effect
+    useEffect(() => {
+        if (isScreenFocused && appState === 'active') {
+            const activationTimeout = setTimeout(() => {
+                setIsCameraActive(true);
+                setScannerReady(true);
+                initializeScanner();
+            }, 200);
+
+            return () => {
+                if (activationTimeout) {
+                    clearTimeout(activationTimeout);
+                }
+            };
+        } else {
+            setIsCameraActive(false);
+            setScannerReady(false);
+        }
+    }, [isScreenFocused, appState]);
+
+    // Animation restart effect
+    useEffect(() => {
+        if (scannerReady && !scanned && !isProcessing && !showMaterialSelector) {
+            startScanAnimation();
+        } else {
+            stopScanAnimation();
+        }
+    }, [scannerReady, scanned, isProcessing, showMaterialSelector]);
+
+    // BULLETPROOF: Hard reset function
+    const hardResetScanner = useCallback(() => {
+        console.log('🔄 Hard reset scanner - clearing all states');
+
+        // Clear all timeouts
+        if (resetTimeoutRef.current) {
+            clearTimeout(resetTimeoutRef.current);
+            resetTimeoutRef.current = null;
+        }
+
+        // Reset all scanner states
+        setScanned(false);
+        setIsProcessing(false);
+        setShowMaterialSelector(false);
+        setScannedBarcode(null);
+        setIsCameraActive(false);
+        setScannerReady(false);
+
+        // Reset animation values
+        materialModalAnim.setValue(0);
+        fadeAnim.setValue(0);
+        scanAnimation.setValue(0);
+        pulseAnim.setValue(1);
+
+        // Clean up existing animations
+        cleanupAnimations();
     }, []);
 
-    useEffect(() => {
-        // Restart scan animation when scanner is ready
-        if (!scanned && !isProcessing && !showMaterialSelector) {
-            startScanAnimation();
+    // BULLETPROOF: Force camera reset
+    const forceResetCamera = useCallback(() => {
+        console.log('🎥 Force resetting camera component');
+
+        setIsCameraActive(false);
+        setCameraKey(prev => prev + 1);
+
+        setTimeout(() => {
+            setIsCameraActive(true);
+            hardResetScanner();
+
+            setTimeout(() => {
+                initializeScanner();
+            }, 200);
+        }, 100);
+    }, []);
+
+    // Initialize scanner
+    const initializeScanner = useCallback(() => {
+        if (!isScreenFocused || appState !== 'active') return;
+
+        console.log('🚀 Initializing scanner');
+        setScannerReady(false);
+
+        // Start animations
+        startAnimations();
+
+        // Mark scanner as ready
+        setTimeout(() => {
+            setScannerReady(true);
+            console.log('✅ Scanner ready for scanning');
+        }, 800);
+    }, [isScreenFocused, appState]);
+
+    // Cleanup animations
+    const cleanupAnimations = useCallback(() => {
+        console.log('🧹 Cleaning up animations');
+
+        // Stop all running animations
+        try {
+            scanAnimation.stopAnimation();
+            pulseAnim.stopAnimation();
+            fadeAnim.stopAnimation();
+            materialModalAnim.stopAnimation();
+        } catch (error) {
+            console.log('Animation cleanup error:', error);
         }
-    }, [scanned, isProcessing, showMaterialSelector]);
+
+        // Clear animation cleanup array
+        animationCleanupRef.current.forEach(cleanup => {
+            try {
+                cleanup();
+            } catch (error) {
+                console.log('Animation cleanup error:', error);
+            }
+        });
+        animationCleanupRef.current = [];
+    }, []);
 
     const startAnimations = () => {
+        console.log('🎬 Starting entrance animations');
+
+        // Reset animation values
+        fadeAnim.setValue(0);
+        pulseAnim.setValue(1);
+
         // Entrance animation
-        Animated.timing(fadeAnim, {
+        const fadeAnimation = Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 600,
             useNativeDriver: true,
-        }).start();
+        });
 
-        // Pulse animation for scan frame
-        Animated.loop(
+        // Pulse animation
+        const pulseAnimation = Animated.loop(
             Animated.sequence([
                 Animated.timing(pulseAnim, {
                     toValue: 1.02,
@@ -82,12 +253,25 @@ export default function ScannerScreen({ navigation }) {
                     useNativeDriver: true,
                 }),
             ])
-        ).start();
+        );
+
+        fadeAnimation.start();
+        pulseAnimation.start();
+
+        // Store cleanup functions
+        animationCleanupRef.current.push(
+            () => fadeAnimation.stop(),
+            () => pulseAnimation.stop()
+        );
     };
 
     const startScanAnimation = () => {
+        if (!scannerReady || !isScreenFocused) return;
+
+        console.log('📡 Starting scan line animation');
         scanAnimation.setValue(0);
-        Animated.loop(
+
+        const scanLineAnimation = Animated.loop(
             Animated.sequence([
                 Animated.timing(scanAnimation, {
                     toValue: 1,
@@ -100,7 +284,20 @@ export default function ScannerScreen({ navigation }) {
                     useNativeDriver: true,
                 }),
             ])
-        ).start();
+        );
+
+        scanLineAnimation.start();
+
+        // Store cleanup function
+        animationCleanupRef.current.push(() => scanLineAnimation.stop());
+    };
+
+    const stopScanAnimation = () => {
+        try {
+            scanAnimation.stopAnimation();
+        } catch (error) {
+            console.log('Stop scan animation error:', error);
+        }
     };
 
     const playHapticFeedback = async (type = 'light') => {
@@ -137,41 +334,54 @@ export default function ScannerScreen({ navigation }) {
         }
     };
 
-    // Handle barcode scan
+    // BULLETPROOF: Barcode scan handler with multiple safeguards
     const handleBarCodeScanned = async ({ type, data }) => {
-        if (scanned || isProcessing || showMaterialSelector) return;
+        // Multiple guard conditions
+        if (!scannerReady || !isScreenFocused || scanned || isProcessing || showMaterialSelector || !isCameraActive) {
+            console.log('🚫 Scan blocked - scanner not ready or already processing');
+            return;
+        }
 
-        console.log('📷 Barcode scanned:', { type, data });
+        console.log('📷 Processing barcode scan:', { type, data, scannerReady, isScreenFocused });
 
-        // Stop scan animation
-        scanAnimation.stopAnimation();
+        try {
+            // Immediately disable further scanning
+            setScannerReady(false);
+            stopScanAnimation();
 
-        setScannedBarcode({
-            barcode: data,
-            barcodeType: type,
-            timestamp: new Date().toISOString()
-        });
+            setScannedBarcode({
+                barcode: data,
+                barcodeType: type,
+                timestamp: new Date().toISOString()
+            });
 
-        setScanned(true);
-        await playHapticFeedback('light');
+            setScanned(true);
+            await playHapticFeedback('light');
 
-        // Show material selector
-        setShowMaterialSelector(true);
-        Animated.spring(materialModalAnim, {
-            toValue: 1,
-            tension: 100,
-            friction: 8,
-            useNativeDriver: true,
-        }).start();
+            // Show material selector
+            setShowMaterialSelector(true);
+            Animated.spring(materialModalAnim, {
+                toValue: 1,
+                tension: 100,
+                friction: 8,
+                useNativeDriver: true,
+            }).start();
+
+        } catch (error) {
+            console.error('❌ Error in handleBarCodeScanned:', error);
+            // Force reset if scan handling fails
+            forceResetCamera();
+        }
     };
 
     // Process scan with selected material
     const processScanWithMaterial = async (materialType) => {
         if (!scannedBarcode || !materialType || isProcessing) return;
 
+        console.log('⚡ Processing scan with material:', materialType);
         setIsProcessing(true);
 
-        // Close material selector
+        // Close material selector smoothly
         Animated.timing(materialModalAnim, {
             toValue: 0,
             duration: 300,
@@ -197,31 +407,38 @@ export default function ScannerScreen({ navigation }) {
                 userSelected: true
             };
 
-            // Location validation if needed
-            const locationValidation = await validateScanLocation();
-            if (locationValidation.valid) {
-                scanData.location = locationValidation.location;
+            // Location validation (non-blocking)
+            try {
+                const locationValidation = await validateScanLocation();
+                if (locationValidation?.valid) {
+                    scanData.location = locationValidation.location;
+                }
+            } catch (locationError) {
+                console.log('📍 Location validation skipped:', locationError.message);
             }
 
             // Check network status
             const netInfo = await NetInfo.fetch();
 
             if (!netInfo.isConnected) {
+                console.log('📡 Processing offline scan');
                 await addToQueue(scanData);
 
-                // Offline success alert
                 Alert.alert(
-                    '📡 Scan Queued!',
-                    `You're offline! Your ${material.name.toLowerCase()} scan (+${material.points} points) will be processed when you reconnect.\n\nTotal scans this session: ${scanCount + 1}`,
+                    '📡 Scan Queued for Sync!',
+                    `You're offline! Your ${material.name.toLowerCase()} scan (+${material.points} points) is saved and will sync when you reconnect.\n\n✅ Session scans: ${scanCount + 1}`,
                     [
                         {
-                            text: 'Scan Another',
-                            onPress: prepareForNextScan,
+                            text: 'Scan Another Item',
+                            onPress: completeScanAndReset,
                             style: 'default'
                         },
                         {
                             text: 'View Dashboard',
-                            onPress: () => navigation.navigate('Dashboard'),
+                            onPress: () => {
+                                setScanCount(prev => prev + 1);
+                                navigation.navigate('Dashboard');
+                            },
                             style: 'cancel'
                         }
                     ]
@@ -232,6 +449,7 @@ export default function ScannerScreen({ navigation }) {
             }
 
             // Process scan online
+            console.log('🌐 Processing online scan');
             const result = await recordScanWithNotifications(user.uid, scanData);
 
             if (result.success) {
@@ -239,20 +457,23 @@ export default function ScannerScreen({ navigation }) {
                 await refreshUserProfile();
                 await playHapticFeedback('success');
 
-                // Enhanced success alert with all details
+                // Comprehensive success notification
                 const alertTitle = '🎉 Recycling Success!';
                 const achievementBonus = result.newAchievements && result.newAchievements.length > 0 ?
-                    `\n\n🏆 Achievement Unlocked: "${result.newAchievements[0].name}"!\n🌟 Bonus: +${result.newAchievements[0].points} points` : '';
+                    `\n\n🏆 NEW ACHIEVEMENT UNLOCKED!\n"${result.newAchievements[0].name}"\n🌟 Bonus: +${result.newAchievements[0].points} points` : '';
+
+                const levelUpBonus = result.leveledUp ? '\n🚀 LEVEL UP! You reached a new level!' : '';
+                const streakBonus = result.currentStreak > 1 ?
+                    `\n🔥 Daily streak: ${result.currentStreak} day${result.currentStreak > 1 ? 's' : ''}` : '';
 
                 const alertMessage =
-                    `Great job recycling! Here's your impact:\n\n` +
+                    `Awesome recycling! You're making a real environmental impact:\n\n` +
                     `📦 Material: ${material.name}\n` +
                     `⭐ Points Earned: +${result.points}\n` +
-                    `💰 Total Points: ${result.newTotalPoints}\n` +
-                    `📈 Current Level: ${result.newLevel}${result.leveledUp ? ' (LEVEL UP! 🚀)' : ''}\n` +
-                    `♻️ Items Recycled: ${result.newTotalScans}` +
-                    (result.currentStreak > 1 ? `\n🔥 Daily Streak: ${result.currentStreak} days` : '') +
-                    achievementBonus;
+                    `💰 Your Total Points: ${result.newTotalPoints}\n` +
+                    `📈 Current Level: ${result.newLevel}${levelUpBonus}\n` +
+                    `♻️ Total Items Recycled: ${result.newTotalScans}${streakBonus}${achievementBonus}` +
+                    `\n\n🌍 Keep protecting our planet, one scan at a time!`;
 
                 Alert.alert(
                     alertTitle,
@@ -260,7 +481,7 @@ export default function ScannerScreen({ navigation }) {
                     [
                         {
                             text: 'Scan Another Item',
-                            onPress: prepareForNextScan,
+                            onPress: completeScanAndReset,
                             style: 'default'
                         },
                         {
@@ -275,12 +496,12 @@ export default function ScannerScreen({ navigation }) {
                 await playHapticFeedback('error');
 
                 Alert.alert(
-                    '♻️ Already Recycled',
-                    `This item was already scanned recently.\n\nBarcode: ${scannedBarcode.barcode}\nMaterial: ${material.name}\n\nTry scanning a different recyclable item to earn more points!`,
+                    '♻️ Item Already Recycled',
+                    `This barcode was already scanned within the last 24 hours.\n\n📋 Barcode: ${scannedBarcode.barcode}\n📦 Material: ${material.name}\n\n💡 Try scanning a different recyclable item to continue earning points!`,
                     [
                         {
                             text: 'Scan Different Item',
-                            onPress: prepareForNextScan,
+                            onPress: completeScanAndReset,
                             style: 'default'
                         },
                         {
@@ -299,12 +520,12 @@ export default function ScannerScreen({ navigation }) {
             await playHapticFeedback('error');
 
             Alert.alert(
-                '❌ Scan Error',
-                `Failed to process your ${MATERIAL_TYPES[materialType]?.name || 'item'} scan.\n\nError: ${error.message}\n\nPlease try scanning again or contact support if the problem persists.`,
+                '❌ Scan Processing Error',
+                `Failed to process your ${MATERIAL_TYPES[materialType]?.name || 'item'} scan.\n\n⚠️ Error: ${error.message}\n\nDon't worry, you can try again!`,
                 [
                     {
                         text: 'Try Again',
-                        onPress: prepareForNextScan,
+                        onPress: completeScanAndReset,
                         style: 'default'
                     },
                     {
@@ -319,32 +540,42 @@ export default function ScannerScreen({ navigation }) {
         }
     };
 
-    // Prepare scanner for next scan
-    const prepareForNextScan = () => {
-        console.log('🔄 Preparing scanner for next scan...');
+    // BULLETPROOF: Complete scan and reset system
+    const completeScanAndReset = useCallback(() => {
+        console.log('🔄 Complete scan and reset initiated');
 
-        // Reset all states
-        setScanned(false);
-        setIsProcessing(false);
-        setShowMaterialSelector(false);
-        setScannedBarcode(null);
+        // Step 1: Clear timeouts
+        if (resetTimeoutRef.current) {
+            clearTimeout(resetTimeoutRef.current);
+        }
 
-        // Reset animations
-        materialModalAnim.setValue(0);
+        // Step 2: Clean animations
+        cleanupAnimations();
 
-        // Restart scan animation after short delay
-        setTimeout(() => {
-            startScanAnimation();
-        }, 300);
-    };
+        // Step 3: Reset states
+        hardResetScanner();
+
+        // Step 4: Force camera reset
+        setCameraKey(prev => prev + 1);
+
+        // Step 5: Reinitialize after delay
+        resetTimeoutRef.current = setTimeout(() => {
+            if (isScreenFocused && appState === 'active') {
+                setIsCameraActive(true);
+                initializeScanner();
+            }
+        }, 600);
+    }, [isScreenFocused, appState, hardResetScanner, initializeScanner]);
 
     const cancelScan = () => {
+        console.log('❌ Scan cancelled by user');
+
         Animated.timing(materialModalAnim, {
             toValue: 0,
             duration: 300,
             useNativeDriver: true,
         }).start(() => {
-            prepareForNextScan();
+            completeScanAndReset();
         });
     };
 
@@ -354,6 +585,17 @@ export default function ScannerScreen({ navigation }) {
         outputRange: [-120, 120],
     });
 
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            console.log('🧹 Component unmounting - final cleanup');
+            cleanupAnimations();
+            if (resetTimeoutRef.current) {
+                clearTimeout(resetTimeoutRef.current);
+            }
+        };
+    }, []);
+
     // Loading state
     if (!permission) {
         return (
@@ -361,6 +603,7 @@ export default function ScannerScreen({ navigation }) {
                 <LinearGradient colors={['#f0fdf4', '#dcfce7']} style={styles.loadingGradient}>
                     <ActivityIndicator size="large" color="#22c55e" />
                     <Text style={styles.loadingText}>Initializing AdBeam Scanner...</Text>
+                    <Text style={styles.loadingSubtext}>Setting up camera and barcode detection</Text>
                 </LinearGradient>
             </View>
         );
@@ -406,171 +649,234 @@ export default function ScannerScreen({ navigation }) {
     // Main Camera Interface
     return (
         <View style={styles.cameraContainer}>
-            <CameraView
-                style={styles.camera}
-                facing="back"
-                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                barcodeScannerSettings={{
-                    barcodeTypes: [
-                        'ean13', 'ean8', 'upc_a', 'upc_e',
-                        'code39', 'code128', 'qr', 'pdf417',
-                        'codabar', 'itf14', 'aztec', 'datamatrix'
-                    ],
-                }}
-                enableTorch={flashOn}
-            >
-                {/* Camera Overlay */}
-                <View style={styles.cameraOverlay}>
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.7)']}
-                        style={styles.gradientOverlay}
-                    >
-                        {/* Top Status Bar */}
-                        <Animated.View style={[styles.topSection, { opacity: fadeAnim }]}>
-                            <SafeAreaView>
-                                <View style={styles.statusBar}>
-                                    <View style={styles.scannerInfo}>
-                                        <Ionicons name="scan-outline" size={20} color="white" />
-                                        <Text style={styles.scannerTitle}>AdBeam Scanner</Text>
-                                    </View>
+            {/* BULLETPROOF: Camera with lifecycle management */}
+            {isCameraActive && (
+                <CameraView
+                    key={`camera-${cameraKey}-${isScreenFocused}`}
+                    style={styles.camera}
+                    facing="back"
+                    onBarcodeScanned={scannerReady && !scanned ? handleBarCodeScanned : undefined}
+                    barcodeScannerSettings={{
+                        barcodeTypes: [
+                            'ean13', 'ean8', 'upc_a', 'upc_e',
+                            'code39', 'code128', 'qr', 'pdf417',
+                            'codabar', 'itf14', 'aztec', 'datamatrix'
+                        ],
+                    }}
+                    enableTorch={flashOn}
+                />
+            )}
 
-                                    <View style={styles.userStatus}>
-                                        <Ionicons name="star" size={16} color="#fbbf24" />
-                                        <Text style={styles.userPoints}>{userProfile?.points || 0}</Text>
-                                        <Text style={styles.levelBadge}>L{userProfile?.level || 1}</Text>
-                                    </View>
-                                </View>
-                            </SafeAreaView>
-                        </Animated.View>
-
-                        {/* Center Scanning Area */}
-                        <View style={styles.centerSection}>
-                            <Animated.View style={[styles.scanningArea, { opacity: fadeAnim }]}>
-                                <Text style={styles.instructionText}>
-                                    {isProcessing
-                                        ? '🔄 Processing scan...'
-                                        : '📱 Point camera at any barcode or QR code'
-                                    }
-                                </Text>
-
-                                {/* Scan Frame with Animation */}
-                                <Animated.View
-                                    style={[
-                                        styles.scanFrame,
-                                        { transform: [{ scale: pulseAnim }] }
-                                    ]}
-                                >
-                                    {/* Corner indicators */}
-                                    <View style={[styles.corner, styles.topLeft]} />
-                                    <View style={[styles.corner, styles.topRight]} />
-                                    <View style={[styles.corner, styles.bottomLeft]} />
-                                    <View style={[styles.corner, styles.bottomRight]} />
-
-                                    {/* Animated scan line */}
-                                    {!scanned && !isProcessing && (
-                                        <Animated.View
-                                            style={[styles.scanLine, { transform: [{ translateY: scanLineTranslateY }] }]}
-                                        >
-                                            <LinearGradient
-                                                colors={['transparent', '#22c55e', '#22c55eff', '#22c55e', 'transparent']}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 0 }}
-                                                style={styles.scanLineGradient}
-                                            />
-                                        </Animated.View>
-                                    )}
-
-                                    {/* Processing indicator */}
-                                    {isProcessing && (
-                                        <View style={styles.processingContainer}>
-                                            <ActivityIndicator size="large" color="#22c55e" />
-                                            <Text style={styles.processingText}>Processing...</Text>
+            {/* Camera Overlay */}
+            <View style={styles.cameraOverlay}>
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.7)']}
+                    style={styles.gradientOverlay}
+                >
+                    {/* Top Status Bar */}
+                    <Animated.View style={[styles.topSection, { opacity: fadeAnim }]}>
+                        <SafeAreaView>
+                            <View style={styles.statusBar}>
+                                <View style={styles.scannerInfo}>
+                                    <Ionicons name="scan-outline" size={20} color="white" />
+                                    <Text style={styles.scannerTitle}>AdBeam Scanner</Text>
+                                    {!scannerReady && (
+                                        <View style={styles.statusIndicator}>
+                                            <ActivityIndicator size="small" color="#fbbf24" />
+                                            <Text style={styles.statusText}>Initializing...</Text>
                                         </View>
                                     )}
+                                </View>
 
-                                    {/* Scan target dot */}
-                                    {!scanned && !isProcessing && (
-                                        <View style={styles.targetDot} />
-                                    )}
-                                </Animated.View>
+                                <View style={styles.userStatus}>
+                                    <Ionicons name="star" size={16} color="#fbbf24" />
+                                    <Text style={styles.userPoints}>{userProfile?.points || 0}</Text>
+                                    <Text style={styles.levelBadge}>L{userProfile?.level || 1}</Text>
+                                </View>
+                            </View>
+                        </SafeAreaView>
+                    </Animated.View>
 
-                                <Text style={styles.helpText}>
-                                    📋 After scanning, you'll choose the material type
-                                </Text>
+                    {/* Center Scanning Area */}
+                    <View style={styles.centerSection}>
+                        <Animated.View style={[styles.scanningArea, { opacity: fadeAnim }]}>
+                            <Text style={styles.instructionText}>
+                                {!isCameraActive
+                                    ? '📷 Activating camera...'
+                                    : !scannerReady
+                                        ? '⚡ Preparing scanner...'
+                                        : isProcessing
+                                            ? '🔄 Processing scan...'
+                                            : '📱 Point camera at any barcode or QR code'
+                                }
+                            </Text>
 
-                                {/* Scan counter */}
-                                {scanCount > 0 && (
-                                    <Animated.View style={[styles.scanCounter, { opacity: fadeAnim }]}>
-                                        <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                                        <Text style={styles.scanCountText}>
-                                            {scanCount} item{scanCount !== 1 ? 's' : ''} scanned in this session
-                                        </Text>
+                            {/* Scan Frame with Animation */}
+                            <Animated.View
+                                style={[
+                                    styles.scanFrame,
+                                    {
+                                        transform: [{ scale: pulseAnim }],
+                                        opacity: scannerReady && isCameraActive ? 1 : 0.6
+                                    }
+                                ]}
+                            >
+                                {/* Corner indicators */}
+                                <View style={[styles.corner, styles.topLeft]} />
+                                <View style={[styles.corner, styles.topRight]} />
+                                <View style={[styles.corner, styles.bottomLeft]} />
+                                <View style={[styles.corner, styles.bottomRight]} />
+
+                                {/* Animated scan line - only when fully ready */}
+                                {scannerReady && isCameraActive && !scanned && !isProcessing && (
+                                    <Animated.View
+                                        style={[styles.scanLine, { transform: [{ translateY: scanLineTranslateY }] }]}
+                                    >
+                                        <LinearGradient
+                                            colors={['transparent', '#22c55e', '#22c55eff', '#22c55e', 'transparent']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.scanLineGradient}
+                                        />
                                     </Animated.View>
                                 )}
+
+                                {/* Processing indicator */}
+                                {isProcessing && (
+                                    <View style={styles.processingContainer}>
+                                        <ActivityIndicator size="large" color="#22c55e" />
+                                        <Text style={styles.processingText}>Processing...</Text>
+                                    </View>
+                                )}
+
+                                {/* Scanner not ready indicator */}
+                                {!scannerReady && (
+                                    <View style={styles.initializingContainer}>
+                                        <ActivityIndicator size="large" color="#22c55e" />
+                                        <Text style={styles.initializingText}>Getting Ready...</Text>
+                                    </View>
+                                )}
+
+                                {/* Target dot - only when ready */}
+                                {scannerReady && isCameraActive && !scanned && !isProcessing && (
+                                    <View style={styles.targetDot} />
+                                )}
                             </Animated.View>
-                        </View>
 
-                        {/* Bottom Controls */}
-                        <Animated.View style={[styles.bottomSection, { opacity: fadeAnim }]}>
-                            <SafeAreaView>
-                                <View style={styles.controlsContainer}>
-                                    <TouchableOpacity
-                                        style={styles.flashButton}
-                                        onPress={() => {
-                                            setFlashOn(!flashOn);
-                                            playHapticFeedback('light');
-                                        }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <LinearGradient
-                                            colors={flashOn ? ['#fbbf24', '#f59e0b'] : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                                            style={styles.controlButtonGradient}
-                                        >
-                                            <Ionicons name={flashOn ? 'flash' : 'flash-off'} size={24} color="white" />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
+                            <Text style={styles.helpText}>
+                                {!scannerReady
+                                    ? '⏳ Preparing scanner for barcode detection...'
+                                    : '📋 After scanning, you\'ll choose the material type'
+                                }
+                            </Text>
 
-                                    <TouchableOpacity
-                                        style={styles.soundButton}
-                                        onPress={() => {
-                                            setSoundEnabled(!soundEnabled);
-                                            playHapticFeedback('light');
-                                        }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <LinearGradient
-                                            colors={soundEnabled ? ['#22c55e', '#16a34a'] : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                                            style={styles.controlButtonGradient}
-                                        >
-                                            <Ionicons
-                                                name={soundEnabled ? 'volume-high' : 'volume-mute'}
-                                                size={20}
-                                                color="white"
-                                            />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
+                            {/* Scan counter */}
+                            {scanCount > 0 && (
+                                <Animated.View style={[styles.scanCounter, { opacity: fadeAnim }]}>
+                                    <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                                    <Text style={styles.scanCountText}>
+                                        {scanCount} item{scanCount !== 1 ? 's' : ''} scanned this session
+                                    </Text>
+                                </Animated.View>
+                            )}
 
-                                    <TouchableOpacity
-                                        style={styles.backButton}
-                                        onPress={() => navigation.navigate('Dashboard')}
-                                        activeOpacity={0.8}
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                                            style={styles.backButtonGradient}
-                                        >
-                                            <Ionicons name="arrow-back" size={20} color="white" />
-                                            <Text style={styles.backButtonText}>Dashboard</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
-                            </SafeAreaView>
+                            {/* Ready indicator */}
+                            {scannerReady && isCameraActive && !scanned && !isProcessing && (
+                                <Animated.View style={[styles.readyIndicator, { opacity: fadeAnim }]}>
+                                    <View style={styles.readyDot} />
+                                    <Text style={styles.readyText}>Scanner Ready</Text>
+                                </Animated.View>
+                            )}
                         </Animated.View>
+                    </View>
+
+                    {/* Bottom Controls */}
+                    <Animated.View style={[styles.bottomSection, { opacity: fadeAnim }]}>
+                        <SafeAreaView>
+                            <View style={styles.controlsContainer}>
+                                <TouchableOpacity
+                                    style={styles.flashButton}
+                                    onPress={() => {
+                                        setFlashOn(!flashOn);
+                                        playHapticFeedback('light');
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <LinearGradient
+                                        colors={flashOn ? ['#fbbf24', '#f59e0b'] : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                                        style={styles.controlButtonGradient}
+                                    >
+                                        <Ionicons name={flashOn ? 'flash' : 'flash-off'} size={24} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.soundButton}
+                                    onPress={() => {
+                                        setSoundEnabled(!soundEnabled);
+                                        playHapticFeedback('light');
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <LinearGradient
+                                        colors={soundEnabled ? ['#22c55e', '#16a34a'] : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                                        style={styles.controlButtonGradient}
+                                    >
+                                        <Ionicons
+                                            name={soundEnabled ? 'volume-high' : 'volume-mute'}
+                                            size={20}
+                                            color="white"
+                                        />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                {/* Reset Button - Emergency fallback */}
+                                <TouchableOpacity
+                                    style={styles.resetButton}
+                                    onPress={forceResetCamera}
+                                    activeOpacity={0.8}
+                                >
+                                    <LinearGradient
+                                        colors={['rgba(239, 68, 68, 0.8)', 'rgba(220, 38, 38, 0.8)']}
+                                        style={styles.controlButtonGradient}
+                                    >
+                                        <Ionicons name="refresh" size={20} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.backButton}
+                                    onPress={() => navigation.navigate('Dashboard')}
+                                    activeOpacity={0.8}
+                                >
+                                    <LinearGradient
+                                        colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                                        style={styles.backButtonGradient}
+                                    >
+                                        <Ionicons name="home" size={20} color="white" />
+                                        <Text style={styles.backButtonText}>Dashboard</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </SafeAreaView>
+                    </Animated.View>
+                </LinearGradient>
+            </View>
+
+            {/* Camera activation overlay */}
+            {!isCameraActive && (
+                <View style={styles.cameraActivationOverlay}>
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.9)']}
+                        style={styles.activationGradient}
+                    >
+                        <ActivityIndicator size="large" color="#22c55e" />
+                        <Text style={styles.activationText}>Activating Camera...</Text>
                     </LinearGradient>
                 </View>
-            </CameraView>
+            )}
 
-            {/* FIXED: Scrollable Material Selection Modal */}
+            {/* FIXED: Fully Scrollable Material Selection Modal */}
             <Modal
                 visible={showMaterialSelector}
                 transparent={true}
@@ -600,7 +906,7 @@ export default function ScannerScreen({ navigation }) {
                                 <Ionicons name="checkmark-circle" size={52} color="#22c55e" />
                             </View>
 
-                            <Text style={styles.modalTitle}>Barcode Scanned Successfully! 📷</Text>
+                            <Text style={styles.modalTitle}>Barcode Detected Successfully! 📷</Text>
                             <Text style={styles.modalSubtitle}>
                                 What type of recyclable material is this item?
                             </Text>
@@ -615,7 +921,7 @@ export default function ScannerScreen({ navigation }) {
                             )}
                         </View>
 
-                        {/* SCROLLABLE Material Options Container */}
+                        {/* SCROLLABLE Material Options */}
                         <View style={styles.materialOptionsWrapper}>
                             <Text style={styles.selectMaterialTitle}>Select Material Type:</Text>
 
@@ -625,6 +931,7 @@ export default function ScannerScreen({ navigation }) {
                                 showsVerticalScrollIndicator={true}
                                 indicatorStyle="default"
                                 bounces={true}
+                                nestedScrollEnabled={true}
                             >
                                 {Object.entries(MATERIAL_TYPES).map(([key, material], index) => (
                                     <TouchableOpacity
@@ -711,9 +1018,27 @@ const styles = StyleSheet.create({
     },
     cameraOverlay: {
         ...StyleSheet.absoluteFillObject,
+        zIndex: 1,
     },
     gradientOverlay: {
         flex: 1,
+    },
+
+    // Camera activation overlay
+    cameraActivationOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 2,
+    },
+    activationGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    activationText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '600',
+        marginTop: 16,
     },
 
     // Loading Screen
@@ -730,6 +1055,13 @@ const styles = StyleSheet.create({
         color: '#22c55e',
         fontWeight: '600',
         marginTop: 16,
+        textAlign: 'center',
+    },
+    loadingSubtext: {
+        fontSize: 14,
+        color: '#16a34a',
+        fontWeight: '500',
+        marginTop: 8,
         textAlign: 'center',
     },
 
@@ -819,6 +1151,17 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    statusIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginLeft: 12,
+    },
+    statusText: {
+        color: '#fbbf24',
+        fontSize: 12,
+        fontWeight: '500',
+    },
     userStatus: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -867,7 +1210,6 @@ const styles = StyleSheet.create({
         elevation: 8,
     },
 
-    // Scan Frame
     scanFrame: {
         width: 280,
         height: 280,
@@ -929,6 +1271,17 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginTop: 16,
     },
+    initializingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    initializingText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 16,
+        opacity: 0.8,
+    },
     targetDot: {
         width: 12,
         height: 12,
@@ -959,10 +1312,31 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 20,
         gap: 6,
+        marginBottom: 12,
     },
     scanCountText: {
         color: 'white',
         fontSize: 13,
+        fontWeight: '600',
+    },
+    readyIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        gap: 6,
+    },
+    readyDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#22c55e',
+    },
+    readyText: {
+        color: '#22c55e',
+        fontSize: 12,
         fontWeight: '600',
     },
 
@@ -986,6 +1360,14 @@ const styles = StyleSheet.create({
         elevation: 8,
     },
     soundButton: {
+        borderRadius: 30,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    resetButton: {
         borderRadius: 30,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 6 },
@@ -1024,11 +1406,12 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // FIXED: Scrollable Material Selection Modal
+    // SCROLLABLE Material Selection Modal
     materialModalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'rgba(0,0,0,0.85)',
         justifyContent: 'flex-end',
+        zIndex: 1000,
     },
     materialModal: {
         backgroundColor: 'white',
@@ -1084,6 +1467,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e5e7eb',
         alignItems: 'center',
+        minWidth: width * 0.6,
     },
     barcodeLabel: {
         color: '#6b7280',
@@ -1096,24 +1480,29 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        textAlign: 'center',
     },
 
     // SCROLLABLE Material Options
     materialOptionsWrapper: {
         paddingHorizontal: 24,
         paddingTop: 16,
+        flex: 1,
     },
     selectMaterialTitle: {
         fontSize: 18,
         fontWeight: '600',
         color: '#374151',
         marginBottom: 16,
+        textAlign: 'left',
     },
     materialScrollContainer: {
-        maxHeight: height * 0.4, // Fixed max height for scrolling
+        maxHeight: height * 0.42,
+        flex: 1,
     },
     materialScrollContent: {
-        paddingBottom: 16,
+        paddingBottom: 20,
+        flexGrow: 1,
     },
     materialOptionButton: {
         borderRadius: 18,
