@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,11 +19,12 @@ import { useAuth } from '../../context/AuthContext';
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation, route }) {
-    const { login } = useAuth();
+    const { login, resetPassword } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
 
     // Animation values
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -123,17 +125,40 @@ export default function LoginScreen({ navigation, route }) {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            alert('Please fill in all fields');
+            Alert.alert('Missing info', 'Please fill in all fields');
             return;
         }
 
         setLoading(true);
         try {
-            await login(email, password);
+            const res = await login(email, password);
+            if (res && res.success === false && res.error) {
+                Alert.alert('Login failed', res.error);
+            }
         } catch (error) {
-            alert(error.message);
+            Alert.alert('Login failed', error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email) {
+            Alert.alert('Email required', 'Enter your email above, then tap "Reset Password".');
+            return;
+        }
+        setResetLoading(true);
+        try {
+            const result = await resetPassword(email);
+            if (result.success) {
+                Alert.alert('Email sent', 'Check your inbox for a password reset link.');
+            } else {
+                Alert.alert('Reset failed', result.error || 'Could not send reset email.');
+            }
+        } catch (e) {
+            Alert.alert('Reset failed', e.message);
+        } finally {
+            setResetLoading(false);
         }
     };
 
@@ -241,12 +266,13 @@ export default function LoginScreen({ navigation, route }) {
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
                                 >
-                                    {loading ? (
-                                        <Text style={styles.buttonText}>Logging in...</Text>
-                                    ) : (
-                                        <Text style={styles.buttonText}>Login</Text>
-                                    )}
+                                    <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
                                 </LinearGradient>
+                            </TouchableOpacity>
+
+                            {/* Forgot Password */}
+                            <TouchableOpacity onPress={handleForgotPassword} disabled={resetLoading} style={{ marginTop: 12 }}>
+                                <Text style={styles.forgotText}>{resetLoading ? 'Sending reset email...' : 'Forgot Password?'}</Text>
                             </TouchableOpacity>
 
                             {/* Divider */}
@@ -401,6 +427,11 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    forgotText: {
+        color: '#145a32',
+        fontWeight: '700',
+        textDecorationLine: 'underline',
     },
     divider: {
         flexDirection: 'row',

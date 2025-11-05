@@ -75,6 +75,14 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
+    useEffect(() => {
+        if (userProfile && user) {
+            // Initialize notifications for the user
+            initializeNotifications(user.uid).catch(error => {
+                console.log('⚠️ Notification initialization failed:', error);
+            });
+        }
+    }, [userProfile, user]);
     // Update the setupRealtimeProfileListener function:
     const setupRealtimeProfileListener = async (userId) => {
         try {

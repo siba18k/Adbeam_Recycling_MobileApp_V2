@@ -41,6 +41,7 @@ import RewardsScreen from './src/screens/RewardsScreen';
 import RewardDetailScreen from './src/screens/RewardDetailScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 // Admin/Staff Screens
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
@@ -50,7 +51,6 @@ import StaffScannerScreen from './src/screens/StaffScannerScreen';
 // Settings Screens
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacyScreen from './src/screens/PrivacyScreen';
-import NotificationsScreen from './src/screens/NotificationsScreen';
 import AchievementsScreen from './src/screens/AchievementsScreen';
 
 const Stack = createStackNavigator();
@@ -369,6 +369,9 @@ function MainTabs() {
                         case 'Vouchers':
                             iconName = focused ? 'qr-code' : 'qr-code-outline';
                             break;
+                        case 'NotificationsTab':
+                            iconName = focused ? 'notifications' : 'notifications-outline';
+                            break;
                         case 'Leaderboard':
                             iconName = focused ? 'trophy' : 'trophy-outline';
                             break;
@@ -411,7 +414,7 @@ function MainTabs() {
                     fontSize: 18,
                 },
                 headerRight: () => {
-                    if (route.name === 'Scanner' || route.name === 'Profile') return null;
+                    if (route.name === 'Scanner' || route.name === 'Profile' || route.name === 'NotificationsTab') return null;
                     return <NotificationButton navigation={navigation} hasUnread={true} userRole="user" />;
                 },
                 headerRightContainerStyle: {
@@ -438,6 +441,11 @@ function MainTabs() {
                 name="Vouchers"
                 component={VouchersScreen}
                 options={{ title: 'Vouchers' }}
+            />
+            <Tab.Screen
+                name="NotificationsTab"
+                component={NotificationsScreen}
+                options={{ title: 'Notifications' }}
             />
             <Tab.Screen
                 name="Leaderboard"
@@ -767,7 +775,7 @@ function AppStack() {
                 <Stack.Screen
                     name="RewardDetail"
                     component={RewardDetailScreen}
-                    options={({ navigation, route }) => {
+                    options={({ navigation }) => {
                         const userRole = userProfile?.role || 'user';
                         const colors = THEME.colors[userRole] || THEME.colors.user;
 
@@ -830,26 +838,10 @@ function AppStack() {
                 />
 
                 {/* Settings and utility screens - Available to all */}
-                <Stack.Screen
-                    name="Settings"
-                    component={SettingsScreen}
-                    options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                    name="Privacy"
-                    component={PrivacyScreen}
-                    options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                    name="Notifications"
-                    component={NotificationsScreen}
-                    options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                    name="Achievements"
-                    component={AchievementsScreen}
-                    options={{ headerShown: false }}
-                />
+                <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Achievements" component={AchievementsScreen} options={{ headerShown: false }} />
             </Stack.Navigator>
         </Animated.View>
     );

@@ -1,0 +1,88 @@
+{
+  "rules": {
+    "notifications": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null"
+      }
+    },
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "scans": {
+      ".read": "auth != null",
+      "$scanId": {
+        ".write": "auth != null"
+      }
+    },
+    "scannedBarcodes": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "userScans": {
+      "$uid": {
+        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'staff'",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "rewards": {
+      ".read": "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$rewardId": {
+        "popularity": {
+          ".write": "auth != null && ( (!data.exists() && newData.isNumber() && newData.val() >= 0) || (data.exists() && data.isNumber() && newData.isNumber() && newData.val() >= data.val()) )"
+        },
+        "lastRedeemedAt": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "redemptions": {
+      "$uid": {
+        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'staff'",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "vouchers": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "userVouchers": {
+      "$uid": {
+        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'staff'",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'staff'"
+      }
+    },
+    "adminActions": {
+      ".read": "root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "bonusEvents": {
+      ".read": "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "events": {
+      ".read": "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "hotelBookings": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "hotels": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "hotelReviews": {
+      ".read": "auth != null",
+      "$reviewId": {
+        ".write": "auth != null"
+      }
+    }
+  }
+}
