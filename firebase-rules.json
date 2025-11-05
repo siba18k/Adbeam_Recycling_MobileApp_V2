@@ -33,7 +33,7 @@
       ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'",
       "$rewardId": {
         "popularity": {
-          ".write": "auth != null && newData.isNumber() && newData.val() >= (data.val() || 0)"
+          ".write": "auth != null && ( (!data.exists() && newData.isNumber() && newData.val() >= 0) || (data.exists() && data.isNumber() && newData.isNumber() && newData.val() >= data.val()) )"
         },
         "lastRedeemedAt": {
           ".write": "auth != null"
