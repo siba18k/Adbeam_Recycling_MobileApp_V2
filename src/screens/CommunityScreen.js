@@ -401,26 +401,6 @@ export default function CommunityScreen({ navigation }) {
                         </View>
                     </View>
 
-                    <View style={styles.pointsContainer}>
-                        <Text style={[styles.playerPoints, isYou && styles.yourPoints]}>
-                            {item.points.toLocaleString()}
-                        </Text>
-                        {item.change && (
-                            <View style={styles.changeIndicator}>
-                                <Ionicons
-                                    name={item.change.startsWith('+') ? "trending-up" : "trending-down"}
-                                    size={10}
-                                    color={item.change.startsWith('+') ? "#10b981" : "#ef4444"}
-                                />
-                                <Text style={[styles.changeText, {
-                                    color: item.change.startsWith('+') ? "#10b981" : "#ef4444"
-                                }]}>
-                                    {item.change}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-
                     {isYou && (
                         <View style={styles.youIndicator}>
                             <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.youIndicatorGradient}>
