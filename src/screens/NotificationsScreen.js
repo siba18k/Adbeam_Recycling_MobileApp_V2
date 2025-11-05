@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, remove } from 'firebase/database';
 import { database } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -38,8 +38,7 @@ export default function NotificationsScreen({ navigation }) {
     });
 
     const [notifications, setNotifications] = useState([]);
-    const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' or 'settings'
-    const [isLoading, setIsLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState('notifications');
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -54,32 +53,15 @@ export default function NotificationsScreen({ navigation }) {
 
         // Entrance animations
         Animated.parallel([
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 700,
-                useNativeDriver: true,
-            }),
-            Animated.spring(slideAnim, {
-                toValue: 0,
-                friction: 6,
-                tension: 40,
-                useNativeDriver: true,
-            }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+            Animated.spring(slideAnim, { toValue: 0, friction: 6, tension: 40, useNativeDriver: true }),
         ]).start();
 
         // Background animations
         Animated.loop(
             Animated.sequence([
-                Animated.timing(pulseAnim, {
-                    toValue: 1.05,
-                    duration: 2000,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseAnim, {
-                    toValue: 1,
-                    duration: 2000,
-                    useNativeDriver: true,
-                }),
+                Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
             ])
         ).start();
 
@@ -88,14 +70,6 @@ export default function NotificationsScreen({ navigation }) {
                 Animated.timing(float1, { toValue: -25, duration: 3500, useNativeDriver: true }),
                 Animated.timing(float1, { toValue: 25, duration: 3500, useNativeDriver: true }),
                 Animated.timing(float1, { toValue: 0, duration: 3500, useNativeDriver: true }),
-            ])
-        ).start();
-
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(float2, { toValue: -20, duration: 4500, useNativeDriver: true }),
-                Animated.timing(float2, { toValue: 20, duration: 4500, useNativeDriver: true }),
-                Animated.timing(float2, { toValue: 0, duration: 4500, useNativeDriver: true }),
             ])
         ).start();
 
@@ -111,18 +85,15 @@ export default function NotificationsScreen({ navigation }) {
                 const list = [];
                 snapshot.forEach((child) => {
                     const n = child.val();
-                    // Map DB notification structure to UI item
                     list.push({
                         id: child.key,
                         title: n.title || 'Notification',
                         message: n.body || n.message || '',
                         read: !!n.read,
-                        // createdAt from serverTimestamp can be number or string; fallback to now
                         timestamp: n.createdAt ? new Date(n.createdAt) : new Date(),
                         category: n.category || 'SYSTEM',
                     });
                 });
-                // newest first
                 list.sort((a, b) => (b.timestamp?.getTime?.() || 0) - (a.timestamp?.getTime?.() || 0));
                 setNotifications(list);
             } else {
@@ -196,38 +167,46 @@ export default function NotificationsScreen({ navigation }) {
         }
     };
 
+    const clearAllNotifications = () => {
+        if (!user) return;
+        Alert.alert(
+            'Clear All Notifications',
+            'This will permanently remove all notifications from your account.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear All',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await remove(ref(database, `notifications/${user.uid}`));
+                            // UI will update via realtime listener
+                        } catch (e) {
+                            Alert.alert('Error', e.message || 'Failed to clear notifications');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const renderNotificationItem = ({ item, index }) => {
         const style = categoryStyle(item.category);
         return (
             <Animated.View
                 style={[
                     styles.notificationItem,
-                    {
-                        opacity: fadeAnim,
-                        transform: [{
-                            translateX: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [index % 2 === 0 ? -30 : 30, 0] })
-                        }],
-                    }
+                    { opacity: fadeAnim, transform: [{ translateX: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [index % 2 === 0 ? -30 : 30, 0] }) }] }
                 ]}
             >
-                <LinearGradient
-                    colors={item.read ? ['#ffffff', '#f9fafb'] : ['#ecfdf5', '#f0fdf4']}
-                    style={styles.notificationItemGradient}
-                >
+                <LinearGradient colors={item.read ? ['#ffffff', '#f9fafb'] : ['#ecfdf5', '#f0fdf4']} style={styles.notificationItemGradient}>
                     <View style={[styles.notificationIcon, { backgroundColor: style.color }]}>
                         <Ionicons name={style.icon} size={20} color="white" />
                     </View>
-
                     <View style={styles.notificationContent}>
-                        <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]}>
-                            {item.title}
-                        </Text>
-                        <Text style={styles.notificationMessage} numberOfLines={2}>
-                            {item.message}
-                        </Text>
-                        <Text style={styles.notificationTime}>
-                            {formatTimestamp(item.timestamp)}
-                        </Text>
+                        <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]}>{item.title}</Text>
+                        <Text style={styles.notificationMessage} numberOfLines={2}>{item.message}</Text>
+                        <Text style={styles.notificationTime}>{formatTimestamp(item.timestamp)}</Text>
                     </View>
                 </LinearGradient>
             </Animated.View>
@@ -253,7 +232,7 @@ export default function NotificationsScreen({ navigation }) {
                         <View style={styles.headerCenter}>
                             <Text style={styles.headerTitle}>Notifications</Text>
                             {unreadCount > 0 && (
-                                <Animated.View style={[styles.headerBadge, { transform: [{ scale: pulseAnim }] }] }>
+                                <Animated.View style={[styles.headerBadge, { transform: [{ scale: pulseAnim }] }]}>
                                     <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.headerBadgeGradient}>
                                         <Text style={styles.headerBadgeText}>{unreadCount}</Text>
                                     </LinearGradient>
@@ -261,11 +240,16 @@ export default function NotificationsScreen({ navigation }) {
                             )}
                         </View>
 
-                        <TouchableOpacity style={styles.tabSwitchButton} onPress={() => setActiveTab(activeTab === 'notifications' ? 'settings' : 'notifications')} activeOpacity={0.7}>
-                            <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                                <Ionicons name={activeTab === 'notifications' ? 'settings' : 'list'} size={20} color="white" />
-                            </Animated.View>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity style={styles.headerIconButton} onPress={clearAllNotifications} activeOpacity={0.7}>
+                                <Ionicons name="trash" size={20} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.tabSwitchButton} onPress={() => setActiveTab(activeTab === 'notifications' ? 'settings' : 'notifications')} activeOpacity={0.7}>
+                                <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                                    <Ionicons name={activeTab === 'notifications' ? 'settings' : 'list'} size={20} color="white" />
+                                </Animated.View>
+                            </TouchableOpacity>
+                        </View>
                     </LinearGradient>
                 </Animated.View>
 
@@ -273,16 +257,7 @@ export default function NotificationsScreen({ navigation }) {
                 {activeTab === 'notifications' ? (
                     <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
                         {notifications.length > 0 ? (
-                            <>
-                                <FlatList
-                                    data={notifications}
-                                    renderItem={renderNotificationItem}
-                                    keyExtractor={(item) => item.id}
-                                    style={styles.notificationsList}
-                                    contentContainerStyle={styles.notificationsListContent}
-                                    showsVerticalScrollIndicator={false}
-                                />
-                            </>
+                            <FlatList data={notifications} renderItem={renderNotificationItem} keyExtractor={(item) => item.id} style={styles.notificationsList} contentContainerStyle={styles.notificationsListContent} showsVerticalScrollIndicator={false} />
                         ) : (
                             <View style={styles.emptyState}>
                                 <LinearGradient colors={['#ffffff', '#f9fafb']} style={styles.emptyStateCard}>
@@ -297,7 +272,6 @@ export default function NotificationsScreen({ navigation }) {
                     </Animated.View>
                 ) : (
                     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                        {/* Settings Section (unchanged UI) */}
                         <LinearGradient colors={['#ffffff', '#f9fafb']} style={[styles.sectionCard, { marginBottom: 20 }]}>
                             <View style={styles.sectionHeader}>
                                 <Ionicons name="notifications-circle" size={20} color="#f59e0b" />
@@ -362,6 +336,7 @@ const styles = StyleSheet.create({
     headerBadgeGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerBadgeText: { color: 'white', fontSize: 12, fontWeight: '700' },
     tabSwitchButton: { padding: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
+    headerIconButton: { padding: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)' },
     contentContainer: { flex: 1, padding: 16 },
     notificationsList: { flex: 1 },
     notificationsListContent: { paddingBottom: 20 },
