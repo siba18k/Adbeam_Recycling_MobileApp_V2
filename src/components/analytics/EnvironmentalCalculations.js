@@ -123,133 +123,6 @@ export class EnvironmentalCalculator {
   }
 
   /**
-   * Project future impact based on current trends
-   */
-  static projectFutureImpact(historicalData, daysAhead = 30) {
-    if (!historicalData || historicalData.length < 7) {
-      return null;
-    }
-
-    // Calculate average daily recycling rate
-    const totalDays = historicalData.length;
-    const totalRecycled = historicalData.reduce((sum, day) => sum + day.total, 0);
-    const dailyAverage = totalRecycled / totalDays;
-
-    // Calculate trend (simple linear regression)
-    const trend = this.calculateTrend(historicalData);
-    
-    // Project with trend adjustment
-    const projectedTotal = dailyAverage * daysAhead * (1 + trend);
-    
-    // Estimate environmental impact
-    const avgMaterialDistribution = this.calculateAverageMaterialDistribution(historicalData);
-    const projectedImpact = this.calculateTotalImpact(
-      this.distributeItems(projectedTotal, avgMaterialDistribution)
-    );
-
-    return {
-      projectedTotal: Math.round(projectedTotal),
-      projectedImpact,
-      dailyAverage: dailyAverage.toFixed(2),
-      trend: (trend * 100).toFixed(1) + '%',
-      daysAhead
-    };
-  }
-
-  /**
-   * Calculate growth trend
-   */
-  static calculateTrend(data) {
-    if (data.length < 2) return 0;
-
-    const n = data.length;
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-
-    data.forEach((point, index) => {
-      sumX += index;
-      sumY += point.total;
-      sumXY += index * point.total;
-      sumX2 += index * index;
-    });
-
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const avgY = sumY / n;
-    
-    return avgY !== 0 ? slope / avgY : 0;
-  }
-
-  /**
-   * Calculate average material distribution
-   */
-  static calculateAverageMaterialDistribution(historicalData) {
-    const totalCounts = { plastic: 0, aluminum: 0, glass: 0 };
-    
-    historicalData.forEach(day => {
-      totalCounts.plastic += day.plastic || 0;
-      totalCounts.aluminum += day.aluminum || 0;
-      totalCounts.glass += day.glass || 0;
-    });
-
-    const total = Object.values(totalCounts).reduce((sum, val) => sum + val, 0);
-    
-    return {
-      plastic: total > 0 ? totalCounts.plastic / total : 0.33,
-      aluminum: total > 0 ? totalCounts.aluminum / total : 0.33,
-      glass: total > 0 ? totalCounts.glass / total : 0.34
-    };
-  }
-
-  /**
-   * Distribute items according to material distribution
-   */
-  static distributeItems(total, distribution) {
-    return {
-      plastic: Math.round(total * distribution.plastic),
-      aluminum: Math.round(total * distribution.aluminum),
-      glass: Math.round(total * distribution.glass)
-    };
-  }
-
-  /**
-   * Check milestone achievements
-   */
-  static checkMilestones(totalItems) {
-    const milestones = [
-      { items: 10, title: 'Getting Started', emoji: '🌱', reward: 'Eco Beginner Badge' },
-      { items: 50, title: 'Eco Warrior', emoji: '⚡', reward: 'Bronze Medal' },
-      { items: 100, title: 'Century Club', emoji: '💯', reward: 'Silver Medal' },
-      { items: 250, title: 'Quarter Master', emoji: '🏆', reward: 'Gold Medal' },
-      { items: 500, title: 'Half a Thousand', emoji: '🌟', reward: 'Platinum Badge' },
-      { items: 1000, title: 'Recycling Champion', emoji: '👑', reward: 'Diamond Badge' },
-      { items: 2500, title: 'Environmental Hero', emoji: '🦸', reward: 'Elite Status' },
-      { items: 5000, title: 'Planet Protector', emoji: '🌍', reward: 'Legend Status' }
-    ];
-
-    const achieved = milestones.filter(m => totalItems >= m.items);
-    const nextMilestone = milestones.find(m => totalItems < m.items);
-
-    return {
-      achieved,
-      next: nextMilestone,
-      progress: nextMilestone ? 
-        ((totalItems / nextMilestone.items) * 100).toFixed(1) : 100
-    };
-  }
-
-  /**
-   * Format numbers for display
-   */
-  static formatNumber(num) {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-  }
-
-  /**
    * Convert environmental impact to real-world equivalents
    */
   static getRealWorldEquivalents(impact) {
@@ -269,6 +142,30 @@ export class EnvironmentalCalculator {
         phones: (impact.totalEnergy / 0.012).toFixed(0), // Phone charges
         bulbs: (impact.totalEnergy / 0.06).toFixed(0) // Hours of LED bulb
       }
+    };
+  }
+
+  /**
+   * Check milestone achievements
+   */
+  static checkMilestones(totalItems) {
+    const milestones = [
+      { items: 10, title: 'Getting Started', emoji: '🌱', reward: 'Eco Beginner Badge' },
+      { items: 50, title: 'Eco Warrior', emoji: '⚡', reward: 'Bronze Medal' },
+      { items: 100, title: 'Century Club', emoji: '💯', reward: 'Silver Medal' },
+      { items: 250, title: 'Quarter Master', emoji: '🏆', reward: 'Gold Medal' },
+      { items: 500, title: 'Half a Thousand', emoji: '🌟', reward: 'Platinum Badge' },
+      { items: 1000, title: 'Recycling Champion', emoji: '👑', reward: 'Diamond Badge' }
+    ];
+
+    const achieved = milestones.filter(m => totalItems >= m.items);
+    const nextMilestone = milestones.find(m => totalItems < m.items);
+
+    return {
+      achieved,
+      next: nextMilestone,
+      progress: nextMilestone ? 
+        ((totalItems / nextMilestone.items) * 100).toFixed(1) : 100
     };
   }
 }

@@ -12,152 +12,73 @@ import {
   Alert,
   Animated
 } from 'react-native';
-import database from '@react-native-firebase/database';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  ReadableBarChart,
-  ReadableLineChart,
-  ReadablePieChart,
-  ProgressBar,
-  StatCard,
-  TrendIndicator
-} from './ReadableCharts';
-import EnvironmentalCalculator, { MATERIAL_IMPACT } from './EnvironmentalCalculations';
-import CampusComparison from './CampusComparison';
-import ReportGenerator from './ReportGenerator';
+
+// Placeholder for charts while dependencies are being installed
+const PlaceholderChart = ({ title, data }) => (
+  <View style={styles.chartContainer}>
+    <Text style={styles.chartTitle}>{title}</Text>
+    <View style={styles.chartPlaceholder}>
+      <Text style={styles.placeholderText}>📊 Chart will appear here</Text>
+      <Text style={styles.placeholderSubtext}>Install chart dependencies first</Text>
+    </View>
+  </View>
+);
 
 const AnalyticsScreen = ({ userId = 'user123' }) => {
   const [recyclingData, setRecyclingData] = useState({
-    plastic: 0,
-    aluminum: 0,
-    glass: 0
+    plastic: 15,
+    aluminum: 8,
+    glass: 12
   });
-  const [historicalData, setHistoricalData] = useState([]);
-  const [currentImpact, setCurrentImpact] = useState(null);
-  const [streak, setStreak] = useState(0);
-  const [milestones, setMilestones] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTab, setSelectedTab] = useState('overview');
-  const fadeAnim = new Animated.Value(0);
+  const fadeAnim = new Animated.Value(1);
 
-  useEffect(() => {
-    loadData();
-    setupRealtimeListener();
-    
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true
-    }).start();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      // Load cached data first for offline capability
-      const cachedData = await AsyncStorage.getItem(`recycling_data_${userId}`);
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        processRecyclingData(parsed);
-      }
-
-      // Then fetch fresh data
-      await fetchRecyclingData();
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
+  // Mock environmental impact calculation
+  const currentImpact = {
+    totalItems: recyclingData.plastic + recyclingData.aluminum + recyclingData.glass,
+    totalCO2: ((recyclingData.plastic * 0.12) + (recyclingData.aluminum * 0.35) + (recyclingData.glass * 0.18)).toFixed(2),
+    totalWater: ((recyclingData.plastic * 2.3) + (recyclingData.aluminum * 3.1) + (recyclingData.glass * 1.8)).toFixed(2),
+    totalEnergy: ((recyclingData.plastic * 1.8) + (recyclingData.aluminum * 2.8) + (recyclingData.glass * 1.2)).toFixed(2)
   };
 
-  const setupRealtimeListener = () => {
-    const userRef = database().ref(`/users/${userId}/recycling`);
-    
-    userRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        processRecyclingData(data);
-        // Cache data for offline use
-        AsyncStorage.setItem(`recycling_data_${userId}`, JSON.stringify(data));
-      }
-    });
-
-    return () => userRef.off();
-  };
-
-  const fetchRecyclingData = async () => {
-    try {
-      const snapshot = await database()
-        .ref(`/users/${userId}/recycling`)
-        .once('value');
-      
-      const data = snapshot.val() || {};
-      processRecyclingData(data);
-    } catch (error) {
-      console.error('Error fetching recycling data:', error);
-    }
-  };
-
-  const processRecyclingData = (data) => {
-    // Current totals
-    const currentData = {
-      plastic: data.plastic || 0,
-      aluminum: data.aluminum || 0,
-      glass: data.glass || 0
-    };
-    setRecyclingData(currentData);
-
-    // Calculate environmental impact
-    const impact = EnvironmentalCalculator.calculateTotalImpact(currentData);
-    setCurrentImpact(impact);
-
-    // Process historical data
-    const history = data.history || [];
-    setHistoricalData(history);
-
-    // Calculate streak
-    const currentStreak = EnvironmentalCalculator.calculateStreak(history);
-    setStreak(currentStreak);
-
-    // Check milestones
-    const milestoneData = EnvironmentalCalculator.checkMilestones(impact.totalItems);
-    setMilestones(milestoneData);
-  };
+  const streak = 7; // Mock streak data
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchRecyclingData();
-    setRefreshing(false);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   };
 
   const generateReport = () => {
-    if (currentImpact) {
-      ReportGenerator.generatePDFReport({
-        userId,
-        recyclingData,
-        impact: currentImpact,
-        streak,
-        milestones,
-        historicalData
-      });
-    }
+    Alert.alert('Report Generator', 'Report generation will be available once all dependencies are installed.');
   };
 
   const shareImpact = () => {
-    if (currentImpact) {
-      ReportGenerator.shareImpact(currentImpact);
-    }
+    Alert.alert('Share Impact', 'Social sharing will be available once all dependencies are installed.');
   };
+
+  const StatCard = ({ icon, value, label, subtitle, color = '#3B82F6' }) => (
+    <View style={[styles.statCard, { borderLeftColor: color }]}>
+      <Text style={styles.statIcon}>{icon}</Text>
+      <View style={styles.statContent}>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+        {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+      </View>
+    </View>
+  );
 
   const renderOverviewTab = () => (
     <View>
-      {/* Environmental Impact Cards */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>🌍 Your Environmental Impact</Text>
         
         <StatCard
           icon="🌿"
-          value={currentImpact?.totalCO2 || '0.0'}
+          value={currentImpact.totalCO2}
           label="CO₂ Saved"
           subtitle="kg of carbon dioxide"
           color="#10B981"
@@ -165,7 +86,7 @@ const AnalyticsScreen = ({ userId = 'user123' }) => {
 
         <StatCard
           icon="💧"
-          value={currentImpact?.totalWater || '0.0'}
+          value={currentImpact.totalWater}
           label="Water Saved"
           subtitle="liters of clean water"
           color="#3B82F6"
@@ -173,14 +94,13 @@ const AnalyticsScreen = ({ userId = 'user123' }) => {
 
         <StatCard
           icon="⚡"
-          value={currentImpact?.totalEnergy || '0.0'}
+          value={currentImpact.totalEnergy}
           label="Energy Saved"
           subtitle="kilowatt hours"
           color="#F59E0B"
         />
       </View>
 
-      {/* Current Streak */}
       <View style={styles.section}>
         <View style={styles.streakCard}>
           <Text style={styles.streakEmoji}>🔥</Text>
@@ -192,124 +112,35 @@ const AnalyticsScreen = ({ userId = 'user123' }) => {
         </View>
       </View>
 
-      {/* Material Breakdown */}
-      {currentImpact?.breakdown && (
-        <View style={styles.section}>
-          <ReadablePieChart
-            title="Materials Recycled"
-            data={currentImpact.breakdown.map(item => ({
-              label: item.displayName,
-              value: item.count,
-              color: item.color,
-              percentage: ((item.count / currentImpact.totalItems) * 100).toFixed(1)
-            }))}
-          />
-        </View>
-      )}
-
-      {/* Next Milestone */}
-      {milestones?.next && (
-        <View style={styles.section}>
-          <ProgressBar
-            progress={currentImpact?.totalItems || 0}
-            total={milestones.next.items}
-            label={`Next: ${milestones.next.title} ${milestones.next.emoji}`}
-            color="#8B5CF6"
-          />
-          <Text style={styles.milestoneReward}>
-            🎁 Reward: {milestones.next.reward}
-          </Text>
-        </View>
-      )}
+      <View style={styles.section}>
+        <PlaceholderChart title="Materials Recycled" data={recyclingData} />
+      </View>
     </View>
   );
 
   const renderTrendsTab = () => (
     <View>
-      {/* Weekly Trend */}
-      {historicalData.length > 0 && (
-        <View style={styles.section}>
-          <ReadableLineChart
-            title="Recycling Trend (Last 30 Days)"
-            data={historicalData.slice(-30).map(day => day.total || 0)}
-            color="#10B981"
-          />
-        </View>
-      )}
-
-      {/* Material Trends */}
       <View style={styles.section}>
-        <ReadableBarChart
-          title="This Week by Material"
-          data={[
-            recyclingData.plastic || 0,
-            recyclingData.aluminum || 0,
-            recyclingData.glass || 0
-          ]}
-          color="#3B82F6"
-        />
+        <PlaceholderChart title="Recycling Trend (Last 30 Days)" data={[]} />
       </View>
-
-      {/* Real-world Equivalents */}
-      {currentImpact && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🌍 Real-World Impact</Text>
-          {(() => {
-            const equivalents = EnvironmentalCalculator.getRealWorldEquivalents(currentImpact);
-            return (
-              <View>
-                <StatCard
-                  icon="🌳"
-                  value={equivalents.co2.trees}
-                  label="Trees Planted Equivalent"
-                  subtitle="Based on CO₂ saved"
-                  color="#059669"
-                />
-                
-                <StatCard
-                  icon="🚿"
-                  value={equivalents.water.showers}
-                  label="5-Minute Showers"
-                  subtitle="Based on water saved"
-                  color="#0284C7"
-                />
-                
-                <StatCard
-                  icon="💡"
-                  value={equivalents.energy.bulbs}
-                  label="Hours of LED Light"
-                  subtitle="Based on energy saved"
-                  color="#EA580C"
-                />
-              </View>
-            );
-          })()}
-        </View>
-      )}
+      <View style={styles.section}>
+        <PlaceholderChart title="This Week by Material" data={recyclingData} />
+      </View>
     </View>
   );
 
   const renderComparisonTab = () => (
-    <CampusComparison
-      userId={userId}
-      userRecyclingData={{
-        totalItems: currentImpact?.totalItems || 0,
-        impact: currentImpact
-      }}
-    />
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading your analytics...</Text>
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>🏆 Campus Comparison</Text>
+      <View style={styles.comparisonCard}>
+        <Text style={styles.comparisonText}>Loading campus data...</Text>
+        <Text style={styles.comparisonSubtext}>Compare with other users once Firebase is connected</Text>
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Analytics Dashboard</Text>
         <View style={styles.headerActions}>
@@ -322,43 +153,28 @@ const AnalyticsScreen = ({ userId = 'user123' }) => {
         </View>
       </View>
 
-      {/* Tab Navigation */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, selectedTab === 'overview' && styles.tabActive]}
           onPress={() => setSelectedTab('overview')}
         >
-          <Text style={[styles.tabText, selectedTab === 'overview' && styles.tabTextActive]}>
-            Overview
-          </Text>
+          <Text style={[styles.tabText, selectedTab === 'overview' && styles.tabTextActive]}>Overview</Text>
         </TouchableOpacity>
-        
         <TouchableOpacity
           style={[styles.tab, selectedTab === 'trends' && styles.tabActive]}
           onPress={() => setSelectedTab('trends')}
         >
-          <Text style={[styles.tabText, selectedTab === 'trends' && styles.tabTextActive]}>
-            Trends
-          </Text>
+          <Text style={[styles.tabText, selectedTab === 'trends' && styles.tabTextActive]}>Trends</Text>
         </TouchableOpacity>
-        
         <TouchableOpacity
           style={[styles.tab, selectedTab === 'compare' && styles.tabActive]}
           onPress={() => setSelectedTab('compare')}
         >
-          <Text style={[styles.tabText, selectedTab === 'compare' && styles.tabTextActive]}>
-            Compare
-          </Text>
+          <Text style={[styles.tabText, selectedTab === 'compare' && styles.tabTextActive]}>Compare</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScrollView style={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <Animated.View style={{ opacity: fadeAnim }}>
           {selectedTab === 'overview' && renderOverviewTab()}
           {selectedTab === 'trends' && renderTrendsTab()}
@@ -370,133 +186,59 @@ const AnalyticsScreen = ({ userId = 'user123' }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6'
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6'
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280'
-  },
+  container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 50, paddingBottom: 20, backgroundColor: 'white',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937'
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937' },
+  headerActions: { flexDirection: 'row', gap: 12 },
+  actionButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
+  actionButtonText: { fontSize: 18 },
+  tabContainer: { flexDirection: 'row', backgroundColor: 'white', paddingHorizontal: 20, paddingBottom: 16 },
+  tab: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, marginHorizontal: 4 },
+  tabActive: { backgroundColor: '#3B82F6' },
+  tabText: { textAlign: 'center', fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  tabTextActive: { color: 'white' },
+  content: { flex: 1 },
+  section: { padding: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1F2937', marginBottom: 16 },
+  statCard: {
+    flexDirection: 'row', backgroundColor: 'white', borderRadius: 12, padding: 16, marginVertical: 8,
+    borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
   },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  actionButtonText: {
-    fontSize: 18
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingBottom: 16
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginHorizontal: 4
-  },
-  tabActive: {
-    backgroundColor: '#3B82F6'
-  },
-  tabText: {
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280'
-  },
-  tabTextActive: {
-    color: 'white'
-  },
-  content: {
-    flex: 1
-  },
-  section: {
-    padding: 16
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16
-  },
+  statIcon: { fontSize: 32, marginRight: 16 },
+  statContent: { flex: 1 },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: '#1F2937' },
+  statLabel: { fontSize: 14, color: '#6B7280', marginTop: 4 },
+  statSubtitle: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   streakCard: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    flexDirection: 'row', backgroundColor: 'white', borderRadius: 12, padding: 20, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
   },
-  streakEmoji: {
-    fontSize: 48,
-    marginRight: 20
+  streakEmoji: { fontSize: 48, marginRight: 20 },
+  streakContent: { flex: 1 },
+  streakNumber: { fontSize: 36, fontWeight: 'bold', color: '#DC2626' },
+  streakLabel: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 4 },
+  streakSubtext: { fontSize: 14, color: '#6B7280', marginTop: 2 },
+  chartContainer: {
+    backgroundColor: 'white', borderRadius: 12, padding: 16, marginVertical: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
   },
-  streakContent: {
-    flex: 1
+  chartTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937', marginBottom: 16 },
+  chartPlaceholder: {
+    height: 200, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB',
+    borderRadius: 8, borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed'
   },
-  streakNumber: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#DC2626'
+  placeholderText: { fontSize: 16, color: '#6B7280', marginBottom: 8 },
+  placeholderSubtext: { fontSize: 12, color: '#9CA3AF' },
+  comparisonCard: {
+    backgroundColor: 'white', borderRadius: 12, padding: 20, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
   },
-  streakLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 4
-  },
-  streakSubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2
-  },
-  milestoneReward: {
-    fontSize: 14,
-    color: '#8B5CF6',
-    fontWeight: '600',
-    marginTop: 8,
-    textAlign: 'center'
-  }
+  comparisonText: { fontSize: 16, color: '#374151', marginBottom: 8 },
+  comparisonSubtext: { fontSize: 12, color: '#9CA3AF', textAlign: 'center' }
 });
 
 export default AnalyticsScreen;
