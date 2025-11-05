@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// 📊 RELIABLE: Import readable charts
+// 📊 Import readable charts
 import { WeeklyBarChart, MaterialPie, ProgressRing, DataSummaryCard } from '../components/charts/ReadableCharts';
 
 import { useAuth } from '../context/AuthContext';
@@ -27,11 +27,65 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
+// 🏆 ENHANCED: Better Achievement Descriptions
 const PREVIEW_ACHIEVEMENTS = [
-    { id: '1', name: 'First Steps', description: 'Scanned your first item', icon: 'leaf-outline', unlocked: true, date: '2025-10-15', progress: 1.0 },
-    { id: '2', name: 'Getting Started', description: 'Scan 5 items', icon: 'leaf', unlocked: true, date: '2025-10-16', progress: 1.0 },
-    { id: '3', name: 'Eco Apprentice', description: 'Scan 25 items', icon: 'planet', unlocked: true, date: '2025-10-18', progress: 1.0 },
-    { id: '4', name: 'Recycling Pro', description: 'Scan 50 items', icon: 'shield-checkmark', unlocked: false, progress: 0.89 },
+    {
+        id: '1',
+        name: 'First Steps',
+        description: 'Welcome to eco-life! You scanned your very first recyclable item.',
+        icon: 'leaf-outline',
+        unlocked: true,
+        date: '2025-10-15',
+        progress: 1.0,
+        rarity: 'common',
+        points: 10
+    },
+    {
+        id: '2',
+        name: 'Getting Started',
+        description: 'Great momentum! You\'ve successfully scanned 5 different items.',
+        icon: 'leaf',
+        unlocked: true,
+        date: '2025-10-16',
+        progress: 1.0,
+        rarity: 'common',
+        points: 25
+    },
+    {
+        id: '3',
+        name: 'Eco Apprentice',
+        description: 'Impressive dedication! 25 items recycled shows real commitment.',
+        icon: 'planet',
+        unlocked: true,
+        date: '2025-10-18',
+        progress: 1.0,
+        rarity: 'uncommon',
+        points: 50
+    },
+    {
+        id: '4',
+        name: 'Recycling Pro',
+        description: 'Almost there! Just 6 more scans to unlock this prestigious badge.',
+        icon: 'shield-checkmark',
+        unlocked: false,
+        progress: 0.89,
+        rarity: 'rare',
+        points: 100,
+        current: 44,
+        target: 50
+    },
+    {
+        id: '5',
+        name: 'Eco Champion',
+        description: 'The ultimate recycling master - 100 items and counting!',
+        icon: 'trophy',
+        unlocked: false,
+        progress: 0.23,
+        rarity: 'legendary',
+        points: 250,
+        current: 23,
+        target: 100
+    },
 ];
 
 export default function DashboardScreen({ navigation }) {
@@ -320,6 +374,17 @@ export default function DashboardScreen({ navigation }) {
             case 'snow': return 'snow';
             case 'thunderstorm': return 'thunderstorm';
             default: return 'partly-sunny';
+        }
+    };
+
+    // 🎯 RARITY COLORS for achievement styling
+    const getRarityColor = (rarity) => {
+        switch (rarity) {
+            case 'common': return { primary: '#059669', secondary: '#047857' };
+            case 'uncommon': return { primary: '#3b82f6', secondary: '#2563eb' };
+            case 'rare': return { primary: '#8b5cf6', secondary: '#7c3aed' };
+            case 'legendary': return { primary: '#f59e0b', secondary: '#d97706' };
+            default: return { primary: '#6b7280', secondary: '#4b5563' };
         }
     };
 
@@ -670,7 +735,115 @@ export default function DashboardScreen({ navigation }) {
                         </View>
                     </Animated.View>
 
-                    {/* Achievements */}
+                    {/* 🌟 NEW: Community Highlights */}
+                    <Animated.View
+                        style={[
+                            styles.communitySection,
+                            { opacity: fadeAnim, transform: [{ translateY: slideUpAnim }] },
+                        ]}
+                    >
+                        <LinearGradient colors={['#ffffff', '#f0f9ff']} style={styles.communityCard}>
+                            <View style={styles.sectionHeader}>
+                                <Ionicons name="people" size={22} color="#3b82f6" />
+                                <Text style={styles.sectionTitle}>👥 Community Activity</Text>
+                                <TouchableOpacity
+                                    style={styles.viewAllButton}
+                                    activeOpacity={0.7}
+                                    onPress={() => navigation.navigate('Community')}
+                                >
+                                    <Text style={styles.viewAllText}>View All</Text>
+                                    <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Community Stats */}
+                            <View style={styles.communityStats}>
+                                <View style={styles.communityStat}>
+                                    <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.communityStatGradient}>
+                                        <Ionicons name="people" size={20} color="white" />
+                                        <Text style={styles.communityStatValue}>892</Text>
+                                        <Text style={styles.communityStatLabel}>Active Users</Text>
+                                    </LinearGradient>
+                                </View>
+
+                                <View style={styles.communityStat}>
+                                    <LinearGradient colors={['#10b981', '#059669']} style={styles.communityStatGradient}>
+                                        <Ionicons name="flash" size={20} color="white" />
+                                        <Text style={styles.communityStatValue}>3</Text>
+                                        <Text style={styles.communityStatLabel}>Live Challenges</Text>
+                                    </LinearGradient>
+                                </View>
+
+                                <View style={styles.communityStat}>
+                                    <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.communityStatGradient}>
+                                        <Ionicons name="trophy" size={20} color="white" />
+                                        <Text style={styles.communityStatValue}>#8</Text>
+                                        <Text style={styles.communityStatLabel}>Your Rank</Text>
+                                    </LinearGradient>
+                                </View>
+                            </View>
+
+                            {/* Recent Community Activity */}
+                            <View style={styles.recentActivity}>
+                                <Text style={styles.recentActivityTitle}>🔥 Latest Updates</Text>
+
+                                <TouchableOpacity style={styles.activityItem} activeOpacity={0.8}>
+                                    <View style={styles.activityIcon}>
+                                        <Ionicons name="trophy" size={16} color="#f59e0b" />
+                                    </View>
+                                    <View style={styles.activityContent}>
+                                        <Text style={styles.activityText}>Sarah Chen unlocked "Eco Champion"</Text>
+                                        <Text style={styles.activityTime}>2 hours ago</Text>
+                                    </View>
+                                    <View style={styles.activityAction}>
+                                        <Text style={styles.activityActionText}>+24 ❤️</Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.activityItem} activeOpacity={0.8}>
+                                    <View style={styles.activityIcon}>
+                                        <Ionicons name="people" size={16} color="#3b82f6" />
+                                    </View>
+                                    <View style={styles.activityContent}>
+                                        <Text style={styles.activityText}>New "Campus Battle" challenge started</Text>
+                                        <Text style={styles.activityTime}>4 hours ago</Text>
+                                    </View>
+                                    <View style={styles.activityAction}>
+                                        <Text style={styles.activityActionText}>45 joined</Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.activityItem} activeOpacity={0.8}>
+                                    <View style={styles.activityIcon}>
+                                        <Ionicons name="calendar" size={16} color="#10b981" />
+                                    </View>
+                                    <View style={styles.activityContent}>
+                                        <Text style={styles.activityText}>Recycling workshop tomorrow</Text>
+                                        <Text style={styles.activityTime}>6 hours ago</Text>
+                                    </View>
+                                    <View style={styles.activityAction}>
+                                        <Text style={styles.activityActionText}>+50 pts</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Join Community Button */}
+                            <TouchableOpacity
+                                style={styles.joinCommunityButton}
+                                activeOpacity={0.8}
+                                onPress={() => navigation.navigate('Community')}
+                            >
+                                <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.joinCommunityGradient}>
+                                    <Ionicons name="people" size={18} color="white" />
+                                    <Text style={styles.joinCommunityText}>Join Community Discussions</Text>
+                                    <Ionicons name="arrow-forward" size={16} color="white" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </Animated.View>
+
+
+                    {/* 🏆 FIXED: Full-Height Achievements */}
                     <Animated.View
                         style={[
                             styles.achievementsSection,
@@ -691,79 +864,130 @@ export default function DashboardScreen({ navigation }) {
                                 </TouchableOpacity>
                             </View>
 
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
-                                {PREVIEW_ACHIEVEMENTS.map((achievement, index) => (
-                                    <Animated.View
-                                        key={achievement.id}
-                                        style={[
-                                            styles.achievementCard,
-                                            achievement.unlocked ? styles.unlockedAchievement : styles.lockedAchievement,
-                                            {
-                                                opacity: fadeAnim,
-                                                transform: [
-                                                    { scale: achievement.unlocked ? achievementPulse : 1 },
-                                                    {
-                                                        translateY: fadeAnim.interpolate({
-                                                            inputRange: [0, 1],
-                                                            outputRange: [20, 0],
-                                                        }),
-                                                    },
-                                                ],
-                                            },
-                                        ]}
-                                    >
-                                        <LinearGradient
-                                            colors={
-                                                achievement.unlocked
-                                                    ? ['#f59e0b', '#d97706']
-                                                    : ['#e5e7eb', '#d1d5db']
-                                            }
-                                            style={styles.achievementGradient}
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={styles.achievementsScroll}
+                                contentContainerStyle={styles.achievementsContent}
+                            >
+                                {PREVIEW_ACHIEVEMENTS.map((achievement, index) => {
+                                    const rarityColors = getRarityColor(achievement.rarity);
+
+                                    return (
+                                        <Animated.View
+                                            key={achievement.id}
+                                            style={[
+                                                styles.achievementCard,
+                                                achievement.unlocked ? styles.unlockedAchievement : styles.lockedAchievement,
+                                                {
+                                                    opacity: fadeAnim,
+                                                    transform: [
+                                                        { scale: achievement.unlocked ? achievementPulse : 1 },
+                                                        {
+                                                            translateY: fadeAnim.interpolate({
+                                                                inputRange: [0, 1],
+                                                                outputRange: [20, 0],
+                                                            }),
+                                                        },
+                                                    ],
+                                                },
+                                            ]}
                                         >
-                                            <View style={styles.achievementIcon}>
-                                                <Ionicons
-                                                    name={achievement.icon}
-                                                    size={24}
-                                                    color={achievement.unlocked ? 'white' : '#9ca3af'}
-                                                />
-                                                {achievement.unlocked && (
-                                                    <Animated.View style={[styles.achievementGlow, { opacity: glowIntensity }]} />
-                                                )}
-                                            </View>
-                                            <Text style={[
-                                                styles.achievementName,
-                                                { color: achievement.unlocked ? 'white' : '#6b7280' }
-                                            ]}>
-                                                {achievement.name}
-                                            </Text>
-                                            <Text style={[
-                                                styles.achievementDesc,
-                                                { color: achievement.unlocked ? 'rgba(255,255,255,0.9)' : '#9ca3af' }
-                                            ]}>
-                                                {achievement.description}
-                                            </Text>
-
-                                            {/* Progress Ring for locked achievements */}
-                                            {!achievement.unlocked && achievement.progress && (
-                                                <View style={styles.progressContainer}>
-                                                    <ProgressRing
-                                                        progress={achievement.progress}
-                                                        size={36}
-                                                        strokeWidth={3}
-                                                        color="#f59e0b"
-                                                        showPercentage={true}
-                                                    />
+                                            <LinearGradient
+                                                colors={
+                                                    achievement.unlocked
+                                                        ? [rarityColors.primary, rarityColors.secondary]
+                                                        : ['#e5e7eb', '#d1d5db']
+                                                }
+                                                style={styles.achievementGradient}
+                                            >
+                                                {/* Rarity Badge */}
+                                                <View style={styles.rarityBadge}>
+                                                    <Text style={[
+                                                        styles.rarityText,
+                                                        { color: achievement.unlocked ? 'white' : '#9ca3af' }
+                                                    ]}>
+                                                        {achievement.rarity?.toUpperCase() || 'COMMON'}
+                                                    </Text>
                                                 </View>
-                                            )}
 
-                                            {achievement.unlocked && achievement.date && (
-                                                <Text style={styles.achievementDate}>
-                                                    Unlocked {new Date(achievement.date).toLocaleDateString()}
-                                                </Text>
-                                            )}
-                                        </LinearGradient>
-                                    </Animated.View>
-                                ))}
+                                                {/* Achievement Icon */}
+                                                <View style={styles.achievementIconContainer}>
+                                                    <Ionicons
+                                                        name={achievement.icon}
+                                                        size={32}
+                                                        color={achievement.unlocked ? 'white' : '#9ca3af'}
+                                                    />
+                                                    {achievement.unlocked && (
+                                                        <Animated.View style={[styles.achievementGlow, { opacity: glowIntensity }]} />
+                                                    )}
+                                                </View>
+
+                                                {/* Achievement Info */}
+                                                <View style={styles.achievementInfo}>
+                                                    <Text style={[
+                                                        styles.achievementName,
+                                                        { color: achievement.unlocked ? 'white' : '#6b7280' }
+                                                    ]}>
+                                                        {achievement.name}
+                                                    </Text>
+                                                    <Text style={[
+                                                        styles.achievementDesc,
+                                                        { color: achievement.unlocked ? 'rgba(255,255,255,0.9)' : '#9ca3af' }
+                                                    ]}>
+                                                        {achievement.description}
+                                                    </Text>
+                                                </View>
+
+                                                {/* Points Badge */}
+                                                <View style={[
+                                                    styles.pointsBadge,
+                                                    { backgroundColor: achievement.unlocked ? 'rgba(255,255,255,0.2)' : 'rgba(107,114,128,0.2)' }
+                                                ]}>
+                                                    <Ionicons
+                                                        name="star-outline"
+                                                        size={12}
+                                                        color={achievement.unlocked ? 'white' : '#9ca3af'}
+                                                    />
+                                                    <Text style={[
+                                                        styles.pointsText,
+                                                        { color: achievement.unlocked ? 'white' : '#9ca3af' }
+                                                    ]}>
+                                                        +{achievement.points}
+                                                    </Text>
+                                                </View>
+
+                                                {/* Progress Ring for locked achievements */}
+                                                {!achievement.unlocked && achievement.progress && (
+                                                    <View style={styles.progressContainer}>
+                                                        <ProgressRing
+                                                            progress={achievement.progress}
+                                                            size={38}
+                                                            strokeWidth={4}
+                                                            color={rarityColors.primary}
+                                                            showPercentage={true}
+                                                        />
+                                                        {achievement.current && achievement.target && (
+                                                            <Text style={styles.progressText}>
+                                                                {achievement.current}/{achievement.target}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                )}
+
+                                                {/* Unlock date for completed achievements */}
+                                                {achievement.unlocked && achievement.date && (
+                                                    <View style={styles.unlockedContainer}>
+                                                        <Ionicons name="checkmark-circle" size={14} color="rgba(255,255,255,0.8)" />
+                                                        <Text style={styles.achievementDate}>
+                                                            {new Date(achievement.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </LinearGradient>
+                                        </Animated.View>
+                                    );
+                                })}
                             </ScrollView>
                         </LinearGradient>
                     </Animated.View>
@@ -1130,6 +1354,7 @@ const styles = StyleSheet.create({
     actionText: { color: 'white', fontSize: 14, fontWeight: '700' },
     actionSubtext: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '500' },
 
+    // 🏆 FIXED: Achievement Section Styles
     achievementsSection: { marginBottom: 20 },
     achievementsCard: {
         borderRadius: 20,
@@ -1142,41 +1367,148 @@ const styles = StyleSheet.create({
     },
     viewAllButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     viewAllText: { fontSize: 14, fontWeight: '600', color: '#f59e0b' },
-    achievementsScroll: { marginTop: 8 },
+    achievementsScroll: {
+        marginTop: 8,
+    },
+    achievementsContent: {
+        paddingRight: 16, // Add padding to the end
+    },
+
+    // 🚨 FIXED: Achievement Card Dimensions
     achievementCard: {
-        width: 140,
-        marginRight: 12,
-        borderRadius: 16,
+        width: 160, // Increased width
+        marginRight: 14,
+        borderRadius: 18,
         overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 6,
+        height: 180, // Fixed height
     },
-    unlockedAchievement: { shadowColor: '#f59e0b', shadowOpacity: 0.4 },
-    lockedAchievement: { shadowColor: '#9ca3af', shadowOpacity: 0.2 },
-    achievementGradient: { padding: 16, alignItems: 'center', minHeight: 120 },
-    achievementIcon: { position: 'relative', marginBottom: 8 },
+    unlockedAchievement: {
+        shadowColor: '#f59e0b',
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    lockedAchievement: {
+        shadowColor: '#9ca3af',
+        shadowOpacity: 0.2,
+    },
+
+    // 🚨 FIXED: Achievement Gradient - Full Container
+    achievementGradient: {
+        flex: 1, // Use flex: 1 to fill container
+        padding: 16,
+        justifyContent: 'space-between', // Distribute content evenly
+        alignItems: 'center',
+        position: 'relative',
+    },
+
+    // 🚨 NEW: Rarity Badge
+    rarityBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    rarityText: {
+        fontSize: 8,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
+
+    // 🚨 FIXED: Achievement Icon Container
+    achievementIconContainer: {
+        position: 'relative',
+        marginBottom: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 50,
+        height: 50,
+    },
     achievementGlow: {
         position: 'absolute',
-        top: -4,
-        left: -4,
-        right: -4,
-        bottom: -4,
-        borderRadius: 16,
+        top: -6,
+        left: -6,
+        right: -6,
+        bottom: -6,
+        borderRadius: 25,
         backgroundColor: 'rgba(255,255,255,0.3)',
         zIndex: -1,
     },
-    achievementName: { fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
-    achievementDesc: { fontSize: 10, textAlign: 'center', marginBottom: 8 },
+
+    // 🚨 FIXED: Achievement Text Area
+    achievementInfo: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    achievementName: {
+        fontSize: 14,
+        fontWeight: '800',
+        textAlign: 'center',
+        marginBottom: 6,
+        lineHeight: 16,
+    },
+    achievementDesc: {
+        fontSize: 11,
+        textAlign: 'center',
+        lineHeight: 14,
+        marginBottom: 8,
+        paddingHorizontal: 4,
+    },
+
+    // 🚨 NEW: Points Badge
+    pointsBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+        marginBottom: 8,
+    },
+    pointsText: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+
+    // 🚨 FIXED: Progress Container
+    progressContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    progressText: {
+        fontSize: 9,
+        fontWeight: '600',
+        color: '#9ca3af',
+        textAlign: 'center',
+        marginTop: 4,
+    },
+
+    // 🚨 NEW: Unlocked Container
+    unlockedContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+    },
     achievementDate: {
         fontSize: 9,
-        color: 'rgba(255,255,255,0.7)',
-        textAlign: 'center',
-        fontWeight: '500',
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: '600',
     },
-    progressContainer: { alignItems: 'center', marginTop: 8 },
 
     materialSection: { marginBottom: 20 },
     materialCard: {
@@ -1278,4 +1610,89 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
     },
+    // Add these styles to your existing styles object:
+
+// Community Section
+    communitySection: { marginBottom: 20 },
+    communityCard: {
+        borderRadius: 20,
+        padding: 20,
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    communityStats: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    communityStat: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+    communityStatGradient: {
+        padding: 12,
+        alignItems: 'center',
+        gap: 4,
+        minHeight: 80,
+        justifyContent: 'center',
+    },
+    communityStatValue: { fontSize: 16, fontWeight: '800', color: 'white' },
+    communityStatLabel: {
+        fontSize: 9,
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+
+    recentActivity: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    recentActivityTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#374151',
+        marginBottom: 12,
+    },
+    activityItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        gap: 12,
+    },
+    activityIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'white',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    activityContent: { flex: 1 },
+    activityText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+    activityTime: { fontSize: 11, color: '#9ca3af', fontWeight: '500', marginTop: 2 },
+    activityAction: {
+        backgroundColor: '#e5e7eb',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    activityActionText: { fontSize: 11, color: '#6b7280', fontWeight: '600' },
+
+    joinCommunityButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    joinCommunityGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        gap: 8,
+    },
+    joinCommunityText: { color: 'white', fontSize: 14, fontWeight: '700' },
+
 });
