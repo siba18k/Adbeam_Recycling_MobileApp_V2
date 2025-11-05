@@ -103,6 +103,91 @@ export const MATERIAL_TYPES = {
 };
 
 // =====================================
+// ADMIN FUNCTIONS - GRANT TEST POINTS
+// =====================================
+
+export const grantTestPointsToUser = async (adminUserId, targetUserId, pointsToGrant = 500) => {
+    try {
+        console.log('🎯 Admin granting test points:', { adminUserId, targetUserId, pointsToGrant });
+
+        // Verify admin permissions
+        const adminRef = ref(database, `users/${adminUserId}`);
+        const adminSnapshot = await get(adminRef);
+        if (!adminSnapshot.exists() || adminSnapshot.val().role !== 'admin') {
+            return { success: false, error: 'Admin permissions required' };
+        }
+
+        // Get target user
+        const userRef = ref(database, `users/${targetUserId}`);
+        const userSnapshot = await get(userRef);
+        if (!userSnapshot.exists()) {
+            return { success: false, error: 'Target user not found' };
+        }
+
+        const userData = userSnapshot.val();
+        const currentPoints = userData.points || 0;
+        const currentLevel = userData.level || 1;
+
+        const newPoints = currentPoints + pointsToGrant;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+        const leveledUp = newLevel > currentLevel;
+
+        // Update user points and level
+        await update(userRef, {
+            points: newPoints,
+            level: newLevel,
+            updatedAt: serverTimestamp(),
+            lastTestPointsGranted: serverTimestamp(),
+            lastTestPointsBy: adminUserId
+        });
+
+        // Send notification to the user about receiving test points
+        try {
+            await sendNotification(targetUserId, {
+                category: 'SYSTEM',
+                title: 'Test Points Granted! 🎁',
+                body: `An admin has granted you ${pointsToGrant} test points! Your new total is ${newPoints} points (Level ${newLevel}).`,
+                data: {
+                    type: 'test_points_granted',
+                    pointsGranted: pointsToGrant,
+                    newTotal: newPoints,
+                    newLevel: newLevel,
+                    grantedBy: adminUserId,
+                    timestamp: new Date().toISOString()
+                }
+            });
+        } catch (notifError) {
+            console.log('⚠️ Test points granted but notification failed:', notifError);
+        }
+
+        // Send level up notification if leveled up
+        if (leveledUp) {
+            try {
+                const pointsToNext = ((newLevel + 1) * 100) - newPoints;
+                await sendLevelUpNotification(targetUserId, newLevel, pointsToNext);
+            } catch (levelNotifError) {
+                console.log('⚠️ Level up notification failed:', levelNotifError);
+            }
+        }
+
+        console.log('✅ Test points granted successfully');
+        return {
+            success: true,
+            pointsGranted: pointsToGrant,
+            oldPoints: currentPoints,
+            newPoints: newPoints,
+            oldLevel: currentLevel,
+            newLevel: newLevel,
+            leveledUp: leveledUp
+        };
+
+    } catch (error) {
+        console.error('❌ Error granting test points:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// =====================================
 // VOUCHER SYSTEM
 // =====================================
 
@@ -198,29 +283,33 @@ export const redeemRewardWithVoucher = async (userId, rewardId, pointsCost) => {
         updates[`rewards/${rewardId}/lastRedeemedAt`] = serverTimestamp();
 
         // Execute all updates atomically
+        console.log('💾 Executing voucher creation updates...');
         await update(ref(database), updates);
+        console.log('✅ Voucher database updates completed');
 
-        // 🚨 NEW: Send voucher created notification
-        try {
-            console.log('📱 Sending voucher created notification to user:', userId);
-            await sendNotification(userId, {
-                category: 'SYSTEM',
-                title: 'Voucher Created! 🎟️',
-                body: `Your "${rewardData.name}" voucher (${pointsCost} pts) is ready! Go to the Vouchers tab and show the QR code to staff to redeem.`,
-                data: {
-                    type: 'voucher_created',
-                    voucherId: voucherId,
-                    rewardId: rewardId,
-                    rewardName: rewardData.name,
-                    pointsCost: pointsCost,
-                    voucherCode: voucherCode,
-                    timestamp: new Date().toISOString()
-                }
-            });
-            console.log('✅ Voucher created notification sent successfully');
-        } catch (notificationError) {
-            console.log('⚠️ Voucher created but notification failed (non-critical):', notificationError.message);
-        }
+        // 🚨 CRITICAL FIX: Use setTimeout to ensure notification is sent AFTER database update completes
+        setTimeout(async () => {
+            try {
+                console.log('📱 Sending voucher created notification to user:', userId);
+                const notificationResult = await sendNotification(userId, {
+                    category: 'SYSTEM',
+                    title: 'Voucher Created! 🎟️',
+                    body: `Your "${rewardData.name}" voucher (${pointsCost} pts) is ready! Go to the Vouchers tab and show the QR code to staff to redeem.`,
+                    data: {
+                        type: 'voucher_created',
+                        voucherId: voucherId,
+                        rewardId: rewardId,
+                        rewardName: rewardData.name,
+                        pointsCost: pointsCost,
+                        voucherCode: voucherCode,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+                console.log('✅ Voucher created notification result:', notificationResult);
+            } catch (notificationError) {
+                console.log('⚠️ Voucher created but notification failed (non-critical):', notificationError);
+            }
+        }, 1000); // 1 second delay to ensure DB writes complete
 
         console.log('✅ Reward redeemed with voucher successfully');
         return {
@@ -336,6 +425,7 @@ export const redeemVoucherByStaff = async (voucherCode, staffId, staffName) => {
         const userSnapshot = await get(userRef);
         const userData = userSnapshot.val();
 
+        // Update voucher status
         const voucherRef = ref(database, `vouchers/${voucherId}`);
         await update(voucherRef, {
             status: 'redeemed',
@@ -393,6 +483,185 @@ export const getRewards = async () => {
         return { success: true, data: [] };
     } catch (error) {
         console.error("❌ Error getting rewards:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const createReward = async (rewardData) => {
+    try {
+        const rewardsRef = ref(database, 'rewards');
+        const newRewardRef = push(rewardsRef);
+
+        const enhancedRewardData = {
+            ...rewardData,
+            popularity: 0,
+            totalRedeemed: 0,
+            lastRedeemedAt: null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        };
+
+        await set(newRewardRef, enhancedRewardData);
+        console.log('✅ Enhanced reward created successfully');
+        return { success: true, id: newRewardRef.key };
+    } catch (error) {
+        console.error("❌ Error creating reward:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const createRewardWithNotification = async (rewardData) => {
+    try {
+        const result = await createReward(rewardData);
+        if (result.success) {
+            // Send notification to active users (simplified for now)
+            console.log('🎁 New reward created with notification capability');
+        }
+        return result;
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const editReward = async (rewardId, updates) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await update(rewardRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const deleteReward = async (rewardId) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await remove(rewardRef);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const toggleRewardAvailability = async (rewardId, newAvailability) => {
+    try {
+        const rewardRef = ref(database, `rewards/${rewardId}`);
+        await update(rewardRef, {
+            available: newAvailability,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const createBonusEvent = async (eventData) => {
+    try {
+        const eventsRef = ref(database, 'bonusEvents');
+        const newEventRef = push(eventsRef);
+        await set(newEventRef, {
+            ...eventData,
+            createdAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// =====================================
+// USER MANAGEMENT
+// =====================================
+
+export const updateUserRole = async (userId, newRole) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            role: newRole,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const deleteUser = async (userId) => {
+    try {
+        const updates = {};
+        updates[`users/${userId}`] = null;
+        updates[`userScans/${userId}`] = null;
+        updates[`userVouchers/${userId}`] = null;
+        await update(ref(database), updates);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const updateUserData = async (userId, updates) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const promoteToStaff = async (userId) => {
+    return await updateUserRole(userId, 'staff');
+};
+
+export const resetUserPoints = async (userId) => {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        await update(userRef, {
+            points: 0,
+            level: 1,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const addTestPoints = async (userId, pointsToAdd) => {
+    try {
+        if (!__DEV__) {
+            return { success: false, error: 'Development mode only' };
+        }
+
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val() || {};
+
+        const currentPoints = userData.points || 0;
+        const newPoints = currentPoints + pointsToAdd;
+        const newLevel = Math.floor(newPoints / 100) + 1;
+
+        await update(userRef, {
+            points: newPoints,
+            level: newLevel,
+            updatedAt: serverTimestamp()
+        });
+
+        return {
+            success: true,
+            pointsAdded: pointsToAdd,
+            newPoints: newPoints,
+            newLevel: newLevel,
+            levelUp: newLevel > userData.level
+        };
+    } catch (error) {
         return { success: false, error: error.message };
     }
 };
@@ -491,19 +760,6 @@ export const recordScanWithNotifications = async (userId, scanData) => {
             const existingBarcodeData = barcodeSnapshot.val();
             console.log('❌ DUPLICATE DETECTED - Barcode already exists:', existingBarcodeData);
 
-            // Record this duplicate attempt
-            try {
-                await update(barcodeRef, {
-                    scanCount: (existingBarcodeData.scanCount || 1) + 1,
-                    lastAttemptedBy: userId,
-                    lastAttemptedAt: serverTimestamp(),
-                    duplicateAttempts: (existingBarcodeData.duplicateAttempts || 0) + 1
-                });
-            } catch (updateError) {
-                console.log('Failed to update duplicate attempt:', updateError);
-            }
-
-            // Return detailed duplicate information
             return {
                 success: false,
                 duplicate: true,
@@ -514,8 +770,7 @@ export const recordScanWithNotifications = async (userId, scanData) => {
                     firstScannedAt: existingBarcodeData.timestamp,
                     materialType: existingBarcodeData.materialType,
                     itemName: existingBarcodeData.itemName,
-                    scanCount: (existingBarcodeData.scanCount || 1) + 1,
-                    totalAttempts: existingBarcodeData.duplicateAttempts + 1
+                    scanCount: (existingBarcodeData.scanCount || 1) + 1
                 }
             };
         }
