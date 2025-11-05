@@ -53,6 +53,10 @@ import PrivacyScreen from './src/screens/PrivacyScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import AchievementsScreen from './src/screens/AchievementsScreen';
 
+// ✅ ADDED: Analytics Components
+import AnalyticsScreen from './src/components/analytics/AnalyticsScreen';
+import AdminAnalytics from './src/components/analytics/AdminAnalytics';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 const { width, height } = Dimensions.get('window');
@@ -347,7 +351,7 @@ function AuthStack() {
     );
 }
 
-// Main Tab Navigator for regular users
+// ✅ UPDATED: Main Tab Navigator with Analytics Tab
 function MainTabs() {
     return (
         <Tab.Navigator
@@ -362,6 +366,9 @@ function MainTabs() {
                             break;
                         case 'Scanner':
                             iconName = focused ? 'scan' : 'scan-outline';
+                            break;
+                        case 'Analytics':
+                            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
                             break;
                         case 'Rewards':
                             iconName = focused ? 'gift' : 'gift-outline';
@@ -429,15 +436,16 @@ function MainTabs() {
                 component={ScannerScreen}
                 options={{ title: 'Scan' }}
             />
+            {/* ✅ ADDED: Analytics Tab */}
+            <Tab.Screen
+                name="Analytics"
+                component={AnalyticsScreen}
+                options={{ title: 'Analytics' }}
+            />
             <Tab.Screen
                 name="Rewards"
                 component={RewardsScreen}
                 options={{ title: 'Rewards' }}
-            />
-            <Tab.Screen
-                name="Vouchers"
-                component={VouchersScreen}
-                options={{ title: 'Vouchers' }}
             />
             <Tab.Screen
                 name="Leaderboard"
@@ -453,7 +461,7 @@ function MainTabs() {
     );
 }
 
-// 🚨 FIXED: Admin Tab Navigator with StaffScanner Access
+// ✅ UPDATED: Admin Tab Navigator with Analytics Access
 function AdminTabs() {
     return (
         <Tab.Navigator
@@ -466,7 +474,10 @@ function AdminTabs() {
                         case 'AdminDashboard':
                             iconName = focused ? 'shield' : 'shield-outline';
                             break;
-                        case 'StaffScanner':  // ✅ ADDED TO ADMIN TABS
+                        case 'AdminAnalytics':
+                            iconName = focused ? 'analytics' : 'analytics-outline';
+                            break;
+                        case 'StaffScanner':
                             iconName = focused ? 'qr-code' : 'qr-code-outline';
                             break;
                         case 'Profile':
@@ -521,7 +532,12 @@ function AdminTabs() {
                 component={AdminDashboardScreen}
                 options={{ title: 'Admin Dashboard' }}
             />
-            {/* 🚨 FIXED: Added StaffScanner to AdminTabs so admins can access it */}
+            {/* ✅ ADDED: Admin Analytics Tab */}
+            <Tab.Screen
+                name="AdminAnalytics"
+                component={AdminAnalytics}
+                options={{ title: 'Analytics' }}
+            />
             <Tab.Screen
                 name="StaffScanner"
                 component={StaffScannerScreen}
@@ -646,7 +662,7 @@ function useRoleBasedAccess() {
     return permissions;
 }
 
-// 🚨 FIXED: Enhanced Main App Stack with SHARED SCREENS
+// Enhanced Main App Stack with SHARED SCREENS
 function AppStack() {
     const { userProfile, user } = useAuth();
     const { isOffline } = useOffline();
@@ -763,7 +779,7 @@ function AppStack() {
                     options={{ headerShown: false }}
                 />
 
-                {/* 🚨 FIXED: SHARED SCREENS - Available to ALL navigators */}
+                {/* SHARED SCREENS - Available to ALL navigators */}
                 <Stack.Screen
                     name="RewardDetail"
                     component={RewardDetailScreen}
@@ -777,54 +793,6 @@ function AppStack() {
                             headerTintColor: '#fff',
                             headerRight: () => <NotificationButton navigation={navigation} hasUnread={false} userRole={userRole} />,
                             headerRightContainerStyle: { paddingRight: 16 },
-                        };
-                    }}
-                />
-
-                {/* 🚨 FIXED: Add StaffScanner as SHARED screen for cross-navigator access */}
-                <Stack.Screen
-                    name="SharedStaffScanner"
-                    component={StaffScannerScreen}
-                    options={({ navigation }) => {
-                        const userRole = userProfile?.role || 'user';
-                        const colors = THEME.colors[userRole] || THEME.colors.user;
-
-                        return {
-                            title: 'Staff Voucher Scanner',
-                            headerStyle: { backgroundColor: colors.primary },
-                            headerTintColor: '#fff',
-                            headerLeft: () => (
-                                <TouchableOpacity
-                                    style={{ marginLeft: 16 }}
-                                    onPress={() => navigation.goBack()}
-                                >
-                                    <Ionicons name="arrow-back" size={24} color="white" />
-                                </TouchableOpacity>
-                            ),
-                        };
-                    }}
-                />
-
-                {/* 🚨 FIXED: Add StaffDashboard as SHARED screen for cross-navigator access */}
-                <Stack.Screen
-                    name="SharedStaffDashboard"
-                    component={StaffDashboardScreen}
-                    options={({ navigation }) => {
-                        const userRole = userProfile?.role || 'user';
-                        const colors = THEME.colors[userRole] || THEME.colors.user;
-
-                        return {
-                            title: 'Staff Dashboard',
-                            headerStyle: { backgroundColor: colors.primary },
-                            headerTintColor: '#fff',
-                            headerLeft: () => (
-                                <TouchableOpacity
-                                    style={{ marginLeft: 16 }}
-                                    onPress={() => navigation.goBack()}
-                                >
-                                    <Ionicons name="arrow-back" size={24} color="white" />
-                                </TouchableOpacity>
-                            ),
                         };
                     }}
                 />
