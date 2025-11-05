@@ -15,9 +15,10 @@ import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ref, onValue, off, remove } from 'firebase/database';
+import { ref, onValue, off, remove, get, update } from 'firebase/database';
 import { database } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
+import { Swipeable } from 'react-native-gesture-handler';
 
 const { width } = Dimensions.get('window');
 
@@ -180,7 +181,6 @@ export default function NotificationsScreen({ navigation }) {
                     onPress: async () => {
                         try {
                             await remove(ref(database, `notifications/${user.uid}`));
-                            // UI will update via realtime listener
                         } catch (e) {
                             Alert.alert('Error', e.message || 'Failed to clear notifications');
                         }
@@ -190,26 +190,61 @@ export default function NotificationsScreen({ navigation }) {
         );
     };
 
+    const markAllAsRead = async () => {
+        try {
+            if (!user || notifications.length === 0) return;
+            const notifRef = ref(database, `notifications/${user.uid}`);
+            const updates = {};
+            const now = Date.now();
+            notifications.forEach(n => {
+                updates[`notifications/${user.uid}/${n.id}/read`] = true;
+                updates[`notifications/${user.uid}/${n.id}/readAt`] = now;
+            });
+            await update(ref(database), updates);
+        } catch (e) {
+            Alert.alert('Error', e.message || 'Failed to mark all as read');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            if (!user) return;
+            await remove(ref(database, `notifications/${user.uid}/${id}`));
+        } catch (e) {
+            Alert.alert('Error', e.message || 'Failed to delete notification');
+        }
+    };
+
+    const renderRightActions = (item) => (
+        <View style={styles.swipeActionsContainer}>
+            <TouchableOpacity style={styles.swipeDelete} onPress={() => handleDelete(item.id)}>
+                <Ionicons name="trash" size={22} color="#fff" />
+            </TouchableOpacity>
+        </View>
+    );
+
     const renderNotificationItem = ({ item, index }) => {
         const style = categoryStyle(item.category);
         return (
-            <Animated.View
-                style={[
-                    styles.notificationItem,
-                    { opacity: fadeAnim, transform: [{ translateX: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [index % 2 === 0 ? -30 : 30, 0] }) }] }
-                ]}
-            >
-                <LinearGradient colors={item.read ? ['#ffffff', '#f9fafb'] : ['#ecfdf5', '#f0fdf4']} style={styles.notificationItemGradient}>
-                    <View style={[styles.notificationIcon, { backgroundColor: style.color }]}>
-                        <Ionicons name={style.icon} size={20} color="white" />
-                    </View>
-                    <View style={styles.notificationContent}>
-                        <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]}>{item.title}</Text>
-                        <Text style={styles.notificationMessage} numberOfLines={2}>{item.message}</Text>
-                        <Text style={styles.notificationTime}>{formatTimestamp(item.timestamp)}</Text>
-                    </View>
-                </LinearGradient>
-            </Animated.View>
+            <Swipeable renderRightActions={() => renderRightActions(item)} overshootRight={false}>
+                <Animated.View
+                    style={[
+                        styles.notificationItem,
+                        { opacity: fadeAnim, transform: [{ translateX: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [index % 2 === 0 ? -30 : 30, 0] }) }] }
+                    ]}
+                >
+                    <LinearGradient colors={item.read ? ['#ffffff', '#f9fafb'] : ['#ecfdf5', '#f0fdf4']} style={styles.notificationItemGradient}>
+                        <View style={[styles.notificationIcon, { backgroundColor: style.color }]}>
+                            <Ionicons name={style.icon} size={20} color="white" />
+                        </View>
+                        <View style={styles.notificationContent}>
+                            <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]}>{item.title}</Text>
+                            <Text style={styles.notificationMessage} numberOfLines={2}>{item.message}</Text>
+                            <Text style={styles.notificationTime}>{formatTimestamp(item.timestamp)}</Text>
+                        </View>
+                    </LinearGradient>
+                </Animated.View>
+            </Swipeable>
         );
     };
 
@@ -241,6 +276,9 @@ export default function NotificationsScreen({ navigation }) {
                         </View>
 
                         <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity style={styles.headerIconButton} onPress={markAllAsRead} activeOpacity={0.7}>
+                                <Ionicons name="checkmark-done" size={20} color="white" />
+                            </TouchableOpacity>
                             <TouchableOpacity style={styles.headerIconButton} onPress={clearAllNotifications} activeOpacity={0.7}>
                                 <Ionicons name="trash" size={20} color="white" />
                             </TouchableOpacity>
@@ -362,4 +400,6 @@ const styles = StyleSheet.create({
     settingInfo: { flex: 1 },
     settingTitle: { fontSize: 16, fontWeight: '600', color: '#1f2937', marginBottom: 2 },
     settingDescription: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
+    swipeActionsContainer: { justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 16 },
+    swipeDelete: { backgroundColor: '#dc2626', paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 16, borderBottomRightRadius: 16 },
 });
