@@ -510,11 +510,11 @@ eas build --platform ios --profile production
 | Role | Name | Student Number | GitHub |
 |------|------|---------------|--------|
 | **Group Leader & Lead Developer** | ST Dube (Sibahle) | 223003057 | [@siba18k](https://github.com/siba18k) |
-| **Developer** | L Mbokazi | 223153718 | lindilembokazi18 |
-| **Developer** | AD Mnamateli | 223029043 | 0664956876 |
-| **Developer** | NW Dlamini | 224019401 | Nkosilenhle |
+| **Developer** | L Mbokazi | 223153718 | [@lindilembokazi18](https://github.com/lindilembokazi18) |
+| **Developer** | AD Mnamateli | 223029043 | [@0664956876](https://github.com/0664956876) |
+| **Developer** | NW Dlamini | 224019401 | [@Nkosilenhle](https://github.com/Nkosilenhle) |
 | **Developer** | LSM Masalesa (Lebohang) | 223014114 | [@Lebohang01](https://github.com/Lebohang01) |
-| **Developer** | BG Simango | 224095653 | brad1409 |
+| **Developer** | BG Simango | 224095653 | [@brad1409](https://github.com/brad1409) |
 
 **Institution:** University of Johannesburg  
 **Semester:** 2nd Semester 2025  
