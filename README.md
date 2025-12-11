@@ -107,84 +107,197 @@ Land pollution remains a critical challenge in university campuses, with traditi
 
 ## 📱 Screenshots
 
+> **Note:** To add screenshots to this README, upload your screenshot images to the repository (e.g., in `assets/screenshots/` folder) and update the image links below.
+
 ### Authentication & Onboarding
-<div align="center">
-  <img src="docs/screenshots/profile.jpg" width="250" alt="User Profile" />
-  <img src="docs/screenshots/settings.jpg" width="250" alt="App Settings" />
-  <img src="docs/screenshots/privacy.jpg" width="250" alt="Privacy Settings" />
-</div>
 
 *Clean authentication flow with University of Johannesburg email integration*
+
+**Features shown:**
+- User profile with administrator badge
+- App settings (Sound Effects, Haptic Feedback)
+- Privacy and notification settings
+- Developer tools for testing
 
 ---
 
 ### User Experience
-<div align="center">
-  <img src="docs/screenshots/dashboard.jpg" width="250" alt="User Dashboard" />
-  <img src="docs/screenshots/scanner.jpg" width="250" alt="Barcode Scanner" />
-  <img src="docs/screenshots/success.jpg" width="250" alt="Scan Success" />
-</div>
 
 *Level 57 Eco Warrior | 5,611 Points | 25 Items Recycled | #8 Campus Rank*
+
+**Dashboard highlights:**
+- **Welcome Section:** Personalized greeting with level badge and plant emoji 🌱
+- **Progress Tracking:** 5,611/5,800 points to Level 58 with progress bar
+- **Eco Points Card:** 5,611 total points with star icon ⭐
+- **Items Scanned:** 25 total items recycled 🍃
+- **Environmental Impact:** 12.5 kg CO₂ saved ☁️
+- **Campus Leaderboard:** #8 ranking with 0 day streak ⚡
+- **Live Data:** Weather (12°C), Air Quality (44), Humidity (81%) for Johannesburg
+- **Environmental News:** Real-time updates from green sources
 
 ---
 
 ### Scanning Experience
-<div align="center">
-  <img src="docs/screenshots/scanning.jpg" width="250" alt="Active Scanning" />
-  <img src="docs/screenshots/material-select.jpg" width="250" alt="Material Selection" />
-  <img src="docs/screenshots/scan-result.jpg" width="250" alt="Recycling Success" />
-</div>
 
 *"Never scanned before" detection • Material type classification • Instant point rewards*
+
+**Scanning workflow:**
+1. **Camera Scanner:** Real-time barcode detection with green targeting frame
+2. **Item Verification:** "This item is new to our system! What material type is it?"
+3. **Verified Barcode:** 6009881091149 - Never scanned before ✅
+4. **Material Selection:**
+   - 📄 Paper/Cardboard - Boxes, newspapers, magazines (+3 points)
+   - 🍾 Plastic Bottles - Water bottles, soda bottles (+5 points)
+   - 🥫 Aluminum Cans - Beverage cans (+7 points)
+   - 🍷 Glass - Bottles and jars (+10 points)
+5. **Success Confirmation:** Points added with celebration animation
+
+**Smart Features:**
+- "Checking item history..." real-time validation
+- Duplicate prevention system
+- Sound effects toggle 🔇
+- Haptic feedback toggle 🔊
+- Instant dashboard update button
 
 ---
 
 ### Rewards & Vouchers
-<div align="center">
-  <img src="docs/screenshots/rewards.jpg" width="250" alt="Rewards Marketplace" />
-  <img src="docs/screenshots/vouchers.jpg" width="250" alt="My Vouchers" />
-  <img src="docs/screenshots/voucher-qr.jpg" width="250" alt="Voucher QR Code" />
-</div>
 
 *5,616 points available • 13 active vouchers • QR-based redemption system*
+
+**Rewards Marketplace:**
+- **Juice** - Beverage (15 pts) - Redeem ✅
+- **Campus Cafeteria Voucher** - R50 off any meal (500 pts) - Redeem ✅
+- **Eco-Friendly Water Bottle** - Reusable stainless steel (800 pts) - Redeem ✅
+- **Green Campus T-Shirt** - Organic cotton recycling awareness (1200 pts) - Redeem ✅
+
+**My Vouchers:**
+- 13 total vouchers ready to use
+- **Eco-Friendly Water Bottle** voucher displayed
+  - Code: #ADV-MJ1ACZIS-ZYUQQE
+  - QR code for staff scanning
+  - "Ready to Use" badge 🎫
+  - Share Voucher functionality 📤
 
 ---
 
 ### Admin & Staff Tools
-<div align="center">
-  <img src="docs/screenshots/admin-overview.jpg" width="250" alt="Admin Overview" />
-  <img src="docs/screenshots/admin-users.jpg" width="250" alt="User Management" />
-  <img src="docs/screenshots/admin-rewards.jpg" width="250" alt="Rewards Management" />
-</div>
 
 *14 total users • 43 items recycled • 10,757 points earned • 18 active vouchers*
 
-<div align="center">
-  <img src="docs/screenshots/create-reward.jpg" width="250" alt="Create Reward" />
-  <img src="docs/screenshots/edit-reward.jpg" width="250" alt="Edit Reward" />
-  <img src="docs/screenshots/edit-user.jpg" width="250" alt="Edit User" />
-</div>
+**Admin Dashboard Overview:**
+- **Total Users:** 14 👥
+- **Items Recycled:** 43 🍃
+- **Active Vouchers:** 18 🎫
+- **Points Earned:** 10,757 ⭐
 
-*Full CRUD operations for rewards • User role management • Stock quantity control*
+**Top Recyclers Leaderboard:**
+1. 🥇 **Ugene** - 5,611 pts
+2. 🥈 **Nkosilenhle** - 505 pts
+3. 🥉 **Lindile** - 12 pts
 
-<div align="center">
-  <img src="docs/screenshots/staff-scanner.jpg" width="250" alt="Staff Voucher Scanner" />
-  <img src="docs/screenshots/weekly-insights.jpg" width="250" alt="Weekly Insights" />
-</div>
+**Rewards Management:**
+- **Create New Reward** form with:
+  - Reward Name (required)
+  - Description (required)
+  - Points Required (required)
+  - Category (merchandise, food, voucher)
+  - Stock Quantity (default: 100)
+  - Create Reward button ✅
 
-*Staff voucher scanner • Weekly recycling analytics with trend comparisons*
+- **Edit Reward** functionality:
+  - Example: Juice - Beverage - 15 pts - Food & drinks category - Stock: 50
+  - Toggle availability for redemption
+  - Update/Delete options ✏️🗑️
+
+**User Management:**
+- Search users by name, email, or role
+- **User Cards** showing:
+  - Name, email, role badge (user/staff/admin)
+  - Points and level
+  - Scan count
+  - Edit ✏️, Promote ⬆️, Delete 🗑️ actions
+
+- **Edit User** form:
+  - Display Name
+  - Email
+  - Points (manual adjustment)
+  - Level
+  - User Role selection (User/Staff/Admin)
+  - Example: Batman (batman😝@student.uj.ac.za) - 985 pts - Level 10 - Admin role
+
+**Staff Voucher Scanner:**
+- Full-screen QR scanner
+- "Point camera at student's voucher QR code"
+- Ready to scan indicator
+- Reset and Back buttons
+- Instant redemption processing
+
+**Bonus Events:**
+- Create special point multiplier campaigns
+- Time-limited recycling challenges
+- Campus-wide competitions
+
+---
+
+### Weekly Insights & Analytics
+
+**Weekly Report Card:**
+- **Total Recycled:** 23 items (📈 15% vs last week)
+- **Goal Achievement:** 2 of 7 days (📉 12% vs last week)
+- Visual trend indicators with percentage changes
+
+**Environmental News Feed:**
+- Real-time articles from Pypi.org, IPWatchdog.com, mindbodygreen.com
+- "View All Environmental News" button 🔗
+- Refresh capability for latest updates
 
 ---
 
 ### Notifications & Settings
-<div align="center">
-  <img src="docs/screenshots/notifications.jpg" width="250" alt="Notifications Center" />
-  <img src="docs/screenshots/notification-settings.jpg" width="250" alt="Notification Settings" />
-  <img src="docs/screenshots/developer-tools.jpg" width="250" alt="Developer Tools" />
-</div>
 
 *48 notifications • Granular notification controls • Developer testing tools*
+
+**Notification Center:**
+- **Welcome to Adbeam! 🌱** - "Hi Eco Warrior! Ready to make a difference? Start by scanning your first recyclable item..."
+- Timestamp tracking ("Just now", "4m ago")
+- Mark all as read ✅
+- Delete all 🗑️
+- Mute notifications 🔕
+- Notification count badge (48)
+
+**Notification Types Settings:**
+- 🔔 **Scan Reminders** - Weekly reminders to recycle items (ON)
+- 🎁 **Reward Alerts** - Notify when new rewards are available (ON)
+- 🏆 **Achievement Badges** - Celebrate your eco-milestones (ON)
+- 📊 **Leaderboard Updates** - Ranking changes and competitions (ON)
+- 📈 **Weekly Report** - Your recycling impact summary (ON)
+
+**Developer Tools:**
+- 🔔 **Test Notification** - Send test push notification
+- ➕ **Add Test Points** - Add points for testing purposes (default: 1000)
+  - Input field for custom amount
+  - "Add" button for instant credit
+- 🔄 **Reset Points** - Reset all points to 0 (destructive)
+
+**System Information:**
+```
+Environment: Production
+Platform: android
+Device: Physical Device
+Notifications: Full Support
+```
+
+**App Settings:**
+- ⚙️ **Settings** - App preferences and configuration
+- 🔒 **Privacy** - Data privacy and security settings
+- 💾 **Free up storage space** option
+
+**App Information:**
+- **Version:** 1.0.0
+- **Build:** 2024.10.31
+- **Developer:** AdBeam Team
+- 🔄 **Reset Settings** - Reset all settings to default values
 
 ---
 
@@ -274,7 +387,7 @@ export const firebaseConfig = {
 Create a `.env` file in the root directory:
 
 ```env
-OPENWEATHER_API_KEY=57036209041bfaf8c8d1e00907885540
+OPENWEATHER_API_KEY=your_openweather_api_key
 GNEWS_API_KEY=your_gnews_api_key
 ```
 
@@ -347,6 +460,8 @@ eas build --platform ios --profile production
 - **18 Active Vouchers** ready for redemption
 - **12.5 kg CO₂ Saved** through collective effort
 - **5 Material Categories** with dynamic point values
+- **Level 57 Top User** demonstrating sustained engagement
+- **48+ Notifications** keeping users engaged
 
 ---
 
@@ -354,7 +469,7 @@ eas build --platform ios --profile production
 
 - **Barcode Locking:** Items can only be scanned once to prevent abuse
 - **Geolocation Verification:** Campus boundary enforcement (future)
-- **Role-Based Access:** Three-tier permission system
+- **Role-Based Access:** Three-tier permission system (User/Staff/Admin)
 - **Firebase Rules:** Strict database read/write permissions
 - **Encrypted Communications:** All data transmitted via HTTPS
 - **Biometric Auth:** Fingerprint/Face ID support (planned)
@@ -369,6 +484,8 @@ eas build --platform ios --profile production
 - ✅ Basic rewards redemption
 - ✅ Push notification system
 - ✅ Admin dashboard with analytics
+- ✅ Staff voucher scanner
+- ✅ Developer testing tools
 
 ### 🚧 Phase 2: Enhanced Features (In Progress)
 - 🚧 Social features for sharing achievements
