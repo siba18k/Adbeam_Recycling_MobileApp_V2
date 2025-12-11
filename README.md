@@ -510,15 +510,15 @@ eas build --platform ios --profile production
 | Role | Name | Student Number | GitHub |
 |------|------|---------------|--------|
 | **Group Leader & Lead Developer** | ST Dube (Sibahle) | 223003057 | [@siba18k](https://github.com/siba18k) |
-| **Developer** | L Mbokazi | 223153718 | - |
-| **Developer** | AD Mnamateli | 223029043 | - |
-| **Developer** | NW Dlamini | 224019401 | - |
+| **Developer** | L Mbokazi | 223153718 | lindilembokazi18 |
+| **Developer** | AD Mnamateli | 223029043 | 0664956876 |
+| **Developer** | NW Dlamini | 224019401 | Nkosilenhle |
 | **Developer** | LSM Masalesa (Lebohang) | 223014114 | [@Lebohang01](https://github.com/Lebohang01) |
-| **Developer** | BG Simango | 224095653 | - |
+| **Developer** | BG Simango | 224095653 | brad1409 |
 
 **Institution:** University of Johannesburg  
 **Semester:** 2nd Semester 2025  
-**Course:** Development Software (DSW)
+**Course:** Development Software (DSW02B1)
 
 ---
 
@@ -550,14 +550,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+---
+
 ## 📞 Contact & Support
 
 - **Project Repository:** [github.com/siba18k/Adbeam_Recycling_MobileApp_V2](https://github.com/siba18k/Adbeam_Recycling_MobileApp_V2)
-- **Lead Developer:** Sibahle Dube - dubesibahle4@gmail.com
-- **University Email:** test@student.uj.ac.za
+- **Lead Developer:** Sibahle Dube
+- **Personal Enquiries** - dubesibahle4@gmail.com
+- **University Email:** 223003057@student.uj.ac.za
 - **Organization:** AdBeam Corporation
 
 ---
+
 
 ## 🌍 Impact Statement
 
