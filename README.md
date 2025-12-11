@@ -9,7 +9,7 @@
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20DB-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-**Version:** 1.0.0 | **Build:** 2025.10.31 | **Developer:** AdBeam Team
+**Version:** 1.0.0 | **Build:** 2024.10.31 | **Developer:** AdBeam Team
 
 [Features](#-features) • [Screenshots](#-screenshots) • [Installation](#-installation) • [Tech Stack](#-tech-stack) • [Team](#-team)
 
@@ -107,197 +107,99 @@ Land pollution remains a critical challenge in university campuses, with traditi
 
 ## 📱 Screenshots
 
-> **Note:** To add screenshots to this README, upload your screenshot images to the repository (e.g., in `assets/screenshots/` folder) and update the image links below.
+### Authentication & Profile
 
-### Authentication & Onboarding
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-15-232_com.adbeam.recycling.jpg" width="270" alt="User Profile" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-27-838_com.adbeam.recycling.jpg" width="270" alt="App Settings" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-31-050_com.adbeam.recycling.jpg" width="270" alt="Settings" />
+</div>
 
-*Clean authentication flow with University of Johannesburg email integration*
-
-**Features shown:**
-- User profile with administrator badge
-- App settings (Sound Effects, Haptic Feedback)
-- Privacy and notification settings
-- Developer tools for testing
+<p align="center"><em>User profile with administrator badge • Sound effects & haptic feedback settings • App information (v1.0.0)</em></p>
 
 ---
 
-### User Experience
+### User Dashboard
 
-*Level 57 Eco Warrior | 5,611 Points | 25 Items Recycled | #8 Campus Rank*
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-34-927_com.adbeam.recycling.jpg" width="270" alt="Main Dashboard" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-03-485_com.adbeam.recycling.jpg" width="270" alt="Dashboard Stats" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-59-506_com.adbeam.recycling.jpg" width="270" alt="Weekly Insights" />
+</div>
 
-**Dashboard highlights:**
-- **Welcome Section:** Personalized greeting with level badge and plant emoji 🌱
-- **Progress Tracking:** 5,611/5,800 points to Level 58 with progress bar
-- **Eco Points Card:** 5,611 total points with star icon ⭐
-- **Items Scanned:** 25 total items recycled 🍃
-- **Environmental Impact:** 12.5 kg CO₂ saved ☁️
-- **Campus Leaderboard:** #8 ranking with 0 day streak ⚡
-- **Live Data:** Weather (12°C), Air Quality (44), Humidity (81%) for Johannesburg
-- **Environmental News:** Real-time updates from green sources
+<p align="center"><em>Level 57 Eco Warrior • 5,611 points • 25 items recycled • #8 campus rank • 12.5 kg CO₂ saved</em></p>
 
 ---
 
-### Scanning Experience
+### Barcode Scanning Experience
 
-*"Never scanned before" detection • Material type classification • Instant point rewards*
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-34-653_com.adbeam.recycling.jpg" width="270" alt="Barcode Scanner" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-57-620_com.adbeam.recycling.jpg" width="270" alt="Item Verified" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-00-101_com.adbeam.recycling.jpg" width="270" alt="Material Selection" />
+</div>
 
-**Scanning workflow:**
-1. **Camera Scanner:** Real-time barcode detection with green targeting frame
-2. **Item Verification:** "This item is new to our system! What material type is it?"
-3. **Verified Barcode:** 6009881091149 - Never scanned before ✅
-4. **Material Selection:**
-   - 📄 Paper/Cardboard - Boxes, newspapers, magazines (+3 points)
-   - 🍾 Plastic Bottles - Water bottles, soda bottles (+5 points)
-   - 🥫 Aluminum Cans - Beverage cans (+7 points)
-   - 🍷 Glass - Bottles and jars (+10 points)
-5. **Success Confirmation:** Points added with celebration animation
-
-**Smart Features:**
-- "Checking item history..." real-time validation
-- Duplicate prevention system
-- Sound effects toggle 🔇
-- Haptic feedback toggle 🔊
-- Instant dashboard update button
+<p align="center"><em>Active scanning with green frame • "Never scanned before" detection • Material type selection (+3 to +10 points)</em></p>
 
 ---
 
 ### Rewards & Vouchers
 
-*5,616 points available • 13 active vouchers • QR-based redemption system*
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-49-813_com.adbeam.recycling.jpg" width="270" alt="Rewards Marketplace" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-19-10-095_com.adbeam.recycling.jpg" width="270" alt="My Vouchers" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-19-15-265_com.adbeam.recycling.jpg" width="270" alt="Voucher QR Code" />
+</div>
 
-**Rewards Marketplace:**
-- **Juice** - Beverage (15 pts) - Redeem ✅
-- **Campus Cafeteria Voucher** - R50 off any meal (500 pts) - Redeem ✅
-- **Eco-Friendly Water Bottle** - Reusable stainless steel (800 pts) - Redeem ✅
-- **Green Campus T-Shirt** - Organic cotton recycling awareness (1200 pts) - Redeem ✅
-
-**My Vouchers:**
-- 13 total vouchers ready to use
-- **Eco-Friendly Water Bottle** voucher displayed
-  - Code: #ADV-MJ1ACZIS-ZYUQQE
-  - QR code for staff scanning
-  - "Ready to Use" badge 🎫
-  - Share Voucher functionality 📤
+<p align="center"><em>5,616 points available • Campus cafeteria vouchers (R50 off) • QR codes for redemption • 13 active vouchers</em></p>
 
 ---
 
-### Admin & Staff Tools
+### Admin Dashboard
 
-*14 total users • 43 items recycled • 10,757 points earned • 18 active vouchers*
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-09-57-376_com.adbeam.recycling.jpg" width="270" alt="Admin Overview" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-22-883_com.adbeam.recycling.jpg" width="270" alt="Rewards Management" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-46-491_com.adbeam.recycling.jpg" width="270" alt="User Management" />
+</div>
 
-**Admin Dashboard Overview:**
-- **Total Users:** 14 👥
-- **Items Recycled:** 43 🍃
-- **Active Vouchers:** 18 🎫
-- **Points Earned:** 10,757 ⭐
-
-**Top Recyclers Leaderboard:**
-1. 🥇 **Ugene** - 5,611 pts
-2. 🥈 **Nkosilenhle** - 505 pts
-3. 🥉 **Lindile** - 12 pts
-
-**Rewards Management:**
-- **Create New Reward** form with:
-  - Reward Name (required)
-  - Description (required)
-  - Points Required (required)
-  - Category (merchandise, food, voucher)
-  - Stock Quantity (default: 100)
-  - Create Reward button ✅
-
-- **Edit Reward** functionality:
-  - Example: Juice - Beverage - 15 pts - Food & drinks category - Stock: 50
-  - Toggle availability for redemption
-  - Update/Delete options ✏️🗑️
-
-**User Management:**
-- Search users by name, email, or role
-- **User Cards** showing:
-  - Name, email, role badge (user/staff/admin)
-  - Points and level
-  - Scan count
-  - Edit ✏️, Promote ⬆️, Delete 🗑️ actions
-
-- **Edit User** form:
-  - Display Name
-  - Email
-  - Points (manual adjustment)
-  - Level
-  - User Role selection (User/Staff/Admin)
-  - Example: Batman (batman😝@student.uj.ac.za) - 985 pts - Level 10 - Admin role
-
-**Staff Voucher Scanner:**
-- Full-screen QR scanner
-- "Point camera at student's voucher QR code"
-- Ready to scan indicator
-- Reset and Back buttons
-- Instant redemption processing
-
-**Bonus Events:**
-- Create special point multiplier campaigns
-- Time-limited recycling challenges
-- Campus-wide competitions
+<p align="center"><em>14 users • 43 items recycled • 10,757 points • Top recyclers leaderboard • Full CRUD operations</em></p>
 
 ---
 
-### Weekly Insights & Analytics
+### Rewards Management
 
-**Weekly Report Card:**
-- **Total Recycled:** 23 items (📈 15% vs last week)
-- **Goal Achievement:** 2 of 7 days (📉 12% vs last week)
-- Visual trend indicators with percentage changes
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-29-532_com.adbeam.recycling.jpg" width="270" alt="Create Reward" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-32-694_com.adbeam.recycling.jpg" width="270" alt="Edit Reward" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-56-425_com.adbeam.recycling.jpg" width="270" alt="Edit User" />
+</div>
 
-**Environmental News Feed:**
-- Real-time articles from Pypi.org, IPWatchdog.com, mindbodygreen.com
-- "View All Environmental News" button 🔗
-- Refresh capability for latest updates
+<p align="center"><em>Create rewards with categories • Edit stock & availability • User role management (User/Staff/Admin)</em></p>
 
 ---
 
-### Notifications & Settings
+### Staff & Notifications
 
-*48 notifications • Granular notification controls • Developer testing tools*
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-10-011_com.adbeam.recycling.jpg" width="270" alt="Voucher Scanner" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-23-18-455_com.adbeam.recycling.jpg" width="270" alt="Notifications" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-13-051_com.adbeam.recycling.jpg" width="270" alt="Notification Settings" />
+</div>
 
-**Notification Center:**
-- **Welcome to Adbeam! 🌱** - "Hi Eco Warrior! Ready to make a difference? Start by scanning your first recyclable item..."
-- Timestamp tracking ("Just now", "4m ago")
-- Mark all as read ✅
-- Delete all 🗑️
-- Mute notifications 🔕
-- Notification count badge (48)
+<p align="center"><em>Staff voucher QR scanner • 48 notifications center • Granular notification controls</em></p>
 
-**Notification Types Settings:**
-- 🔔 **Scan Reminders** - Weekly reminders to recycle items (ON)
-- 🎁 **Reward Alerts** - Notify when new rewards are available (ON)
-- 🏆 **Achievement Badges** - Celebrate your eco-milestones (ON)
-- 📊 **Leaderboard Updates** - Ranking changes and competitions (ON)
-- 📈 **Weekly Report** - Your recycling impact summary (ON)
+---
 
-**Developer Tools:**
-- 🔔 **Test Notification** - Send test push notification
-- ➕ **Add Test Points** - Add points for testing purposes (default: 1000)
-  - Input field for custom amount
-  - "Add" button for instant credit
-- 🔄 **Reset Points** - Reset all points to 0 (destructive)
+### Developer Tools
 
-**System Information:**
-```
-Environment: Production
-Platform: android
-Device: Physical Device
-Notifications: Full Support
-```
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-21-210_com.adbeam.recycling.jpg" width="270" alt="Developer Tools" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-26-056_com.adbeam.recycling.jpg" width="270" alt="Profile Info" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-40-564_com.adbeam.recycling.jpg" width="270" alt="Admin Users" />
+</div>
 
-**App Settings:**
-- ⚙️ **Settings** - App preferences and configuration
-- 🔒 **Privacy** - Data privacy and security settings
-- 💾 **Free up storage space** option
-
-**App Information:**
-- **Version:** 1.0.0
-- **Build:** 2024.10.31
-- **Developer:** AdBeam Team
-- 🔄 **Reset Settings** - Reset all settings to default values
+<p align="center"><em>Test notifications • Add test points (1000) • Reset points • Production environment info</em></p>
 
 ---
 
@@ -510,15 +412,15 @@ eas build --platform ios --profile production
 | Role | Name | Student Number | GitHub |
 |------|------|---------------|--------|
 | **Group Leader & Lead Developer** | ST Dube (Sibahle) | 223003057 | [@siba18k](https://github.com/siba18k) |
-| **Developer** | L Mbokazi | 223153718 | [@lindilembokazi18](https://github.com/lindilembokazi18) |
-| **Developer** | AD Mnamateli | 223029043 | [@0664956876](https://github.com/0664956876) |
-| **Developer** | NW Dlamini | 224019401 | [@Nkosilenhle](https://github.com/Nkosilenhle) |
+| **Developer** | L Mbokazi | 223153718 | - |
+| **Developer** | AD Mnamateli | 223029043 | - |
+| **Developer** | NW Dlamini | 224019401 | - |
 | **Developer** | LSM Masalesa (Lebohang) | 223014114 | [@Lebohang01](https://github.com/Lebohang01) |
-| **Developer** | BG Simango | 224095653 | [@brad1409](https://github.com/brad1409) |
+| **Developer** | BG Simango | 224095653 | - |
 
 **Institution:** University of Johannesburg  
 **Semester:** 2nd Semester 2025  
-**Course:** Development Software (DSW02B1)
+**Course:** Development Software (DSW)
 
 ---
 
@@ -550,18 +452,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
----
-
 ## 📞 Contact & Support
 
 - **Project Repository:** [github.com/siba18k/Adbeam_Recycling_MobileApp_V2](https://github.com/siba18k/Adbeam_Recycling_MobileApp_V2)
-- **Lead Developer:** Sibahle Dube
-- **Personal Enquiries** - dubesibahle4@gmail.com
-- **University Email:** 223003057@student.uj.ac.za
+- **Lead Developer:** Sibahle Dube - dubesibahle4@gmail.com
+- **University Email:** test@student.uj.ac.za
 - **Organization:** AdBeam Corporation
 
 ---
-
 
 ## 🌍 Impact Statement
 
