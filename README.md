@@ -794,7 +794,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Project Repository:** [github.com/siba18k/Adbeam_Recycling_MobileApp_V2](https://github.com/siba18k/Adbeam_Recycling_MobileApp_V2)
 - **Lead Developer:** Sibahle Dube
-- **Personal Enquiries:** [dubesibahle4@gmail.com](mailto:dubesibahle4@gmail.com)
+- **Direct Enquiries:** [dubesibahle4@gmail.com](mailto:dubesibahle4@gmail.com)
 - **University Email:** [223003057@student.uj.ac.za](mailto:223003057@student.uj.ac.za)
 - **Organization:** AdBeam Corporation
 
