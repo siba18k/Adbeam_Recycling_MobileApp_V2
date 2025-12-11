@@ -25,7 +25,7 @@
       <img src="https://img.shields.io/badge/Version-1.0.0-10b981?style=for-the-badge&logo=semanticrelease&logoColor=white" />
     </td>
     <td align="center">
-      <img src="https://img.shields.io/badge/Build-2024.10.31-8b5cf6?style=for-the-badge&logo=rocket&logoColor=white" />
+      <img src="https://img.shields.io/badge/Build-2025.10.31-8b5cf6?style=for-the-badge&logo=rocket&logoColor=white" />
     </td>
     <td align="center">
       <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-f59e0b?style=for-the-badge&logo=mobile&logoColor=white" />
