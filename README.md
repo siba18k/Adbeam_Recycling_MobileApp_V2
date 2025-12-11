@@ -37,6 +37,9 @@
 
 <!-- Navigation with Icons -->
 <p>
+  <a href="#-about">
+    <img src="https://img.shields.io/badge/📖_About-047857?style=for-the-badge" />
+  </a>
   <a href="#-features">
     <img src="https://img.shields.io/badge/⚡_Features-059669?style=for-the-badge" />
   </a>
@@ -53,6 +56,171 @@
     <img src="https://img.shields.io/badge/👥_Team-a7f3d0?style=for-the-badge" />
   </a>
 </p>
+
+</div>
+
+<br/>
+
+<!-- Gradient Divider -->
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=6,12,20&height=2" />
+
+<br/>
+
+## 📖 About
+
+<div align="center">
+  <img src="https://img.shields.io/badge/Project-AdBeam_Recycling_Mobile-10b981?style=for-the-badge&logo=recycle&logoColor=white" />
+  <img src="https://img.shields.io/badge/Type-Mobile_Application-059669?style=for-the-badge&logo=mobile&logoColor=white" />
+  <img src="https://img.shields.io/badge/Status-Production_Ready-34d399?style=for-the-badge&logo=checkmarx&logoColor=white" />
+</div>
+
+<br/>
+
+**AdBeam Recycling** is a cutting-edge mobile application developed for the University of Johannesburg as part of the **Development Software (DSW)** course project. This innovative solution addresses the pressing challenge of campus land pollution by transforming recycling into an engaging, rewarding, and sustainable daily habit for students.
+
+### 🎯 What We Do
+
+We've created a comprehensive ecosystem that combines:
+
+- **📱 Mobile-First Approach:** Built with React Native and Expo for seamless cross-platform performance
+- **🎮 Gamification:** 57 progressive levels, achievement badges, and competitive leaderboards
+- **🎁 Rewards System:** Students earn points for recycling and redeem them for real campus perks
+- **📊 Real-Time Analytics:** Live tracking of environmental impact (CO₂ saved, items recycled)
+- **🔒 Secure Infrastructure:** Firebase-powered backend with role-based access control
+
+### 🌟 Why AdBeam?
+
+Traditional campus recycling programs fail because they:
+- Lack student engagement and motivation
+- Don't provide immediate feedback or rewards
+- Ignore the mobile-first lifestyle of Gen Z students
+- Offer no way to track individual or collective impact
+
+**AdBeam solves all of these problems** by making recycling:
+1. **Easy** - Scan a barcode, select material type, earn points instantly
+2. **Rewarding** - Redeem points for cafeteria vouchers, bookstore credits, and campus perks
+3. **Competitive** - Climb the campus leaderboard and earn achievement badges
+4. **Impactful** - See your real-time environmental contribution (CO₂ offset, trees saved)
+
+### 🚀 Key Highlights
+
+<table>
+  <tr>
+    <td width="50%">
+      <h4>💻 Technical Excellence</h4>
+      <ul>
+        <li><b>Cross-Platform:</b> Single codebase for Android & iOS</li>
+        <li><b>Real-Time:</b> Firebase Realtime Database for instant updates</li>
+        <li><b>Scalable:</b> Cloud-based architecture ready for campus-wide deployment</li>
+        <li><b>Secure:</b> Multi-layer security with barcode fraud prevention</li>
+        <li><b>Modern:</b> Built with latest React Native and Expo SDK</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h4>🎓 Educational Impact</h4>
+      <ul>
+        <li><b>Behavioral Change:</b> Creates lasting recycling habits</li>
+        <li><b>Environmental Awareness:</b> Real-time CO₂ and impact metrics</li>
+        <li><b>Community Building:</b> Campus-wide leaderboards and challenges</li>
+        <li><b>Practical Learning:</b> Applied software development skills</li>
+        <li><b>Innovation:</b> Novel approach to campus sustainability</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+### 🎯 Project Objectives
+
+**Primary Goals:**
+1. Reduce campus land pollution through increased recycling participation
+2. Create measurable environmental impact with data-driven insights
+3. Engage students through gamification and tangible rewards
+4. Develop a scalable solution for multi-campus deployment
+5. Demonstrate advanced mobile app development capabilities
+
+**Academic Goals:**
+- Apply software engineering principles in a real-world context
+- Implement full-stack development (frontend + backend + database)
+- Practice Agile development methodologies and version control
+- Create comprehensive documentation and testing procedures
+- Deliver a production-ready application for DSW course evaluation
+
+### 👥 Target Audience
+
+<div align="center">
+
+```mermaid
+graph TD
+    A[AdBeam Platform] --> B[Students]
+    A --> C[Staff Members]
+    A --> D[Administrators]
+    B --> E[Scan & Recycle]
+    B --> F[Earn Rewards]
+    B --> G[Track Impact]
+    C --> H[Redeem Vouchers]
+    C --> I[Verify QR Codes]
+    D --> J[Manage System]
+    D --> K[View Analytics]
+    D --> L[Create Campaigns]
+    style A fill:#10b981,stroke:#059669,color:#fff
+    style B fill:#34d399,stroke:#10b981,color:#fff
+    style C fill:#6ee7b7,stroke:#34d399,color:#000
+    style D fill:#a7f3d0,stroke:#6ee7b7,color:#000
+```
+
+</div>
+
+- **🎓 Students:** Primary users who scan items, earn points, and redeem rewards
+- **👷 Staff:** Voucher validators at redemption points (cafeterias, bookstores)
+- **👨‍💼 Administrators:** System managers who oversee analytics and create rewards
+- **🏫 University:** Benefits from reduced waste and enhanced sustainability metrics
+
+### 🌐 Environmental Impact
+
+Since deployment, AdBeam has achieved:
+
+<div align="center">
+
+| Metric | Current Value | Target (Q1 2026) |
+|--------|--------------|------------------|
+| **Active Users** | 14 students | 500+ students |
+| **Items Recycled** | 43 items | 10,000+ items |
+| **CO₂ Offset** | 12.5 kg | 500+ kg |
+| **Points Distributed** | 10,757 points | 250,000+ points |
+| **Vouchers Redeemed** | 18 vouchers | 1,000+ vouchers |
+
+</div>
+
+### 📚 Academic Context
+
+**Course:** Development Software (DSW)  
+**Institution:** University of Johannesburg  
+**Semester:** 2nd Semester 2025  
+**Team:** AdBeam Corporation (6 developers)  
+**Project Type:** Final Group Project  
+**Duration:** 12 weeks (September - November 2025)
+
+**Development Approach:**
+- Agile methodology with 2-week sprints
+- Daily standups and weekly sprint reviews
+- Git-based version control with feature branching
+- Continuous integration with automated testing
+- Comprehensive documentation (README, API docs, user guides)
+
+### 🆕 What's Next?
+
+Our roadmap includes:
+- **Phase 2:** Social features, campus challenges, advanced analytics
+- **Phase 3:** IoT integration, AR item recognition, multi-campus expansion
+- **Long-Term:** Blockchain verification, machine learning, voice commands
+
+---
+
+<div align="center">
+
+**AdBeam Recycling isn't just an app—it's a movement toward sustainable campus living.**
+
+<img src="https://img.shields.io/badge/🌱_Join_The_Movement-10b981?style=for-the-badge" />
 
 </div>
 
