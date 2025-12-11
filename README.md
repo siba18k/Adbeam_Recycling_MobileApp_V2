@@ -107,43 +107,31 @@ Land pollution remains a critical challenge in university campuses, with traditi
 
 ## 📱 Screenshots
 
-### Authentication & Profile
+### 👤 User Dashboard
 
 <div align="center">
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-15-232_com.adbeam.recycling.jpg" width="270" alt="User Profile" />
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-27-838_com.adbeam.recycling.jpg" width="270" alt="App Settings" />
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-31-050_com.adbeam.recycling.jpg" width="270" alt="Settings" />
-</div>
-
-<p align="center"><em>User profile with administrator badge • Sound effects & haptic feedback settings • App information (v1.0.0)</em></p>
-
----
-
-### User Dashboard
-
-<div align="center">
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-34-927_com.adbeam.recycling.jpg" width="270" alt="Main Dashboard" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-34-927_com.adbeam.recycling.jpg" width="270" alt="User Dashboard" />
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-03-485_com.adbeam.recycling.jpg" width="270" alt="Dashboard Stats" />
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-59-506_com.adbeam.recycling.jpg" width="270" alt="Weekly Insights" />
 </div>
 
-<p align="center"><em>Level 57 Eco Warrior • 5,611 points • 25 items recycled • #8 campus rank • 12.5 kg CO₂ saved</em></p>
+<p align="center"><em>Level 57 Eco Warrior • 5,611 points • 25 items recycled • #8 campus rank • 12.5 kg CO₂ saved • Live weather & environmental news</em></p>
 
 ---
 
-### Barcode Scanning Experience
+### 📸 Scanner Experience
 
 <div align="center">
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-34-653_com.adbeam.recycling.jpg" width="270" alt="Barcode Scanner" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-34-653_com.adbeam.recycling.jpg" width="270" alt="Active Scanner" />
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-57-620_com.adbeam.recycling.jpg" width="270" alt="Item Verified" />
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-00-101_com.adbeam.recycling.jpg" width="270" alt="Material Selection" />
 </div>
 
-<p align="center"><em>Active scanning with green frame • "Never scanned before" detection • Material type selection (+3 to +10 points)</em></p>
+<p align="center"><em>Real-time barcode scanning • "Never scanned before" verification • Material selection (Paper +3, Plastic +5, Aluminum +7, Glass +10)</em></p>
 
 ---
 
-### Rewards & Vouchers
+### 🎁 Rewards & Vouchers
 
 <div align="center">
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-49-813_com.adbeam.recycling.jpg" width="270" alt="Rewards Marketplace" />
@@ -151,11 +139,11 @@ Land pollution remains a critical challenge in university campuses, with traditi
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-19-15-265_com.adbeam.recycling.jpg" width="270" alt="Voucher QR Code" />
 </div>
 
-<p align="center"><em>5,616 points available • Campus cafeteria vouchers (R50 off) • QR codes for redemption • 13 active vouchers</em></p>
+<p align="center"><em>Eco Rewards marketplace • 13 active vouchers • QR code redemption • Campus cafeteria vouchers, water bottles, T-shirts</em></p>
 
 ---
 
-### Admin Dashboard
+### 👨‍💼 Admin Dashboard & Management
 
 <div align="center">
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-09-57-376_com.adbeam.recycling.jpg" width="270" alt="Admin Overview" />
@@ -163,11 +151,11 @@ Land pollution remains a critical challenge in university campuses, with traditi
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-46-491_com.adbeam.recycling.jpg" width="270" alt="User Management" />
 </div>
 
-<p align="center"><em>14 users • 43 items recycled • 10,757 points • Top recyclers leaderboard • Full CRUD operations</em></p>
+<p align="center"><em>Admin analytics: 14 users, 43 items, 10,757 points • Top recyclers leaderboard • Rewards management with bonus events • User role assignment</em></p>
 
 ---
 
-### Rewards Management
+### ➕ Create & Edit Rewards
 
 <div align="center">
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-29-532_com.adbeam.recycling.jpg" width="270" alt="Create Reward" />
@@ -175,31 +163,55 @@ Land pollution remains a critical challenge in university campuses, with traditi
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-56-425_com.adbeam.recycling.jpg" width="270" alt="Edit User" />
 </div>
 
-<p align="center"><em>Create rewards with categories • Edit stock & availability • User role management (User/Staff/Admin)</em></p>
+<p align="center"><em>Create reward form with categories • Edit stock & availability toggle • User profile editing with role management (Admin/Staff/User)</em></p>
 
 ---
 
-### Staff & Notifications
+### 👤 Profile & Settings
 
 <div align="center">
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-10-011_com.adbeam.recycling.jpg" width="270" alt="Voucher Scanner" />
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-23-18-455_com.adbeam.recycling.jpg" width="270" alt="Notifications" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-15-232_com.adbeam.recycling.jpg" width="270" alt="User Profile" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-21-210_com.adbeam.recycling.jpg" width="270" alt="Developer Tools" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-26-056_com.adbeam.recycling.jpg" width="270" alt="Profile Details" />
+</div>
+
+<p align="center"><em>Profile with admin badge • Developer tools (test notifications, add points) • 2,824 total points • 9 items recycled • UJ student profile</em></p>
+
+---
+
+### ⚙️ App Settings & Configuration
+
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-27-838_com.adbeam.recycling.jpg" width="270" alt="App Settings" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-31-050_com.adbeam.recycling.jpg" width="270" alt="Settings Menu" />
   <img src="InAppScreenshots/Screenshot_2025-12-11-12-10-13-051_com.adbeam.recycling.jpg" width="270" alt="Notification Settings" />
 </div>
 
-<p align="center"><em>Staff voucher QR scanner • 48 notifications center • Granular notification controls</em></p>
+<p align="center"><em>Sound effects & haptic feedback toggles • Reset settings option • App info (v1.0.0, Build 2024.10.31) • Granular notification controls</em></p>
 
 ---
 
-### Developer Tools
+### 🔔 Notifications Center
 
 <div align="center">
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-21-210_com.adbeam.recycling.jpg" width="270" alt="Developer Tools" />
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-26-056_com.adbeam.recycling.jpg" width="270" alt="Profile Info" />
-  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-40-564_com.adbeam.recycling.jpg" width="270" alt="Admin Users" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-23-18-455_com.adbeam.recycling.jpg" width="270" alt="Notifications" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-40-564_com.adbeam.recycling.jpg" width="270" alt="Admin User List" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-22-150_com.adbeam.recycling.jpg" width="270" alt="Scanning Process" />
 </div>
 
-<p align="center"><em>Test notifications • Add test points (1000) • Reset points • Production environment info</em></p>
+<p align="center"><em>48 welcome notifications • "Hi Eco Warrior!" messages • Admin user management interface • Active scanning processing screen</em></p>
+
+---
+
+### 👷 Staff Voucher Scanner
+
+<div align="center">
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-16-10-011_com.adbeam.recycling.jpg" width="270" alt="Voucher Scanner" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-18-40-672_com.adbeam.recycling.jpg" width="270" alt="Scanning Interface" />
+  <img src="InAppScreenshots/Screenshot_2025-12-11-12-17-47-805_com.adbeam.recycling.jpg" width="270" alt="Staff Tools" />
+</div>
+
+<p align="center"><em>Staff voucher QR scanner • "Point camera at student's voucher QR code" • Ready to scan interface • Reset and back controls</em></p>
 
 ---
 
