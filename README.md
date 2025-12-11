@@ -169,22 +169,24 @@ Points per Material:
   </tr>
 </table>
 
-### 🎨 **Beautiful UI/UX Flow**
+### 🎨 **Beautiful UI/UX**
 
 <div align="center">
-  <img src="https://img.shields.io/badge/🎨_Modern_Gradients-10b981?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/✨_Smooth_Animations-34d399?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/📱_Haptic_Feedback-6ee7b7?style=for-the-badge" />
-  <br/>
-  <img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/🔊_Sound_Effects-a7f3d0?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/♿_Accessibility-d1fae5?style=for-the-badge" />
-</div>
 
-<br/>
+```mermaid
+graph LR
+    A[Modern Gradients] --> B[Smooth Animations]
+    B --> C[Haptic Feedback]
+    C --> D[Sound Effects]
+    D --> E[Accessibility]
+    style A fill:#10b981,stroke:#059669,color:#fff
+    style B fill:#34d399,stroke:#10b981,color:#fff
+    style C fill:#6ee7b7,stroke:#34d399,color:#000
+    style D fill:#a7f3d0,stroke:#6ee7b7,color:#000
+    style E fill:#d1fae5,stroke:#a7f3d0,color:#000
+```
+
+</div>
 
 - Modern gradient-based design system
 - Smooth animations and transitions
@@ -195,31 +197,21 @@ Points per Material:
 
 ### 🔐 **Security & Authentication**
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="https://img.shields.io/badge/Firebase_Auth-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
-      </td>
-      <td align="center">
-        <img src="https://img.shields.io/badge/Email/Password-10b981?style=for-the-badge&logo=mail&logoColor=white" />
-      </td>
-    </tr>
-    <tr>
-      <td align="center">
-        <img src="https://img.shields.io/badge/HTTPS_Encryption-059669?style=for-the-badge&logo=lock&logoColor=white" />
-      </td>
-      <td align="center">
-        <img src="https://img.shields.io/badge/Role_Based_Access-34d399?style=for-the-badge&logo=shield&logoColor=white" />
-      </td>
-    </tr>
-  </table>
-</div>
+```typescript
+Authentication {
+  Provider: "Firebase Auth",
+  Methods: ["Email/Password", "Password Reset"],
+  Security: {
+    RoleBasedAccess: true,
+    Encryption: "HTTPS",
+    LocalStorage: "Secure",
+    DatabaseRules: "Strict"
+  }
+}
+```
 
 - Anti-fraud barcode locking system
-- Three-tier permission system (User/Staff/Admin)
-- Strict Firebase database rules
-- Secure local data storage
+- Role-based access control (User/Staff/Admin)
 
 <br/>
 
@@ -533,44 +525,27 @@ eas build --platform ios --profile production
 
 <div align="center">
 
-### 👤 User Journey Flow
-
-<img src="https://img.shields.io/badge/1️⃣_Sign_Up-10b981?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/2️⃣_Scan_Items-34d399?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/3️⃣_Select_Material-6ee7b7?style=for-the-badge" />
-
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/4️⃣_Earn_Points-a7f3d0?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/5️⃣_Level_Up-d1fae5?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/6️⃣_Redeem_Rewards-059669?style=for-the-badge" />
-
-<br/><br/>
-
-### 👷 Staff Workflow
-
-<img src="https://img.shields.io/badge/Login-8b5cf6?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Access_Scanner-a78bfa?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Scan_QR_Code-c4b5fd?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Process_Redemption-7c3aed?style=for-the-badge" />
-
-<br/><br/>
-
-### 👨‍💼 Admin Workflow
-
-<img src="https://img.shields.io/badge/Login-ef4444?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/View_Analytics-f87171?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Manage_Users-fca5a5?style=for-the-badge" />
-<img src="https://img.shields.io/badge/➡-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Create_Rewards-dc2626?style=for-the-badge" />
+```mermaid
+flowchart TD
+    A[Student Signs Up] --> B{User Type?}
+    B -->|Regular User| C[Scan Items]
+    B -->|Staff| D[Scan Vouchers]
+    B -->|Admin| E[Manage System]
+    C --> F[Select Material]
+    F --> G[Earn Points]
+    G --> H[Level Up]
+    H --> I[Redeem Rewards]
+    D --> J[Verify QR Code]
+    J --> K[Process Redemption]
+    E --> L[View Analytics]
+    E --> M[Manage Users]
+    E --> N[Create Rewards]
+    style A fill:#10b981,stroke:#059669,color:#fff
+    style C fill:#34d399,stroke:#10b981,color:#fff
+    style G fill:#6ee7b7,stroke:#34d399,color:#000
+    style I fill:#059669,stroke:#047857,color:#fff
+    style E fill:#8b5cf6,stroke:#7c3aed,color:#fff
+```
 
 </div>
 
@@ -653,22 +628,24 @@ eas build --platform ios --profile production
 
 <div align="center">
 
-### 🛡️ Multi-Layer Security Architecture
-
-<img src="https://img.shields.io/badge/🔒_Barcode_Locking-ef4444?style=for-the-badge" />
-<img src="https://img.shields.io/badge/+-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/👥_Role_Based_Access-f59e0b?style=for-the-badge" />
-<img src="https://img.shields.io/badge/+-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/📜_Firebase_Rules-10b981?style=for-the-badge" />
-
-<img src="https://img.shields.io/badge/+-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/🔐_HTTPS_Encryption-3b82f6?style=for-the-badge" />
-<img src="https://img.shields.io/badge/+-555555?style=for-the-badge" />
-<img src="https://img.shields.io/badge/🛡️_Data_Protection-8b5cf6?style=for-the-badge" />
+```mermaid
+graph TD
+    A[Security Layer] --> B[Barcode Locking]
+    A --> C[Role-Based Access]
+    A --> D[Firebase Rules]
+    A --> E[HTTPS Encryption]
+    B --> F[One-Time Scan]
+    C --> G[User/Staff/Admin]
+    D --> H[Strict Permissions]
+    E --> I[Data Protection]
+    style A fill:#ef4444,stroke:#dc2626,color:#fff
+    style B fill:#f59e0b,stroke:#d97706,color:#fff
+    style C fill:#10b981,stroke:#059669,color:#fff
+    style D fill:#3b82f6,stroke:#2563eb,color:#fff
+    style E fill:#8b5cf6,stroke:#7c3aed,color:#fff
+```
 
 </div>
-
-<br/>
 
 - **Barcode Locking:** Items can only be scanned once to prevent abuse
 - **Geolocation Verification:** Campus boundary enforcement (future)
@@ -688,48 +665,43 @@ eas build --platform ios --profile production
 
 <div align="center">
 
-### Development Timeline
-
-<table>
-  <tr>
-    <td align="center" width="33%">
-      <img src="https://img.shields.io/badge/✅_Phase_1-Complete-10b981?style=for-the-badge" />
-      <br/><br/>
-      <b>Core Functionality</b>
-      <br/><br/>
-      ✅ Barcode Scanning<br/>
-      ✅ User Authentication<br/>
-      ✅ Rewards System<br/>
-      ✅ Notifications<br/>
-      ✅ Admin Dashboard<br/>
-      ✅ Staff Scanner<br/>
-    </td>
-    <td align="center" width="33%">
-      <img src="https://img.shields.io/badge/🚧_Phase_2-In_Progress-f59e0b?style=for-the-badge" />
-      <br/><br/>
-      <b>Enhanced Features</b>
-      <br/><br/>
-      🚧 Social Sharing<br/>
-      🚧 Campus Challenges<br/>
-      🚧 Advanced Analytics<br/>
-      🚧 Event Integration<br/>
-    </td>
-    <td align="center" width="33%">
-      <img src="https://img.shields.io/badge/🔮_Phase_3-Planned-8b5cf6?style=for-the-badge" />
-      <br/><br/>
-      <b>Smart Integration</b>
-      <br/><br/>
-      🔮 IoT Smart Bins<br/>
-      🔮 AR Features<br/>
-      🔮 Voice Commands<br/>
-      🔮 Multi-Campus<br/>
-      🔮 Blockchain<br/>
-      🔮 ML Recognition<br/>
-    </td>
-  </tr>
-</table>
+```mermaid
+timeline
+    title Development Roadmap
+    section Phase 1
+        Core Features : Barcode scanning : User auth : Rewards system : Notifications : Admin dashboard
+    section Phase 2
+        Enhanced Features : Social sharing : Campus challenges : Advanced analytics : Event integration
+    section Phase 3
+        Smart Integration : IoT bins : AR features : Voice commands : Multi-campus : Blockchain : ML recognition
+```
 
 </div>
+
+<br/>
+
+### ✅ Phase 1: Core Functionality (Complete)
+- ✅ Barcode scanning with real camera integration
+- ✅ User registration and authentication
+- ✅ Basic rewards redemption
+- ✅ Push notification system
+- ✅ Admin dashboard with analytics
+- ✅ Staff voucher scanner
+- ✅ Developer testing tools
+
+### 🚧 Phase 2: Enhanced Features (In Progress)
+- 🚧 Social features for sharing achievements
+- 🚧 Campus recycling challenges and competitions
+- 🚧 Advanced analytics and impact visualization
+- 🚧 Integration with campus event systems
+
+### 🔮 Phase 3: Smart Integration (Planned)
+- 🔮 IoT integration with smart recycling bins
+- 🔮 AR features for identifying recyclable items
+- 🔮 Voice commands for accessibility
+- 🔮 Multi-campus deployment
+- 🔮 Blockchain-based credit verification
+- 🔮 Machine learning for improved item recognition
 
 <br/>
 
@@ -740,60 +712,20 @@ eas build --platform ios --profile production
 
 ## 👥 Team
 
-<div align="center">
-
 ### AdBeam Corporation
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&pause=1000&color=10B981&center=true&vCenter=true&width=435&lines=University+of+Johannesburg;Development+Software+(DSW);2nd+Semester+2025" alt="University Info" />
+| Role | Name | Student Number | GitHub |
+|------|------|---------------|--------|
+| **Group Leader & Lead Developer** | ST Dube (Sibahle) | 223003057 | [@siba18k](https://github.com/siba18k) |
+| **Developer** | L Mbokazi | 223153718 | [@lindilembokazi18](https://github.com/lindilembokazi18) |
+| **Developer** | AD Mnamateli | 223029043 | [@0664956876](https://github.com/0664956876) |
+| **Developer** | NW Dlamini | 224019401 | [@Nkosilenhle](https://github.com/Nkosilenhle) |
+| **Developer** | LSM Masalesa (Lebohang) | 223014114 | [@Lebohang01](https://github.com/Lebohang01) |
+| **Developer** | BG Simango | 224095653 | [@brad1409](https://github.com/brad1409) |
 
-</div>
-
-<br/>
-
-<table align="center">
-  <tr>
-    <th>Role</th>
-    <th>Name</th>
-    <th>Student Number</th>
-    <th>GitHub</th>
-  </tr>
-  <tr>
-    <td><img src="https://img.shields.io/badge/👨‍💻-Group_Leader-10b981?style=flat-square" /></td>
-    <td>ST Dube (Sibahle)</td>
-    <td>223003057</td>
-    <td><a href="https://github.com/siba18k"><img src="https://img.shields.io/badge/siba18k-100000?style=flat-square&logo=github&logoColor=white" /></a></td>
-  </tr>
-  <tr>
-    <td><img src="https://img.shields.io/badge/👨‍💻-Developer-34d399?style=flat-square" /></td>
-    <td>L Mbokazi</td>
-    <td>223153718</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td><img src="https://img.shields.io/badge/👨‍💻-Developer-34d399?style=flat-square" /></td>
-    <td>AD Mnamateli</td>
-    <td>223029043</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td><img src="https://img.shields.io/badge/👨‍💻-Developer-34d399?style=flat-square" /></td>
-    <td>NW Dlamini</td>
-    <td>224019401</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td><img src="https://img.shields.io/badge/👨‍💻-Developer-34d399?style=flat-square" /></td>
-    <td>LSM Masalesa (Lebohang)</td>
-    <td>223014114</td>
-    <td><a href="https://github.com/Lebohang01"><img src="https://img.shields.io/badge/Lebohang01-100000?style=flat-square&logo=github&logoColor=white" /></a></td>
-  </tr>
-  <tr>
-    <td><img src="https://img.shields.io/badge/👨‍💻-Developer-34d399?style=flat-square" /></td>
-    <td>BG Simango</td>
-    <td>224095653</td>
-    <td>-</td>
-  </tr>
-</table>
+**Institution:** University of Johannesburg  
+**Semester:** 2nd Semester 2025  
+**Course:** Development Software (DSW)
 
 <br/>
 
@@ -860,24 +792,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact & Support
 
-<div align="center">
-
-<p>
-  <a href="https://github.com/siba18k/Adbeam_Recycling_MobileApp_V2">
-    <img src="https://img.shields.io/badge/Repository-GitHub-100000?style=for-the-badge&logo=github&logoColor=white" />
-  </a>
-  <a href="mailto:dubesibahle4@gmail.com">
-    <img src="https://img.shields.io/badge/Email-Contact_Lead-EA4335?style=for-the-badge&logo=gmail&logoColor=white" />
-  </a>
-  <a href="mailto:test@student.uj.ac.za">
-    <img src="https://img.shields.io/badge/UJ_Email-University-10b981?style=for-the-badge&logo=maildotru&logoColor=white" />
-  </a>
-</p>
-
-**Lead Developer:** Sibahle Dube  
-**Organization:** AdBeam Corporation
-
-</div>
+- **Project Repository:** [github.com/siba18k/Adbeam_Recycling_MobileApp_V2](https://github.com/siba18k/Adbeam_Recycling_MobileApp_V2)
+- **Lead Developer:** Sibahle Dube
+- **Personal Enquiries:** [dubesibahle4@gmail.com](mailto:dubesibahle4@gmail.com)
+- **University Email:** [223003057@student.uj.ac.za](mailto:223003057@student.uj.ac.za)
+- **Organization:** AdBeam Corporation
 
 <br/>
 
