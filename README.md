@@ -9,7 +9,7 @@
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20DB-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-**Version:** 1.0.0 | **Build:** 2024.10.31 | **Developer:** AdBeam Team
+**Version:** 1.0.0 | **Build:** 2025.10.31 | **Developer:** AdBeam Team
 
 [Features](#-features) • [Screenshots](#-screenshots) • [Installation](#-installation) • [Tech Stack](#-tech-stack) • [Team](#-team)
 
